@@ -1597,6 +1597,332 @@ export type Database = {
           },
         ]
       }
+      construction_projects: {
+        Row: {
+          actual_completion: string | null
+          bid_contract_id: string | null
+          budget_execution_rate: number | null
+          budget_item_id: string | null
+          construction_cost: number | null
+          construction_end: string | null
+          construction_start: string | null
+          contractor: string | null
+          contractor_phone: string | null
+          created_at: string | null
+          created_by: string | null
+          delay_days: number | null
+          delay_reason: string | null
+          description: string | null
+          design_cost: number | null
+          design_end: string | null
+          design_start: string | null
+          designer: string | null
+          id: string
+          lot_id: string | null
+          notes: string | null
+          other_cost: number | null
+          permits_completed: number | null
+          permits_required: Json | null
+          permits_total: number | null
+          phase: string
+          planning_end: string | null
+          planning_start: string | null
+          progress_detail: Json | null
+          progress_pct: number | null
+          project_name: string
+          project_number: string
+          project_type: string
+          remaining: number | null
+          service_project_id: string | null
+          site_id: string | null
+          spent: number | null
+          status: string | null
+          supervision_cost: number | null
+          supervisor: string | null
+          supervisor_phone: string | null
+          target_completion: string | null
+          total_budget: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          actual_completion?: string | null
+          bid_contract_id?: string | null
+          budget_execution_rate?: number | null
+          budget_item_id?: string | null
+          construction_cost?: number | null
+          construction_end?: string | null
+          construction_start?: string | null
+          contractor?: string | null
+          contractor_phone?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          delay_days?: number | null
+          delay_reason?: string | null
+          description?: string | null
+          design_cost?: number | null
+          design_end?: string | null
+          design_start?: string | null
+          designer?: string | null
+          id?: string
+          lot_id?: string | null
+          notes?: string | null
+          other_cost?: number | null
+          permits_completed?: number | null
+          permits_required?: Json | null
+          permits_total?: number | null
+          phase?: string
+          planning_end?: string | null
+          planning_start?: string | null
+          progress_detail?: Json | null
+          progress_pct?: number | null
+          project_name: string
+          project_number: string
+          project_type: string
+          remaining?: number | null
+          service_project_id?: string | null
+          site_id?: string | null
+          spent?: number | null
+          status?: string | null
+          supervision_cost?: number | null
+          supervisor?: string | null
+          supervisor_phone?: string | null
+          target_completion?: string | null
+          total_budget?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          actual_completion?: string | null
+          bid_contract_id?: string | null
+          budget_execution_rate?: number | null
+          budget_item_id?: string | null
+          construction_cost?: number | null
+          construction_end?: string | null
+          construction_start?: string | null
+          contractor?: string | null
+          contractor_phone?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          delay_days?: number | null
+          delay_reason?: string | null
+          description?: string | null
+          design_cost?: number | null
+          design_end?: string | null
+          design_start?: string | null
+          designer?: string | null
+          id?: string
+          lot_id?: string | null
+          notes?: string | null
+          other_cost?: number | null
+          permits_completed?: number | null
+          permits_required?: Json | null
+          permits_total?: number | null
+          phase?: string
+          planning_end?: string | null
+          planning_start?: string | null
+          progress_detail?: Json | null
+          progress_pct?: number | null
+          project_name?: string
+          project_number?: string
+          project_type?: string
+          remaining?: number | null
+          service_project_id?: string | null
+          site_id?: string | null
+          spent?: number | null
+          status?: string | null
+          supervision_cost?: number | null
+          supervisor?: string | null
+          supervisor_phone?: string | null
+          target_completion?: string | null
+          total_budget?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "construction_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "construction_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "construction_projects_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "construction_projects_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "site_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "construction_projects_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "site_evaluation_summary"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      design_documents: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          category: string | null
+          created_at: string | null
+          description: string | null
+          doc_number: string
+          doc_type: string
+          file_format: string | null
+          file_path: string
+          file_size: number | null
+          id: string
+          is_current: boolean | null
+          previous_version_id: string | null
+          project_id: string
+          review_comments: string | null
+          review_status: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          tags: Json | null
+          title: string
+          uploaded_by: string | null
+          version: string
+          version_note: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          doc_number: string
+          doc_type: string
+          file_format?: string | null
+          file_path: string
+          file_size?: number | null
+          id?: string
+          is_current?: boolean | null
+          previous_version_id?: string | null
+          project_id: string
+          review_comments?: string | null
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          tags?: Json | null
+          title: string
+          uploaded_by?: string | null
+          version?: string
+          version_note?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          doc_number?: string
+          doc_type?: string
+          file_format?: string | null
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          is_current?: boolean | null
+          previous_version_id?: string | null
+          project_id?: string
+          review_comments?: string | null
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          tags?: Json | null
+          title?: string
+          uploaded_by?: string | null
+          version?: string
+          version_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_documents_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "design_documents_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "design_documents_previous_version_id_fkey"
+            columns: ["previous_version_id"]
+            isOneToOne: false
+            referencedRelation: "design_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "design_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "construction_dashboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "design_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "construction_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "design_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "site_evaluation_summary"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "design_documents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "design_documents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "design_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "design_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enforcement_records: {
         Row: {
           appeal_date: string | null
@@ -2910,6 +3236,132 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "parking_lots"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      permits: {
+        Row: {
+          actual_approval_date: string | null
+          application_date: string | null
+          application_doc_path: string | null
+          approval_doc_path: string | null
+          assigned_to: string | null
+          authority: string
+          authority_contact: string | null
+          authority_department: string | null
+          conditions: string | null
+          created_at: string | null
+          expiry_date: string | null
+          fee_amount: number | null
+          fee_paid: boolean | null
+          id: string
+          notes: string | null
+          permit_category: string | null
+          permit_number: string | null
+          permit_type: string
+          project_id: string
+          rejection_reason: string | null
+          required_documents: Json | null
+          resubmission_count: number | null
+          resubmission_date: string | null
+          status: string | null
+          submitted_documents: Json | null
+          target_approval_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          actual_approval_date?: string | null
+          application_date?: string | null
+          application_doc_path?: string | null
+          approval_doc_path?: string | null
+          assigned_to?: string | null
+          authority: string
+          authority_contact?: string | null
+          authority_department?: string | null
+          conditions?: string | null
+          created_at?: string | null
+          expiry_date?: string | null
+          fee_amount?: number | null
+          fee_paid?: boolean | null
+          id?: string
+          notes?: string | null
+          permit_category?: string | null
+          permit_number?: string | null
+          permit_type: string
+          project_id: string
+          rejection_reason?: string | null
+          required_documents?: Json | null
+          resubmission_count?: number | null
+          resubmission_date?: string | null
+          status?: string | null
+          submitted_documents?: Json | null
+          target_approval_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          actual_approval_date?: string | null
+          application_date?: string | null
+          application_doc_path?: string | null
+          approval_doc_path?: string | null
+          assigned_to?: string | null
+          authority?: string
+          authority_contact?: string | null
+          authority_department?: string | null
+          conditions?: string | null
+          created_at?: string | null
+          expiry_date?: string | null
+          fee_amount?: number | null
+          fee_paid?: boolean | null
+          id?: string
+          notes?: string | null
+          permit_category?: string | null
+          permit_number?: string | null
+          permit_type?: string
+          project_id?: string
+          rejection_reason?: string | null
+          required_documents?: Json | null
+          resubmission_count?: number | null
+          resubmission_date?: string | null
+          status?: string | null
+          submitted_documents?: Json | null
+          target_approval_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permits_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "permits_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "construction_dashboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "construction_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "site_evaluation_summary"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -4336,6 +4788,245 @@ export type Database = {
           },
         ]
       }
+      site_candidates: {
+        Row: {
+          accessibility_score: number | null
+          acquisition_method: string | null
+          address_jibun: string | null
+          address_road: string | null
+          administrative_dong: string | null
+          area_sqm: number | null
+          bc_ratio: number | null
+          building_coverage_ratio: number | null
+          created_at: string | null
+          created_by: string | null
+          cultural_heritage_review: boolean | null
+          decision_date: string | null
+          decision_note: string | null
+          demand_score: number | null
+          depth_m: number | null
+          environmental_review: boolean | null
+          estimated_annual_expense: number | null
+          estimated_annual_profit: number | null
+          estimated_annual_revenue: number | null
+          estimated_construction_cost: number | null
+          estimated_floors: number | null
+          estimated_land_cost: number | null
+          estimated_spaces: number | null
+          evaluation_date: string | null
+          evaluator_id: string | null
+          feasibility_score: number | null
+          floor_area_ratio: number | null
+          frontage_m: number | null
+          ground_condition: string | null
+          height_limit_m: number | null
+          id: string
+          irr: number | null
+          land_category: string | null
+          land_use: string | null
+          latitude: number | null
+          legal_restrictions: string | null
+          legal_score: number | null
+          location_score: number | null
+          longitude: number | null
+          name: string
+          nearby_facilities: string | null
+          nearby_parking_lots: Json | null
+          nearest_road: string | null
+          notes: string | null
+          npv: number | null
+          owner_name: string | null
+          ownership: string | null
+          payback_years: number | null
+          pedestrian_access: string | null
+          photos: Json | null
+          planned_lot_type: Database["public"]["Enums"]["lot_type_enum"] | null
+          planned_space_detail: Json | null
+          public_transport_access: string | null
+          ranking: number | null
+          road_width_m: number | null
+          setback_m: number | null
+          shape: string | null
+          site_number: string
+          slope_pct: number | null
+          status: string | null
+          surrounding_commercial_area: number | null
+          surrounding_population: number | null
+          total_score: number | null
+          traffic_impact_review: boolean | null
+          traffic_volume: string | null
+          updated_at: string | null
+          zoning: string | null
+        }
+        Insert: {
+          accessibility_score?: number | null
+          acquisition_method?: string | null
+          address_jibun?: string | null
+          address_road?: string | null
+          administrative_dong?: string | null
+          area_sqm?: number | null
+          bc_ratio?: number | null
+          building_coverage_ratio?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          cultural_heritage_review?: boolean | null
+          decision_date?: string | null
+          decision_note?: string | null
+          demand_score?: number | null
+          depth_m?: number | null
+          environmental_review?: boolean | null
+          estimated_annual_expense?: number | null
+          estimated_annual_profit?: number | null
+          estimated_annual_revenue?: number | null
+          estimated_construction_cost?: number | null
+          estimated_floors?: number | null
+          estimated_land_cost?: number | null
+          estimated_spaces?: number | null
+          evaluation_date?: string | null
+          evaluator_id?: string | null
+          feasibility_score?: number | null
+          floor_area_ratio?: number | null
+          frontage_m?: number | null
+          ground_condition?: string | null
+          height_limit_m?: number | null
+          id?: string
+          irr?: number | null
+          land_category?: string | null
+          land_use?: string | null
+          latitude?: number | null
+          legal_restrictions?: string | null
+          legal_score?: number | null
+          location_score?: number | null
+          longitude?: number | null
+          name: string
+          nearby_facilities?: string | null
+          nearby_parking_lots?: Json | null
+          nearest_road?: string | null
+          notes?: string | null
+          npv?: number | null
+          owner_name?: string | null
+          ownership?: string | null
+          payback_years?: number | null
+          pedestrian_access?: string | null
+          photos?: Json | null
+          planned_lot_type?: Database["public"]["Enums"]["lot_type_enum"] | null
+          planned_space_detail?: Json | null
+          public_transport_access?: string | null
+          ranking?: number | null
+          road_width_m?: number | null
+          setback_m?: number | null
+          shape?: string | null
+          site_number: string
+          slope_pct?: number | null
+          status?: string | null
+          surrounding_commercial_area?: number | null
+          surrounding_population?: number | null
+          total_score?: number | null
+          traffic_impact_review?: boolean | null
+          traffic_volume?: string | null
+          updated_at?: string | null
+          zoning?: string | null
+        }
+        Update: {
+          accessibility_score?: number | null
+          acquisition_method?: string | null
+          address_jibun?: string | null
+          address_road?: string | null
+          administrative_dong?: string | null
+          area_sqm?: number | null
+          bc_ratio?: number | null
+          building_coverage_ratio?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          cultural_heritage_review?: boolean | null
+          decision_date?: string | null
+          decision_note?: string | null
+          demand_score?: number | null
+          depth_m?: number | null
+          environmental_review?: boolean | null
+          estimated_annual_expense?: number | null
+          estimated_annual_profit?: number | null
+          estimated_annual_revenue?: number | null
+          estimated_construction_cost?: number | null
+          estimated_floors?: number | null
+          estimated_land_cost?: number | null
+          estimated_spaces?: number | null
+          evaluation_date?: string | null
+          evaluator_id?: string | null
+          feasibility_score?: number | null
+          floor_area_ratio?: number | null
+          frontage_m?: number | null
+          ground_condition?: string | null
+          height_limit_m?: number | null
+          id?: string
+          irr?: number | null
+          land_category?: string | null
+          land_use?: string | null
+          latitude?: number | null
+          legal_restrictions?: string | null
+          legal_score?: number | null
+          location_score?: number | null
+          longitude?: number | null
+          name?: string
+          nearby_facilities?: string | null
+          nearby_parking_lots?: Json | null
+          nearest_road?: string | null
+          notes?: string | null
+          npv?: number | null
+          owner_name?: string | null
+          ownership?: string | null
+          payback_years?: number | null
+          pedestrian_access?: string | null
+          photos?: Json | null
+          planned_lot_type?: Database["public"]["Enums"]["lot_type_enum"] | null
+          planned_space_detail?: Json | null
+          public_transport_access?: string | null
+          ranking?: number | null
+          road_width_m?: number | null
+          setback_m?: number | null
+          shape?: string | null
+          site_number?: string
+          slope_pct?: number | null
+          status?: string | null
+          surrounding_commercial_area?: number | null
+          surrounding_population?: number | null
+          total_score?: number | null
+          traffic_impact_review?: boolean | null
+          traffic_volume?: string | null
+          updated_at?: string | null
+          zoning?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_candidates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "site_candidates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_candidates_evaluator_id_fkey"
+            columns: ["evaluator_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "site_candidates_evaluator_id_fkey"
+            columns: ["evaluator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       surface_markings: {
         Row: {
           color: string | null
@@ -5013,6 +5704,29 @@ export type Database = {
         }
         Relationships: []
       }
+      construction_dashboard: {
+        Row: {
+          actual_completion: string | null
+          budget_execution_rate: number | null
+          delay_days: number | null
+          estimated_spaces: number | null
+          id: string | null
+          lot_name: string | null
+          permits_completed: number | null
+          permits_total: number | null
+          phase: string | null
+          progress_pct: number | null
+          project_name: string | null
+          project_number: string | null
+          remaining: number | null
+          site_name: string | null
+          spent: number | null
+          status: string | null
+          target_completion: string | null
+          total_budget: number | null
+        }
+        Relationships: []
+      }
       revenue_monthly: {
         Row: {
           card_total: number | null
@@ -5109,6 +5823,30 @@ export type Database = {
           title: string | null
           total_amount: number | null
           total_delay_interest: number | null
+        }
+        Relationships: []
+      }
+      site_evaluation_summary: {
+        Row: {
+          address_jibun: string | null
+          area_sqm: number | null
+          bc_ratio: number | null
+          estimated_annual_profit: number | null
+          estimated_annual_revenue: number | null
+          estimated_construction_cost: number | null
+          estimated_spaces: number | null
+          grade: string | null
+          id: string | null
+          name: string | null
+          ownership: string | null
+          payback_years: number | null
+          project_id: string | null
+          project_progress: number | null
+          project_status: string | null
+          ranking: number | null
+          site_number: string | null
+          status: string | null
+          total_score: number | null
         }
         Relationships: []
       }
