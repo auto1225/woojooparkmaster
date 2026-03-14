@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 const coreMenuItems = [
   { title: "대시보드", url: "/", icon: LayoutDashboard, end: true },
+  { title: "종합 현황", url: "/master", icon: PanelLeftOpen },
   { title: "결재함", url: "/approvals", icon: ClipboardCheck },
   { title: "주차장 관리", url: "/lots", icon: Car },
 ];
