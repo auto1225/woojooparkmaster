@@ -215,12 +215,12 @@ export default function Approvals() {
     mutationFn: async (items: ApprovalItem[]) => {
       for (const item of items) {
         const newStatus = item.table === "surveys" ? "approved" : "approved";
-        const updateData: any = { status: newStatus };
+        const updateData: Record<string, any> = { status: newStatus };
         if (item.table === "budget_executions" || item.table === "budget_transfers") {
           updateData.approved_by = user?.id;
           updateData.approved_at = new Date().toISOString();
         }
-        const { error } = await supabase.from(item.table as any).update(updateData).eq("id", item.id);
+        const { error } = await (supabase.from(item.table as any) as any).update(updateData).eq("id", item.id);
         if (error) throw error;
       }
     },
