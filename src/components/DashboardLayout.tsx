@@ -10,6 +10,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MobileBottomNav } from "@/components/common/MobileBottomNav";
+import { useTheme } from "@/hooks/useTheme";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 const ROUTE_TITLES: Record<string, string> = {
   "/": "대시보드",
