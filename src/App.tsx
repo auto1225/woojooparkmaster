@@ -58,6 +58,11 @@ import PlanningProjects from "./pages/planning/PlanningProjects";
 import PlanningProjectDetail from "./pages/planning/PlanningProjectDetail";
 import PlanningDocuments from "./pages/planning/PlanningDocuments";
 import PlanningPermits from "./pages/planning/PlanningPermits";
+import RealtimeDashboard from "./pages/realtime/RealtimeDashboard";
+import RealtimeSensors from "./pages/realtime/RealtimeSensors";
+import RealtimeGateways from "./pages/realtime/RealtimeGateways";
+import RealtimeDisplays from "./pages/realtime/RealtimeDisplays";
+import RealtimeApi from "./pages/realtime/RealtimeApi";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
