@@ -111,7 +111,7 @@ export default function ComplaintNew() {
           message: `[${complaint_number}] ${form.title}`,
           link: `/complaints/${data.id}`,
           type: "complaint",
-        });
+        }]);
       }
 
       await logActivity({ module: "COMPLAINT", action: "접수", targetType: "complaint", targetId: data.id, targetName: complaint_number });
