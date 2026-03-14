@@ -19,7 +19,7 @@ export async function logActivity(params: LogParams) {
     .eq("id", user.id)
     .single();
 
-  await supabase.from("activity_logs").insert({
+  await supabase.from("activity_logs").insert([{
     user_id: user.id,
     user_name: profile?.name || user.email?.split("@")[0] || "Unknown",
     module: params.module,
@@ -28,5 +28,5 @@ export async function logActivity(params: LogParams) {
     target_id: params.targetId,
     target_name: params.targetName,
     details: params.details as Record<string, unknown>,
-  });
+  }]);
 }
