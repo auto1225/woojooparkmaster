@@ -128,9 +128,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </Button>
             </div>
           </header>
-          <main className="flex-1 p-4 sm:p-6 overflow-auto bg-background">
+          <main className="flex-1 p-4 sm:p-6 overflow-auto bg-background pb-20 md:pb-6">
             {children}
           </main>
+          <MobileBottomNav />
         </div>
       </div>
     </SidebarProvider>
