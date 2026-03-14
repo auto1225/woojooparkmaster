@@ -104,17 +104,20 @@ export default function Index() {
               <CardTitle className="text-[11px] font-mono uppercase tracking-wide text-muted-foreground">주차장 위치 지도</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80 bg-muted rounded-md flex items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  <p className="text-sm font-medium">지도 영역</p>
-                  <p className="text-xs mt-1">Kakao Maps 연동 예정</p>
-                  {config && (
-                    <p className="text-[10px] font-mono mt-2">
-                      {config.map_center_lat}, {config.map_center_lng}
-                    </p>
-                  )}
-                </div>
-              </div>
+              <KakaoMap
+                height="320px"
+                enableCluster
+                markers={
+                  lots?.filter((l) => l.latitude && l.longitude && l.status === "active").map((l) => ({
+                    id: l.id,
+                    lat: Number(l.latitude),
+                    lng: Number(l.longitude),
+                    name: l.lot_name,
+                    color: l.status === "active" ? "blue" as const : l.status === "construction" ? "orange" as const : "gray" as const,
+                    onClick: (id: string) => navigate(`/lots/${id}`),
+                  })) || []
+                }
+              />
             </CardContent>
           </Card>
 

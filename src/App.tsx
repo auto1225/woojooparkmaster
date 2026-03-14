@@ -186,6 +186,8 @@ const AppRoutes = () => (
     <Route path="/reports/history" element={<ProtectedRoute><ReportHistory /></ProtectedRoute>} />
     <Route path="/reports/schedules" element={<ProtectedRoute><ReportSchedules /></ProtectedRoute>} />
     <Route path="/reports/dashboard-builder" element={<ProtectedRoute><DashboardBuilder /></ProtectedRoute>} />
+    <Route path="/approvals" element={<ProtectedRoute><ApprovalsPage /></ProtectedRoute>} />
+    <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
