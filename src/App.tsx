@@ -83,6 +83,8 @@ import DashboardBuilder from "./pages/report/DashboardBuilder";
 import SurveyPrint from "./pages/SurveyPrint";
 import ApprovalsPage from "./pages/Approvals";
 import NotificationsPage from "./pages/Notifications";
+import ProfilePage from "./pages/Profile";
+import ActivityAnalyticsPage from "./pages/settings/ActivityAnalytics";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
