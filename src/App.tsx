@@ -98,6 +98,13 @@ import ChangePassword from "./pages/ChangePassword";
 import PrivacyPage from "./pages/Privacy";
 import ForbiddenPage from "./pages/Forbidden";
 import SecurityReport from "./pages/settings/SecurityReport";
+import BudgetAnalysis from "./pages/budget/BudgetAnalysis";
+import FacilityAnalysis from "./pages/facility/FacilityAnalysis";
+import ParkingRanking from "./pages/report/ParkingRanking";
+import ExecutiveDashboard from "./pages/report/ExecutiveDashboard";
+import LotsPrintSummary from "./pages/report/LotsPrintSummary";
+import RevenuePrintMonthly from "./pages/revenue/RevenuePrintMonthly";
+import QuarterlyReport from "./pages/report/QuarterlyReport";
 import NotFound from "./pages/NotFound";
 import { HelpPanel } from "./components/help/HelpPanel";
 import { OnboardingGuide } from "./components/help/OnboardingGuide";
@@ -226,6 +233,13 @@ const AppRoutes = () => (
     <Route path="/reports/history" element={<ProtectedRoute><ReportHistory /></ProtectedRoute>} />
     <Route path="/reports/schedules" element={<ProtectedRoute><ReportSchedules /></ProtectedRoute>} />
     <Route path="/reports/dashboard-builder" element={<ProtectedRoute><DashboardBuilder /></ProtectedRoute>} />
+    <Route path="/reports/ranking" element={<ProtectedRoute><ParkingRanking /></ProtectedRoute>} />
+    <Route path="/reports/executive" element={<ProtectedRoute><ExecutiveDashboard /></ProtectedRoute>} />
+    <Route path="/reports/print-quarterly" element={<ProtectedRoute><QuarterlyReport /></ProtectedRoute>} />
+    <Route path="/budget/analysis" element={<ProtectedRoute><BudgetAnalysis /></ProtectedRoute>} />
+    <Route path="/facility/analysis" element={<ProtectedRoute><FacilityAnalysis /></ProtectedRoute>} />
+    <Route path="/lots/print-summary" element={<ProtectedRoute><LotsPrintSummary /></ProtectedRoute>} />
+    <Route path="/revenue/print-monthly" element={<ProtectedRoute><RevenuePrintMonthly /></ProtectedRoute>} />
     <Route path="/approvals" element={<ProtectedRoute><ApprovalsPage /></ProtectedRoute>} />
     <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
