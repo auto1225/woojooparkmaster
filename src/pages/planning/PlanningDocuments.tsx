@@ -95,7 +95,7 @@ export default function PlanningDocuments() {
             <h1 className="text-2xl font-bold tracking-tight">도면 관리</h1>
             <p className="text-sm text-muted-foreground mt-1">설계도면 버전관리 및 검토</p>
           </div>
-          {canEdit && <Button onClick={() => { setForm({ project_id: selectedProject }); setShowUpload(true); }}><Upload className="h-4 w-4 mr-1" />도면 업로드</Button>}
+          {canEdit && <Button onClick={() => { setForm({ project_id: selectedProject === "__all__" ? "" : selectedProject }); setShowUpload(true); }}><Upload className="h-4 w-4 mr-1" />도면 업로드</Button>}
         </div>
 
         {/* Project Select */}
