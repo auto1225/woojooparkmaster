@@ -85,7 +85,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 </span>
               )}
             </div>
-            <div className="ml-auto flex items-center gap-1.5">
+            <div className="ml-auto flex items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={toggleTheme} title={isDark ? "라이트 모드" : "다크 모드"} className="transition-transform duration-300">
+                {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
               <Button variant="ghost" size="icon" className="relative" onClick={() => navigate("/approvals")} title="결재함">
                 <ClipboardCheck className="h-4 w-4" />
               </Button>
