@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useLayoutEffect } from "react";
-import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText, Radio, Cpu, Server, Monitor, Key, FileBarChart, CalendarClock, LayoutTemplate } from "lucide-react";
+import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText, Radio, Cpu, Server, Monitor, Key, FileBarChart, CalendarClock, LayoutTemplate, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const coreMenuItems = [
   { title: "대시보드", url: "/", icon: LayoutDashboard, end: true },
@@ -117,23 +118,18 @@ export function AppSidebar() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleScroll = useCallback(() => {
-    if (scrollRef.current) {
-      sidebarScrollTop = scrollRef.current.scrollTop;
-    }
+    if (scrollRef.current) sidebarScrollTop = scrollRef.current.scrollTop;
   }, []);
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-
-    const restore = () => {
-      el.scrollTop = sidebarScrollTop;
-    };
-
+    const restore = () => { el.scrollTop = sidebarScrollTop; };
     restore();
     const raf = requestAnimationFrame(restore);
     return () => cancelAnimationFrame(raf);
   }, []);
+
   const [opsOpen, setOpsOpen] = useState(true);
   const [facilityOpen, setFacilityOpen] = useState(true);
   const [revenueOpen, setRevenueOpen] = useState(true);
@@ -144,6 +140,7 @@ export function AppSidebar() {
   const [planningOpen, setPlanningOpen] = useState(true);
   const [realtimeOpen, setRealtimeOpen] = useState(true);
   const [reportOpen, setReportOpen] = useState(true);
+
   const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT", "PLANNING", "REALTIME", "REPORT"].includes(m.module_code));
   const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
   const facilityActive = (licenses ?? []).some((m) => m.module_code === "FACILITY" && m.is_active);
@@ -161,274 +158,111 @@ export function AppSidebar() {
   const renderLink = (item: { title: string; url: string; icon: any; end?: boolean }) => (
     <SidebarMenuItem key={item.title}>
       <SidebarMenuButton asChild>
-        <NavLink to={item.url} end={item.end}
-          className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md"
-          activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium">
-          <item.icon className="mr-2 h-4 w-4 shrink-0" />
-          {!collapsed && <span className="text-sm">{item.title}</span>}
-        </NavLink>
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <NavLink to={item.url} end={item.end}
+                className="text-sidebar-foreground hover:bg-white/[0.06] hover:text-white/90 rounded-lg transition-all duration-150"
+                activeClassName="bg-primary/15 text-white border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.1)]">
+                <item.icon className="h-[18px] w-[18px] shrink-0" />
+              </NavLink>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">{item.title}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <NavLink to={item.url} end={item.end}
+            className="text-sidebar-foreground hover:bg-white/[0.06] hover:text-white/90 rounded-lg transition-all duration-150 py-2.5 px-3"
+            activeClassName="bg-primary/15 text-white border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.1)] font-medium">
+            <item.icon className="mr-2.5 h-[18px] w-[18px] shrink-0" />
+            <span className="text-[13px]">{item.title}</span>
+          </NavLink>
+        )}
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
 
+  const renderCollapsible = (
+    label: string, icon: any, isOpen: boolean, setOpen: (v: boolean) => void,
+    subMenu: Array<{ title: string; url: string; icon: any; end?: boolean }>, isActive: boolean,
+  ) => {
+    if (!isActive) return null;
+    if (collapsed) return renderLink({ title: label, url: subMenu[0].url, icon });
+    const Icon = icon;
+    return (
+      <Collapsible open={isOpen} onOpenChange={setOpen}>
+        <SidebarMenuItem>
+          <CollapsibleTrigger asChild>
+            <SidebarMenuButton className="text-sidebar-foreground hover:bg-white/[0.06] hover:text-white/90 rounded-lg w-full justify-between py-2.5 px-3 transition-all duration-150">
+              <div className="flex items-center">
+                <Icon className="mr-2.5 h-[18px] w-[18px] shrink-0" />
+                <span className="text-[13px]">{label}</span>
+              </div>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+            </SidebarMenuButton>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <SidebarMenu className="ml-[18px] border-l border-white/[0.08] pl-3 mt-1 space-y-0.5">
+              {subMenu.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink to={item.url} end={item.end}
+                      className="text-sidebar-foreground/70 hover:text-white/90 hover:bg-white/[0.04] rounded-lg py-2 px-2.5 transition-all duration-150"
+                      activeClassName="text-white bg-primary/10 border-l-2 border-l-primary font-medium">
+                      <span className="text-[12.5px]">{item.title}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </CollapsibleContent>
+        </SidebarMenuItem>
+      </Collapsible>
+    );
+  };
+
   return (
     <Sidebar collapsible="icon" className="border-r-0">
-      <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
+      {/* Logo header */}
+      <SidebarHeader className="border-b border-white/[0.06] px-4 py-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-primary shrink-0">
-            <span className="text-sm font-bold text-sidebar-primary-foreground font-mono">P</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shrink-0">
+            <span className="text-sm font-bold text-white font-display">P</span>
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="text-sm font-bold text-sidebar-primary-foreground tracking-tight">ParkMaster</span>
-              <span className="text-[10px] text-sidebar-foreground/60">공영주차장 통합관리</span>
+              <span className="text-sm tracking-tight">
+                <span className="font-light text-white/90">Park</span>
+                <span className="font-bold text-primary">Master</span>
+              </span>
+              <span className="text-[10px] text-sidebar-foreground/50">공영주차장 통합관리</span>
             </div>
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent ref={scrollRef} onScroll={handleScroll} className="px-2 pt-2">
+      {/* Scrollable menu area */}
+      <SidebarContent ref={scrollRef} onScroll={handleScroll} className="px-2 pt-3">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.1em] text-sidebar-foreground/40 px-2">메인</SidebarGroupLabel>
-          <SidebarGroupContent><SidebarMenu>{coreMenuItems.map(renderLink)}</SidebarMenu></SidebarGroupContent>
+          <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/30 px-3 mb-1">메인</SidebarGroupLabel>
+          <SidebarGroupContent><SidebarMenu className="space-y-0.5">{coreMenuItems.map(renderLink)}</SidebarMenu></SidebarGroupContent>
         </SidebarGroup>
 
         {(simpleModules.length > 0 || opsActive || facilityActive) && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.1em] text-sidebar-foreground/40 px-2">모듈</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/30 px-3 mb-1">모듈</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className="space-y-0.5">
                 {simpleModules.map(renderLink)}
-
-                {opsActive && !collapsed && (
-                  <Collapsible open={opsOpen} onOpenChange={setOpsOpen}>
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
-                          <div className="flex items-center">
-                            <Building2 className="mr-2 h-4 w-4 shrink-0" />
-                            <span className="text-sm">운영관리</span>
-                          </div>
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${opsOpen ? "rotate-180" : ""}`} />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
-                          {opsSubMenu.map(renderLink)}
-                        </SidebarMenu>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                )}
-
-                {opsActive && collapsed && renderLink({ title: "운영관리", url: "/ops", icon: Building2 })}
-
-                {facilityActive && !collapsed && (
-                  <Collapsible open={facilityOpen} onOpenChange={setFacilityOpen}>
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
-                          <div className="flex items-center">
-                            <Wrench className="mr-2 h-4 w-4 shrink-0" />
-                            <span className="text-sm">시설관리</span>
-                          </div>
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${facilityOpen ? "rotate-180" : ""}`} />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
-                          {facilitySubMenu.map(renderLink)}
-                        </SidebarMenu>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                )}
-
-                {facilityActive && collapsed && renderLink({ title: "시설관리", url: "/facility", icon: Wrench })}
-
-                {revenueActive && !collapsed && (
-                  <Collapsible open={revenueOpen} onOpenChange={setRevenueOpen}>
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
-                          <div className="flex items-center">
-                            <Banknote className="mr-2 h-4 w-4 shrink-0" />
-                            <span className="text-sm">수입관리</span>
-                          </div>
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${revenueOpen ? "rotate-180" : ""}`} />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
-                          {revenueSubMenu.map(renderLink)}
-                        </SidebarMenu>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                )}
-
-                {revenueActive && collapsed && renderLink({ title: "수입관리", url: "/revenue", icon: Banknote })}
-
-                {budgetActive && !collapsed && (
-                  <Collapsible open={budgetOpen} onOpenChange={setBudgetOpen}>
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
-                          <div className="flex items-center">
-                            <Wallet className="mr-2 h-4 w-4 shrink-0" />
-                            <span className="text-sm">예산관리</span>
-                          </div>
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${budgetOpen ? "rotate-180" : ""}`} />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
-                          {budgetSubMenu.map(renderLink)}
-                        </SidebarMenu>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                )}
-
-                {budgetActive && collapsed && renderLink({ title: "예산관리", url: "/budget", icon: Wallet })}
-
-                {procurementActive && !collapsed && (
-                  <Collapsible open={procurementOpen} onOpenChange={setProcurementOpen}>
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
-                          <div className="flex items-center">
-                            <Gavel className="mr-2 h-4 w-4 shrink-0" />
-                            <span className="text-sm">입찰관리</span>
-                          </div>
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${procurementOpen ? "rotate-180" : ""}`} />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
-                          {procurementSubMenu.map(renderLink)}
-                        </SidebarMenu>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                )}
-
-                {procurementActive && collapsed && renderLink({ title: "입찰관리", url: "/procurement", icon: Gavel })}
-
-                {serviceActive && !collapsed && (
-                  <Collapsible open={serviceOpen} onOpenChange={setServiceOpen}>
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
-                          <div className="flex items-center">
-                            <Briefcase className="mr-2 h-4 w-4 shrink-0" />
-                            <span className="text-sm">용역사업관리</span>
-                          </div>
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${serviceOpen ? "rotate-180" : ""}`} />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
-                          {serviceSubMenu.map(renderLink)}
-                        </SidebarMenu>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                )}
-
-                {serviceActive && collapsed && renderLink({ title: "용역사업관리", url: "/service", icon: Briefcase })}
-
-                {complaintActive && !collapsed && (
-                  <Collapsible open={complaintOpen} onOpenChange={setComplaintOpen}>
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
-                          <div className="flex items-center">
-                            <Megaphone className="mr-2 h-4 w-4 shrink-0" />
-                            <span className="text-sm">민원관리</span>
-                          </div>
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${complaintOpen ? "rotate-180" : ""}`} />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
-                          {complaintSubMenu.map(renderLink)}
-                        </SidebarMenu>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                )}
-
-                {complaintActive && collapsed && renderLink({ title: "민원관리", url: "/complaints", icon: Megaphone })}
-
-                {planningActive && !collapsed && (
-                  <Collapsible open={planningOpen} onOpenChange={setPlanningOpen}>
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
-                          <div className="flex items-center">
-                            <Compass className="mr-2 h-4 w-4 shrink-0" />
-                            <span className="text-sm">신설기획</span>
-                          </div>
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${planningOpen ? "rotate-180" : ""}`} />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
-                          {planningSubMenu.map(renderLink)}
-                        </SidebarMenu>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                )}
-
-                {planningActive && collapsed && renderLink({ title: "신설기획", url: "/planning", icon: Compass })}
-
-                {realtimeActive && !collapsed && (
-                  <Collapsible open={realtimeOpen} onOpenChange={setRealtimeOpen}>
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
-                          <div className="flex items-center">
-                            <Radio className="mr-2 h-4 w-4 shrink-0" />
-                            <span className="text-sm">실시간 정보</span>
-                          </div>
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${realtimeOpen ? "rotate-180" : ""}`} />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
-                          {realtimeSubMenu.map(renderLink)}
-                        </SidebarMenu>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                )}
-
-                {realtimeActive && collapsed && renderLink({ title: "실시간 정보", url: "/realtime", icon: Radio })}
-
-                {reportActive && !collapsed && (
-                  <Collapsible open={reportOpen} onOpenChange={setReportOpen}>
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
-                          <div className="flex items-center">
-                            <FileBarChart className="mr-2 h-4 w-4 shrink-0" />
-                            <span className="text-sm">보고서/통계</span>
-                          </div>
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${reportOpen ? "rotate-180" : ""}`} />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
-                          {reportSubMenu.map(renderLink)}
-                        </SidebarMenu>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                )}
-
-                {reportActive && collapsed && renderLink({ title: "보고서/통계", url: "/reports", icon: FileBarChart })}
+                {renderCollapsible("운영관리", Building2, opsOpen, setOpsOpen, opsSubMenu, opsActive)}
+                {renderCollapsible("시설관리", Wrench, facilityOpen, setFacilityOpen, facilitySubMenu, facilityActive)}
+                {renderCollapsible("수입관리", Banknote, revenueOpen, setRevenueOpen, revenueSubMenu, revenueActive)}
+                {renderCollapsible("예산관리", Wallet, budgetOpen, setBudgetOpen, budgetSubMenu, budgetActive)}
+                {renderCollapsible("입찰관리", Gavel, procurementOpen, setProcurementOpen, procurementSubMenu, procurementActive)}
+                {renderCollapsible("용역사업관리", Briefcase, serviceOpen, setServiceOpen, serviceSubMenu, serviceActive)}
+                {renderCollapsible("민원관리", Megaphone, complaintOpen, setComplaintOpen, complaintSubMenu, complaintActive)}
+                {renderCollapsible("신설기획", Compass, planningOpen, setPlanningOpen, planningSubMenu, planningActive)}
+                {renderCollapsible("실시간 정보", Radio, realtimeOpen, setRealtimeOpen, realtimeSubMenu, realtimeActive)}
+                {renderCollapsible("보고서/통계", FileBarChart, reportOpen, setReportOpen, reportSubMenu, reportActive)}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -436,32 +270,34 @@ export function AppSidebar() {
 
         {isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.1em] text-sidebar-foreground/40 px-2">시스템</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/30 px-3 mb-1">시스템</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>{renderLink({ title: "시스템 설정", url: "/settings", icon: Settings })}</SidebarMenu>
+              <SidebarMenu className="space-y-0.5">{renderLink({ title: "시스템 설정", url: "/settings", icon: Settings })}</SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-3">
+      {/* Footer with user profile */}
+      <SidebarFooter className="border-t border-white/[0.06] p-3">
         {profile && !collapsed && (
-          <div className="flex items-center gap-2.5 mb-2">
-            <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center shrink-0">
-              <span className="text-xs font-medium text-sidebar-accent-foreground">{profile.name?.[0] || "U"}</span>
+          <div className="flex items-center gap-2.5 mb-3 px-1">
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shrink-0">
+              <span className="text-xs font-semibold text-white">{profile.name?.[0] || "U"}</span>
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-xs font-medium text-sidebar-primary-foreground truncate">{profile.name}</span>
-              <span className="text-[10px] text-sidebar-foreground/50 truncate">{profile.department || profile.team}</span>
+              <span className="text-xs font-medium text-white/90 truncate">{profile.name}</span>
+              <span className="text-[10px] text-sidebar-foreground/40 truncate">{profile.department || profile.team}</span>
             </div>
           </div>
         )}
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={toggleSidebar} className="text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent">
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          <Button variant="ghost" size="sm" onClick={toggleSidebar}
+            className="text-sidebar-foreground/40 hover:text-white hover:bg-white/[0.06] rounded-lg h-8 w-8 p-0">
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
           {!collapsed && (
-            <a href="/settings" className="text-[10px] text-sidebar-foreground/30 hover:text-sidebar-foreground/60 font-mono">
+            <a href="/settings" className="text-[10px] text-sidebar-foreground/20 hover:text-sidebar-foreground/50 font-mono transition-colors">
               v1.0.0
             </a>
           )}
