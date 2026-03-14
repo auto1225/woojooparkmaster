@@ -18,6 +18,7 @@ type CongestionLevel = 'empty' | 'normal' | 'crowded' | 'full';
 const CONGESTION_ORDER: Record<string, number> = { full: 0, crowded: 1, normal: 2, empty: 3 };
 
 export default function RealtimeDashboard() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
