@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ChevronRight, FileText, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { ChevronRight, FileText, Loader2, CheckCircle2, XCircle, Sparkles } from "lucide-react";
 import { REPORT_TYPE_LABELS, REPORT_CATEGORY_LABELS, type ReportTemplate } from "@/types/report";
 import { logActivity } from "@/lib/activity-logger";
 
