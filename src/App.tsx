@@ -169,17 +169,7 @@ const AppRoutes = () => (
     <Route path="/403" element={<ForbiddenPage />} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/master" element={<ProtectedRoute><MasterHub /></ProtectedRoute>} />
-    <Route path="/surveys/master" element={<ProtectedRoute><SurveysMaster /></ProtectedRoute>} />
-    <Route path="/ops/master" element={<ProtectedRoute><OpsMaster /></ProtectedRoute>} />
-    <Route path="/facility/master" element={<ProtectedRoute><FacilityMaster /></ProtectedRoute>} />
-    <Route path="/revenue/master" element={<ProtectedRoute><RevenueMaster /></ProtectedRoute>} />
-    <Route path="/budget/master" element={<ProtectedRoute><BudgetMaster /></ProtectedRoute>} />
-    <Route path="/procurement/master" element={<ProtectedRoute><ProcurementMaster /></ProtectedRoute>} />
-    <Route path="/service/master" element={<ProtectedRoute><ServiceMaster /></ProtectedRoute>} />
-    <Route path="/complaints/master" element={<ProtectedRoute><ComplaintMaster /></ProtectedRoute>} />
-    <Route path="/planning/master" element={<ProtectedRoute><PlanningMaster /></ProtectedRoute>} />
-    <Route path="/realtime/master" element={<ProtectedRoute><RealtimeMaster /></ProtectedRoute>} />
-    <Route path="/reports/master" element={<ProtectedRoute><ReportMaster /></ProtectedRoute>} />
+    <Route path="/master/:moduleCode" element={<ProtectedRoute><DynamicMasterView /></ProtectedRoute>} />
     <Route path="/lots" element={<ProtectedRoute><LotsPage /></ProtectedRoute>} />
     <Route path="/lots/new" element={<ProtectedRoute><LotNewPage /></ProtectedRoute>} />
     <Route path="/lots/:id" element={<ProtectedRoute><LotDetailPage /></ProtectedRoute>} />
