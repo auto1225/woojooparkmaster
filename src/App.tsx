@@ -88,6 +88,11 @@ const AppRoutes = () => (
     <Route path="/revenue/daily" element={<ProtectedRoute><RevenueDaily /></ProtectedRoute>} />
     <Route path="/revenue/reconcile" element={<ProtectedRoute><RevenueReconcile /></ProtectedRoute>} />
     <Route path="/revenue/analysis" element={<ProtectedRoute><RevenueAnalysis /></ProtectedRoute>} />
+    <Route path="/budget" element={<ProtectedRoute><BudgetDashboard /></ProtectedRoute>} />
+    <Route path="/budget/plans" element={<ProtectedRoute><BudgetPlans /></ProtectedRoute>} />
+    <Route path="/budget/plans/:id" element={<ProtectedRoute><BudgetPlans /></ProtectedRoute>} />
+    <Route path="/budget/executions" element={<ProtectedRoute><BudgetExecutions /></ProtectedRoute>} />
+    <Route path="/budget/transfers" element={<ProtectedRoute><BudgetTransfers /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
