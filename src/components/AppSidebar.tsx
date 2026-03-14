@@ -58,6 +58,7 @@ export function AppSidebar() {
 
   const activeModules = (licenses ?? []).filter((m) => m.is_active && m.module_code !== "CORE" && m.module_code !== "OPS");
   const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
+  const facilityActive = (licenses ?? []).some((m) => m.module_code === "FACILITY" && m.is_active);
   const simpleModules = activeModules.map((m) => simpleModuleMap[m.module_code]).filter(Boolean);
   const isAdmin = profile?.role === "admin";
 
