@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket } from "lucide-react";
+import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -35,6 +35,13 @@ const facilitySubMenu = [
   { title: "노면표시", url: "/facility/markings", icon: PaintBucket },
 ];
 
+const revenueSubMenu = [
+  { title: "수입 현황", url: "/revenue", icon: Banknote, end: true },
+  { title: "일별 수입", url: "/revenue/daily", icon: Calculator },
+  { title: "위탁 대사", url: "/revenue/reconcile", icon: FileSearch },
+  { title: "수입 분석", url: "/revenue/analysis", icon: LineChart },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
@@ -55,10 +62,11 @@ export function AppSidebar() {
   const { data: licenses } = useModuleLicenses();
   const [opsOpen, setOpsOpen] = useState(true);
   const [facilityOpen, setFacilityOpen] = useState(true);
-
-  const activeModules = (licenses ?? []).filter((m) => m.is_active && m.module_code !== "CORE" && m.module_code !== "OPS");
+  const [revenueOpen, setRevenueOpen] = useState(true);
+  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE"].includes(m.module_code));
   const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
   const facilityActive = (licenses ?? []).some((m) => m.module_code === "FACILITY" && m.is_active);
+  const revenueActive = (licenses ?? []).some((m) => m.module_code === "REVENUE" && m.is_active);
   const simpleModules = activeModules.map((m) => simpleModuleMap[m.module_code]).filter(Boolean);
   const isAdmin = profile?.role === "admin";
 
@@ -149,6 +157,29 @@ export function AppSidebar() {
                 )}
 
                 {facilityActive && collapsed && renderLink({ title: "시설관리", url: "/facility", icon: Wrench })}
+
+                {revenueActive && !collapsed && (
+                  <Collapsible open={revenueOpen} onOpenChange={setRevenueOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <Banknote className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">수입관리</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${revenueOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {revenueSubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {revenueActive && collapsed && renderLink({ title: "수입관리", url: "/revenue", icon: Banknote })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

@@ -1422,6 +1422,251 @@ export type Database = {
         }
         Relationships: []
       }
+      revenue_daily: {
+        Row: {
+          avg_parking_minutes: number | null
+          card_amount: number | null
+          cash_amount: number | null
+          created_at: string | null
+          data_source: string | null
+          discrepancy_note: string | null
+          exemption_amount: number | null
+          exemption_count: number | null
+          exemption_detail: Json | null
+          id: string
+          input_by: string | null
+          lot_id: string
+          mobile_amount: number | null
+          monthly_pass_amount: number | null
+          other_amount: number | null
+          peak_hour: string | null
+          peak_hour_vehicles: number | null
+          revenue_date: string
+          source_detail: string | null
+          total_amount: number | null
+          total_vehicles: number | null
+          turnover_rate: number | null
+          updated_at: string | null
+          verified: boolean | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          avg_parking_minutes?: number | null
+          card_amount?: number | null
+          cash_amount?: number | null
+          created_at?: string | null
+          data_source?: string | null
+          discrepancy_note?: string | null
+          exemption_amount?: number | null
+          exemption_count?: number | null
+          exemption_detail?: Json | null
+          id?: string
+          input_by?: string | null
+          lot_id: string
+          mobile_amount?: number | null
+          monthly_pass_amount?: number | null
+          other_amount?: number | null
+          peak_hour?: string | null
+          peak_hour_vehicles?: number | null
+          revenue_date: string
+          source_detail?: string | null
+          total_amount?: number | null
+          total_vehicles?: number | null
+          turnover_rate?: number | null
+          updated_at?: string | null
+          verified?: boolean | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          avg_parking_minutes?: number | null
+          card_amount?: number | null
+          cash_amount?: number | null
+          created_at?: string | null
+          data_source?: string | null
+          discrepancy_note?: string | null
+          exemption_amount?: number | null
+          exemption_count?: number | null
+          exemption_detail?: Json | null
+          id?: string
+          input_by?: string | null
+          lot_id?: string
+          mobile_amount?: number | null
+          monthly_pass_amount?: number | null
+          other_amount?: number | null
+          peak_hour?: string | null
+          peak_hour_vehicles?: number | null
+          revenue_date?: string
+          source_detail?: string | null
+          total_amount?: number | null
+          total_vehicles?: number | null
+          turnover_rate?: number | null
+          updated_at?: string | null
+          verified?: boolean | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_daily_input_by_fkey"
+            columns: ["input_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_daily_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_daily_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      revenue_reconciliation: {
+        Row: {
+          company_name: string | null
+          contract_id: string | null
+          created_at: string | null
+          created_by: string | null
+          diff_amount: number | null
+          diff_analysis: string | null
+          diff_rate: number | null
+          id: string
+          lot_id: string
+          period_end: string
+          period_start: string
+          period_type: string
+          recon_number: string
+          report_date: string | null
+          report_document_path: string | null
+          reported_card: number | null
+          reported_cash: number | null
+          reported_exemptions: number | null
+          reported_mobile: number | null
+          reported_other: number | null
+          reported_total: number | null
+          reported_vehicles: number | null
+          resolution_note: string | null
+          resolution_type: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string | null
+          system_card: number | null
+          system_cash: number | null
+          system_exemptions: number | null
+          system_mobile: number | null
+          system_other: number | null
+          system_total: number | null
+          system_vehicles: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_name?: string | null
+          contract_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          diff_amount?: number | null
+          diff_analysis?: string | null
+          diff_rate?: number | null
+          id?: string
+          lot_id: string
+          period_end: string
+          period_start: string
+          period_type?: string
+          recon_number: string
+          report_date?: string | null
+          report_document_path?: string | null
+          reported_card?: number | null
+          reported_cash?: number | null
+          reported_exemptions?: number | null
+          reported_mobile?: number | null
+          reported_other?: number | null
+          reported_total?: number | null
+          reported_vehicles?: number | null
+          resolution_note?: string | null
+          resolution_type?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+          system_card?: number | null
+          system_cash?: number | null
+          system_exemptions?: number | null
+          system_mobile?: number | null
+          system_other?: number | null
+          system_total?: number | null
+          system_vehicles?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_name?: string | null
+          contract_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          diff_amount?: number | null
+          diff_analysis?: string | null
+          diff_rate?: number | null
+          id?: string
+          lot_id?: string
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          recon_number?: string
+          report_date?: string | null
+          report_document_path?: string | null
+          reported_card?: number | null
+          reported_cash?: number | null
+          reported_exemptions?: number | null
+          reported_mobile?: number | null
+          reported_other?: number | null
+          reported_total?: number | null
+          reported_vehicles?: number | null
+          resolution_note?: string | null
+          resolution_type?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+          system_card?: number | null
+          system_cash?: number | null
+          system_exemptions?: number | null
+          system_mobile?: number | null
+          system_other?: number | null
+          system_total?: number | null
+          system_vehicles?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_reconciliation_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_reconciliation_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_reconciliation_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       safety_inspections: {
         Row: {
           checklist_results: Json
@@ -2114,7 +2359,63 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      revenue_monthly: {
+        Row: {
+          card_total: number | null
+          cash_total: number | null
+          days_recorded: number | null
+          exemption_amount_total: number | null
+          exemptions_total: number | null
+          grand_total: number | null
+          lot_id: string | null
+          mobile_total: number | null
+          month: string | null
+          other_total: number | null
+          pass_total: number | null
+          vehicles_total: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_daily_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      revenue_summary_monthly: {
+        Row: {
+          card_total: number | null
+          cash_total: number | null
+          exemption_total: number | null
+          grand_total: number | null
+          lot_count: number | null
+          mobile_total: number | null
+          month: string | null
+          pass_total: number | null
+          vehicles_total: number | null
+        }
+        Relationships: []
+      }
+      revenue_yearly: {
+        Row: {
+          days_recorded: number | null
+          grand_total: number | null
+          lot_id: string | null
+          vehicles_total: number | null
+          year: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_daily_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_user_role: {

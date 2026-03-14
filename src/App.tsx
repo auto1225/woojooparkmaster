@@ -27,6 +27,10 @@ import FacilityMaintenance from "./pages/facility/FacilityMaintenance";
 import FacilitySchedule from "./pages/facility/FacilitySchedule";
 import FacilitySafety from "./pages/facility/FacilitySafety";
 import FacilityMarkings from "./pages/facility/FacilityMarkings";
+import RevenueDashboard from "./pages/revenue/RevenueDashboard";
+import RevenueDaily from "./pages/revenue/RevenueDaily";
+import RevenueReconcile from "./pages/revenue/RevenueReconcile";
+import RevenueAnalysis from "./pages/revenue/RevenueAnalysis";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -76,6 +80,10 @@ const AppRoutes = () => (
     <Route path="/facility/schedule" element={<ProtectedRoute><FacilitySchedule /></ProtectedRoute>} />
     <Route path="/facility/safety" element={<ProtectedRoute><FacilitySafety /></ProtectedRoute>} />
     <Route path="/facility/markings" element={<ProtectedRoute><FacilityMarkings /></ProtectedRoute>} />
+    <Route path="/revenue" element={<ProtectedRoute><RevenueDashboard /></ProtectedRoute>} />
+    <Route path="/revenue/daily" element={<ProtectedRoute><RevenueDaily /></ProtectedRoute>} />
+    <Route path="/revenue/reconcile" element={<ProtectedRoute><RevenueReconcile /></ProtectedRoute>} />
+    <Route path="/revenue/analysis" element={<ProtectedRoute><RevenueAnalysis /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
