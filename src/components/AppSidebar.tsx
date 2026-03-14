@@ -157,6 +157,29 @@ export function AppSidebar() {
                 )}
 
                 {facilityActive && collapsed && renderLink({ title: "시설관리", url: "/facility", icon: Wrench })}
+
+                {revenueActive && !collapsed && (
+                  <Collapsible open={revenueOpen} onOpenChange={setRevenueOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <Banknote className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">수입관리</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${revenueOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {revenueSubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {revenueActive && collapsed && renderLink({ title: "수입관리", url: "/revenue", icon: Banknote })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
