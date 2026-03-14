@@ -302,7 +302,6 @@ export default function ReportGenerate() {
                   )}
                 </div>
               )}
-              </div>
 
               {result && (
                 <div className={`p-4 rounded-lg flex items-center gap-3 ${result.status === "completed" ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
