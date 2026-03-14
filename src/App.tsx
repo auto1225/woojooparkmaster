@@ -215,7 +215,13 @@ function AppWithSync() {
     const cleanup = setupOnlineSync();
     return cleanup;
   }, []);
-  return <AppRoutes />;
+  return (
+    <>
+      <AppRoutes />
+      <HelpPanel />
+      <OnboardingGuide />
+    </>
+  );
 }
 
 const App = () => (
