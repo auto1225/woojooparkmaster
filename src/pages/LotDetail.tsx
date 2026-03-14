@@ -271,6 +271,41 @@ export default function LotDetailPage() {
   const canEdit = profile && ["admin", "manager", "editor"].includes(profile.role);
   const canDelete = profile?.role === "admin";
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [relatedCounts, setRelatedCounts] = useState<Record<string, number>>({});
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [checkingRelated, setCheckingRelated] = useState(false);
+
+  const checkRelatedData = async () => {
+    if (!lot) return;
+    setCheckingRelated(true);
+    const counts: Record<string, number> = {};
+    
+    const { count: surveyCount } = await supabase.from("surveys").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
+    if (surveyCount) counts["현황조사"] = surveyCount;
+
+    if ((licenses ?? []).some((m: any) => m.module_code === "OPS" && m.is_active)) {
+      const { count: staffCount } = await supabase.from("operations_staff").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
+      if (staffCount) counts["관리인력"] = staffCount;
+    }
+    if ((licenses ?? []).some((m: any) => m.module_code === "FACILITY" && m.is_active)) {
+      const { count: equipCount } = await supabase.from("equipment").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
+      if (equipCount) counts["시설장비"] = equipCount;
+    }
+    if ((licenses ?? []).some((m: any) => m.module_code === "REVENUE" && m.is_active)) {
+      const { count: revCount } = await supabase.from("revenue_daily").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
+      if (revCount) counts["수입기록"] = revCount;
+    }
+    if (complaintActive) {
+      const { count: compCount } = await supabase.from("complaints").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
+      if (compCount) counts["민원"] = compCount;
+    }
+
+    setRelatedCounts(counts);
+    setCheckingRelated(false);
+    setDeleteOpen(true);
+  };
+
   const handleDelete = async () => {
     if (!lot) return;
     const { error } = await supabase.from("parking_lots").delete().eq("id", lot.id);
@@ -283,6 +318,9 @@ export default function LotDetailPage() {
       navigate("/lots");
     }
   };
+
+  const hasRelated = Object.keys(relatedCounts).length > 0;
+  const canConfirmDelete = hasRelated ? deleteConfirmName === lot?.name : true;
 
   if (isLoading) {
     return (
