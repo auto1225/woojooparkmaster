@@ -404,6 +404,50 @@ export default function LotDetailPage() {
               </Card>
             </TabsContent>
           )}
+
+          {serviceActive && (
+            <TabsContent value="service">
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">관련 용역사업</CardTitle></CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>사업번호</TableHead>
+                        <TableHead>사업명</TableHead>
+                        <TableHead>유형</TableHead>
+                        <TableHead>업체</TableHead>
+                        <TableHead>기간</TableHead>
+                        <TableHead>진척률</TableHead>
+                        <TableHead>상태</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {serviceProjects?.map(sp => (
+                        <TableRow key={sp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/service/projects/${sp.id}`)}>
+                          <TableCell className="text-xs font-mono">{sp.project_number}</TableCell>
+                          <TableCell className="text-sm">{sp.title}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-[10px]">{SERVICE_TYPE_LABELS[sp.service_type] || sp.service_type}</Badge></TableCell>
+                          <TableCell className="text-sm">{sp.contractor_name}</TableCell>
+                          <TableCell className="text-xs">{sp.start_date}~{sp.end_date}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Progress value={Number(sp.progress_pct || 0)} className="h-1.5 w-16" />
+                              <span className="text-xs">{Number(sp.progress_pct || 0).toFixed(0)}%</span>
+                            </div>
+                          </TableCell>
+                          <TableCell><Badge variant="outline" className={`text-[10px] ${PROJECT_STATUS_COLORS[sp.status] || ''}`}>{PROJECT_STATUS_LABELS[sp.status] || sp.status}</Badge></TableCell>
+                        </TableRow>
+                      ))}
+                      {!serviceProjects?.length && (
+                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground text-sm py-6">관련 용역사업 없음</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </DashboardLayout>
