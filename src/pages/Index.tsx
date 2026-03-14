@@ -32,6 +32,7 @@ function KpiCard({ title, value, sub, icon: Icon, color }: { title: string; valu
 
 export default function Index() {
   const { data: config } = useSystemConfig();
+  const navigate = useNavigate();
 
   const { data: lots, isLoading } = useQuery({
     queryKey: ["dashboard-lots"],
