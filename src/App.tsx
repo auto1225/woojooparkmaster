@@ -193,7 +193,9 @@ const AppRoutes = () => (
     <Route path="/reports/dashboard-builder" element={<ProtectedRoute><DashboardBuilder /></ProtectedRoute>} />
     <Route path="/approvals" element={<ProtectedRoute><ApprovalsPage /></ProtectedRoute>} />
     <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+    <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+    <Route path="/settings/analytics" element={<ProtectedRoute><ActivityAnalyticsPage /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

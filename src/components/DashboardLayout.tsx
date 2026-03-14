@@ -129,8 +129,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </div>
                 </PopoverContent>
               </Popover>
-              <span className="text-xs text-muted-foreground hidden sm:block">{profile?.name}</span>
-              <Button variant="ghost" size="icon" onClick={handleSignOut} title="로그아웃">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-xs gap-1.5 hidden sm:flex">
+                    <User className="h-3.5 w-3.5" />{profile?.name}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>내 프로필</DropdownMenuItem>
+                  {isAdmin && <DropdownMenuItem onClick={() => navigate("/settings")}>시스템 설정</DropdownMenuItem>}
+                  {isAdmin && <DropdownMenuItem onClick={() => navigate("/settings/analytics")}>활동 분석</DropdownMenuItem>}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>로그아웃</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button variant="ghost" size="icon" onClick={handleSignOut} title="로그아웃" className="sm:hidden">
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
