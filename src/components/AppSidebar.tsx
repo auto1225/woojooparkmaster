@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useLayoutEffect } from "react";
-import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2 } from "lucide-react";
+import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -70,6 +70,14 @@ const complaintSubMenu = [
   { title: "민원 통계", url: "/complaints/stats", icon: BarChart2 },
 ];
 
+const planningSubMenu = [
+  { title: "기획 현황", url: "/planning", icon: Compass, end: true },
+  { title: "후보부지", url: "/planning/sites", icon: MapPin },
+  { title: "공사 관리", url: "/planning/projects", icon: HardHat },
+  { title: "도면 관리", url: "/planning/documents", icon: FileImage },
+  { title: "인허가", url: "/planning/permits", icon: ScrollText },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
@@ -116,7 +124,8 @@ export function AppSidebar() {
   const [procurementOpen, setProcurementOpen] = useState(true);
   const [serviceOpen, setServiceOpen] = useState(true);
   const [complaintOpen, setComplaintOpen] = useState(true);
-  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT"].includes(m.module_code));
+  const [planningOpen, setPlanningOpen] = useState(true);
+  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT", "PLANNING"].includes(m.module_code));
   const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
   const facilityActive = (licenses ?? []).some((m) => m.module_code === "FACILITY" && m.is_active);
   const revenueActive = (licenses ?? []).some((m) => m.module_code === "REVENUE" && m.is_active);
@@ -124,6 +133,7 @@ export function AppSidebar() {
   const procurementActive = (licenses ?? []).some((m) => m.module_code === "PROCUREMENT" && m.is_active);
   const serviceActive = (licenses ?? []).some((m) => m.module_code === "SERVICE" && m.is_active);
   const complaintActive = (licenses ?? []).some((m) => m.module_code === "COMPLAINT" && m.is_active);
+  const planningActive = (licenses ?? []).some((m) => m.module_code === "PLANNING" && m.is_active);
   const simpleModules = activeModules.map((m) => simpleModuleMap[m.module_code]).filter(Boolean);
   const isAdmin = profile?.role === "admin";
 
@@ -329,6 +339,29 @@ export function AppSidebar() {
                 )}
 
                 {complaintActive && collapsed && renderLink({ title: "민원관리", url: "/complaints", icon: Megaphone })}
+
+                {planningActive && !collapsed && (
+                  <Collapsible open={planningOpen} onOpenChange={setPlanningOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <Compass className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">신설기획</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${planningOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {planningSubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {planningActive && collapsed && renderLink({ title: "신설기획", url: "/planning", icon: Compass })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

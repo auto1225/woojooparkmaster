@@ -52,6 +52,12 @@ import ComplaintDashboard from "./pages/complaint/ComplaintDashboard";
 import ComplaintNew from "./pages/complaint/ComplaintNew";
 import ComplaintDetail from "./pages/complaint/ComplaintDetail";
 import ComplaintStats from "./pages/complaint/ComplaintStats";
+import PlanningDashboard from "./pages/planning/PlanningDashboard";
+import PlanningSites from "./pages/planning/PlanningSites";
+import PlanningProjects from "./pages/planning/PlanningProjects";
+import PlanningProjectDetail from "./pages/planning/PlanningProjectDetail";
+import PlanningDocuments from "./pages/planning/PlanningDocuments";
+import PlanningPermits from "./pages/planning/PlanningPermits";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -127,6 +133,12 @@ const AppRoutes = () => (
     <Route path="/complaints/new" element={<ProtectedRoute><ComplaintNew /></ProtectedRoute>} />
     <Route path="/complaints/stats" element={<ProtectedRoute><ComplaintStats /></ProtectedRoute>} />
     <Route path="/complaints/:id" element={<ProtectedRoute><ComplaintDetail /></ProtectedRoute>} />
+    <Route path="/planning" element={<ProtectedRoute><PlanningDashboard /></ProtectedRoute>} />
+    <Route path="/planning/sites" element={<ProtectedRoute><PlanningSites /></ProtectedRoute>} />
+    <Route path="/planning/projects" element={<ProtectedRoute><PlanningProjects /></ProtectedRoute>} />
+    <Route path="/planning/projects/:id" element={<ProtectedRoute><PlanningProjectDetail /></ProtectedRoute>} />
+    <Route path="/planning/documents" element={<ProtectedRoute><PlanningDocuments /></ProtectedRoute>} />
+    <Route path="/planning/permits" element={<ProtectedRoute><PlanningPermits /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
