@@ -63,6 +63,11 @@ import RealtimeSensors from "./pages/realtime/RealtimeSensors";
 import RealtimeGateways from "./pages/realtime/RealtimeGateways";
 import RealtimeDisplays from "./pages/realtime/RealtimeDisplays";
 import RealtimeApi from "./pages/realtime/RealtimeApi";
+import ReportCenter from "./pages/report/ReportCenter";
+import ReportGenerate from "./pages/report/ReportGenerate";
+import ReportHistory from "./pages/report/ReportHistory";
+import ReportSchedules from "./pages/report/ReportSchedules";
+import DashboardBuilder from "./pages/report/DashboardBuilder";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -149,6 +154,11 @@ const AppRoutes = () => (
     <Route path="/realtime/gateways" element={<ProtectedRoute><RealtimeGateways /></ProtectedRoute>} />
     <Route path="/realtime/displays" element={<ProtectedRoute><RealtimeDisplays /></ProtectedRoute>} />
     <Route path="/realtime/api" element={<ProtectedRoute><RealtimeApi /></ProtectedRoute>} />
+    <Route path="/reports" element={<ProtectedRoute><ReportCenter /></ProtectedRoute>} />
+    <Route path="/reports/generate" element={<ProtectedRoute><ReportGenerate /></ProtectedRoute>} />
+    <Route path="/reports/history" element={<ProtectedRoute><ReportHistory /></ProtectedRoute>} />
+    <Route path="/reports/schedules" element={<ProtectedRoute><ReportSchedules /></ProtectedRoute>} />
+    <Route path="/reports/dashboard-builder" element={<ProtectedRoute><DashboardBuilder /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
