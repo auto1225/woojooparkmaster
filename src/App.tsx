@@ -41,6 +41,13 @@ import ProcurementProjectNew from "./pages/procurement/ProcurementProjectNew";
 import ProcurementProjectDetail from "./pages/procurement/ProcurementProjectDetail";
 import ProcurementContracts from "./pages/procurement/ProcurementContracts";
 import ProcurementDocuments from "./pages/procurement/ProcurementDocuments";
+import ServiceDashboard from "./pages/service/ServiceDashboard";
+import ServiceProjects from "./pages/service/ServiceProjects";
+import ServiceProjectNew from "./pages/service/ServiceProjectNew";
+import ServiceProjectDetail from "./pages/service/ServiceProjectDetail";
+import ServiceInspections from "./pages/service/ServiceInspections";
+import ServicePayments from "./pages/service/ServicePayments";
+import ServiceIssues from "./pages/service/ServiceIssues";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
