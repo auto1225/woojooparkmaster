@@ -26,6 +26,15 @@ const opsSubMenu = [
   { title: "무료개방", url: "/ops/free-hours", icon: Clock },
 ];
 
+const facilitySubMenu = [
+  { title: "시설 현황", url: "/facility", icon: Wrench, end: true },
+  { title: "장비 관리", url: "/facility/equipment", icon: HardHat },
+  { title: "유지보수", url: "/facility/maintenance", icon: Building2 },
+  { title: "점검 스케줄", url: "/facility/schedule", icon: CalendarCheck },
+  { title: "안전점검", url: "/facility/safety", icon: ShieldCheck },
+  { title: "노면표시", url: "/facility/markings", icon: PaintBucket },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
