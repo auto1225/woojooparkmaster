@@ -98,7 +98,7 @@ export default function QuarterlyReport() {
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div><span className="text-muted-foreground">총 주차장</span><p className="text-xl font-bold">{lots.length}개소</p></div>
             <div><span className="text-muted-foreground">총 주차면수</span><p className="text-xl font-bold">{totalSpaces.toLocaleString()}면</p></div>
-            <div><span className="text-muted-foreground">운영방식</span><p className="text-xl font-bold">직영 {lots.filter((l: any) => l.operation_type === '직영').length} / 위탁 {lots.filter((l: any) => l.operation_type === '위탁').length}</p></div>
+            <div><span className="text-muted-foreground">운영방식</span><p className="text-xl font-bold">{lots.length}개소</p></div>
           </div>
         </div>
 
