@@ -143,6 +143,7 @@ export function AppSidebar() {
   const serviceActive = (licenses ?? []).some((m) => m.module_code === "SERVICE" && m.is_active);
   const complaintActive = (licenses ?? []).some((m) => m.module_code === "COMPLAINT" && m.is_active);
   const planningActive = (licenses ?? []).some((m) => m.module_code === "PLANNING" && m.is_active);
+  const realtimeActive = (licenses ?? []).some((m) => m.module_code === "REALTIME" && m.is_active);
   const simpleModules = activeModules.map((m) => simpleModuleMap[m.module_code]).filter(Boolean);
   const isAdmin = profile?.role === "admin";
 
