@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Car, ParkingCircle, CircleCheck, XCircle, Search, ChevronDown, ChevronUp, Wifi, WifiOff } from "lucide-react";
+import { Car, ParkingCircle, CircleCheck, XCircle, Search, ChevronDown, ChevronUp, Wifi, WifiOff, Monitor } from "lucide-react";
 import { CONGESTION_LABELS, CONGESTION_COLORS, CONGESTION_BG } from "@/types/realtime";
 
 type CongestionLevel = 'empty' | 'normal' | 'crowded' | 'full';
