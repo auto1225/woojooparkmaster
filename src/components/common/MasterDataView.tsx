@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/EmptyState";
 import { FileSpreadsheet, FileText, Printer, Columns3, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from "lucide-react";
+import { createProfessionalExcel, masterColumnToExcelColumn, type ExcelSheetConfig as ProfExcelSheetConfig } from "@/lib/excel-engine";
 import { exportMasterExcel, type ExcelSheetConfig } from "@/lib/master-excel-export";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 
