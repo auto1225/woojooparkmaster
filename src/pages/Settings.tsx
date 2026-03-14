@@ -13,7 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Settings, Shield, Package, Save } from "lucide-react";
+import { Settings, Shield, Package, Save, MessageSquare, GitBranch, Sparkles } from "lucide-react";
+import MessageManagement from "@/pages/settings/MessageManagement";
+import ApprovalLineManagement from "@/pages/settings/ApprovalLineManagement";
 
 export default function SettingsPage() {
   const { profile } = useAuth();
