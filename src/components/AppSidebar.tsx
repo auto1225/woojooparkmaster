@@ -24,7 +24,7 @@ const coreMenuItems = [
 ];
 
 const moduleMenuMap: Record<string, { title: string; url: string; icon: any }> = {
-  SURVEY: { title: "현황조사", url: "/survey", icon: ClipboardCheck },
+  SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   OPS: { title: "운영관리", url: "/ops", icon: Building2 },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
   REVENUE: { title: "수입관리", url: "/revenue", icon: DollarSign },
