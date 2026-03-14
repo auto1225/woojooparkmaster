@@ -156,6 +156,318 @@ export type Database = {
         }
         Relationships: []
       }
+      enforcement_records: {
+        Row: {
+          appeal_date: string | null
+          appeal_reason: string | null
+          appeal_result: string | null
+          appeal_status: string | null
+          created_at: string | null
+          enforcement_number: string
+          fine_amount: number | null
+          fine_due_date: string | null
+          fine_paid_date: string | null
+          id: string
+          location_detail: string | null
+          lot_id: string | null
+          notes: string | null
+          officer_id: string | null
+          officer_name: string | null
+          payment_status: string | null
+          photo_paths: Json | null
+          updated_at: string | null
+          vehicle_number: string
+          vehicle_type: string | null
+          violation_date: string
+          violation_location: string | null
+          violation_type: string
+        }
+        Insert: {
+          appeal_date?: string | null
+          appeal_reason?: string | null
+          appeal_result?: string | null
+          appeal_status?: string | null
+          created_at?: string | null
+          enforcement_number: string
+          fine_amount?: number | null
+          fine_due_date?: string | null
+          fine_paid_date?: string | null
+          id?: string
+          location_detail?: string | null
+          lot_id?: string | null
+          notes?: string | null
+          officer_id?: string | null
+          officer_name?: string | null
+          payment_status?: string | null
+          photo_paths?: Json | null
+          updated_at?: string | null
+          vehicle_number: string
+          vehicle_type?: string | null
+          violation_date: string
+          violation_location?: string | null
+          violation_type: string
+        }
+        Update: {
+          appeal_date?: string | null
+          appeal_reason?: string | null
+          appeal_result?: string | null
+          appeal_status?: string | null
+          created_at?: string | null
+          enforcement_number?: string
+          fine_amount?: number | null
+          fine_due_date?: string | null
+          fine_paid_date?: string | null
+          id?: string
+          location_detail?: string | null
+          lot_id?: string | null
+          notes?: string | null
+          officer_id?: string | null
+          officer_name?: string | null
+          payment_status?: string | null
+          photo_paths?: Json | null
+          updated_at?: string | null
+          vehicle_number?: string
+          vehicle_type?: string | null
+          violation_date?: string
+          violation_location?: string | null
+          violation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enforcement_records_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enforcement_records_officer_id_fkey"
+            columns: ["officer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fee_exemptions: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          discount_amount: number | null
+          discount_rate: number | null
+          discount_type: string
+          effective_from: string | null
+          effective_to: string | null
+          exemption_name: string
+          exemption_type: string
+          id: string
+          is_active: boolean | null
+          legal_basis: string | null
+          lot_id: string | null
+          max_discount_amount: number | null
+          max_hours: number | null
+          required_documents: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          discount_amount?: number | null
+          discount_rate?: number | null
+          discount_type?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          exemption_name: string
+          exemption_type: string
+          id?: string
+          is_active?: boolean | null
+          legal_basis?: string | null
+          lot_id?: string | null
+          max_discount_amount?: number | null
+          max_hours?: number | null
+          required_documents?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          discount_amount?: number | null
+          discount_rate?: number | null
+          discount_type?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          exemption_name?: string
+          exemption_type?: string
+          id?: string
+          is_active?: boolean | null
+          legal_basis?: string | null
+          lot_id?: string | null
+          max_discount_amount?: number | null
+          max_hours?: number | null
+          required_documents?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_exemptions_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fee_policies: {
+        Row: {
+          add_fee: number | null
+          add_minutes: number | null
+          approved_by: string | null
+          base_fee: number | null
+          base_minutes: number | null
+          created_at: string | null
+          created_by: string | null
+          daily_max: number | null
+          day_type: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean | null
+          legal_basis: string | null
+          lot_id: string
+          monthly_pass_fee: number | null
+          notes: string | null
+          policy_name: string
+          time_end: string | null
+          time_start: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          add_fee?: number | null
+          add_minutes?: number | null
+          approved_by?: string | null
+          base_fee?: number | null
+          base_minutes?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          daily_max?: number | null
+          day_type?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean | null
+          legal_basis?: string | null
+          lot_id: string
+          monthly_pass_fee?: number | null
+          notes?: string | null
+          policy_name: string
+          time_end?: string | null
+          time_start?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          add_fee?: number | null
+          add_minutes?: number | null
+          approved_by?: string | null
+          base_fee?: number | null
+          base_minutes?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          daily_max?: number | null
+          day_type?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean | null
+          legal_basis?: string | null
+          lot_id?: string
+          monthly_pass_fee?: number | null
+          notes?: string | null
+          policy_name?: string
+          time_end?: string | null
+          time_start?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_policies_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_policies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_policies_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      free_hours_settings: {
+        Row: {
+          approved_by: string | null
+          created_at: string | null
+          day_type: string
+          effective_from: string | null
+          effective_to: string | null
+          end_time: string
+          id: string
+          is_active: boolean | null
+          lot_id: string
+          reason: string | null
+          setting_name: string | null
+          start_time: string
+        }
+        Insert: {
+          approved_by?: string | null
+          created_at?: string | null
+          day_type: string
+          effective_from?: string | null
+          effective_to?: string | null
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          lot_id: string
+          reason?: string | null
+          setting_name?: string | null
+          start_time: string
+        }
+        Update: {
+          approved_by?: string | null
+          created_at?: string | null
+          day_type?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          lot_id?: string
+          reason?: string | null
+          setting_name?: string | null
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "free_hours_settings_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "free_hours_settings_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       module_licenses: {
         Row: {
           activated_at: string | null
@@ -197,6 +509,106 @@ export type Database = {
           starts_at?: string
         }
         Relationships: []
+      }
+      monthly_passes: {
+        Row: {
+          auto_renew: boolean | null
+          created_at: string | null
+          fee_amount: number
+          fee_paid: number | null
+          holder_address: string | null
+          holder_name: string | null
+          holder_phone: string | null
+          id: string
+          issued_by: string | null
+          lot_id: string
+          notes: string | null
+          pass_end: string
+          pass_number: string
+          pass_start: string
+          payment_date: string | null
+          payment_method: string | null
+          previous_pass_id: string | null
+          receipt_number: string | null
+          renewal_count: number | null
+          status: string | null
+          updated_at: string | null
+          vehicle_number: string
+          vehicle_type: string | null
+        }
+        Insert: {
+          auto_renew?: boolean | null
+          created_at?: string | null
+          fee_amount: number
+          fee_paid?: number | null
+          holder_address?: string | null
+          holder_name?: string | null
+          holder_phone?: string | null
+          id?: string
+          issued_by?: string | null
+          lot_id: string
+          notes?: string | null
+          pass_end: string
+          pass_number: string
+          pass_start: string
+          payment_date?: string | null
+          payment_method?: string | null
+          previous_pass_id?: string | null
+          receipt_number?: string | null
+          renewal_count?: number | null
+          status?: string | null
+          updated_at?: string | null
+          vehicle_number: string
+          vehicle_type?: string | null
+        }
+        Update: {
+          auto_renew?: boolean | null
+          created_at?: string | null
+          fee_amount?: number
+          fee_paid?: number | null
+          holder_address?: string | null
+          holder_name?: string | null
+          holder_phone?: string | null
+          id?: string
+          issued_by?: string | null
+          lot_id?: string
+          notes?: string | null
+          pass_end?: string
+          pass_number?: string
+          pass_start?: string
+          payment_date?: string | null
+          payment_method?: string | null
+          previous_pass_id?: string | null
+          receipt_number?: string | null
+          renewal_count?: number | null
+          status?: string | null
+          updated_at?: string | null
+          vehicle_number?: string
+          vehicle_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_passes_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_passes_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_passes_previous_pass_id_fkey"
+            columns: ["previous_pass_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_passes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -241,6 +653,155 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operations_staff: {
+        Row: {
+          created_at: string | null
+          hire_date: string | null
+          id: string
+          is_active: boolean | null
+          lot_id: string
+          notes: string | null
+          phone: string | null
+          position: string | null
+          resign_date: string | null
+          schedule: Json | null
+          staff_name: string
+          staff_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          hire_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          lot_id: string
+          notes?: string | null
+          phone?: string | null
+          position?: string | null
+          resign_date?: string | null
+          schedule?: Json | null
+          staff_name: string
+          staff_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          hire_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          lot_id?: string
+          notes?: string | null
+          phone?: string | null
+          position?: string | null
+          resign_date?: string | null
+          schedule?: Json | null
+          staff_name?: string
+          staff_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operations_staff_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outsourcing_contracts: {
+        Row: {
+          auto_renew: boolean | null
+          business_number: string | null
+          company_name: string
+          contact_email: string | null
+          contact_person: string | null
+          contact_phone: string | null
+          contract_amount: number | null
+          contract_end: string
+          contract_number: string | null
+          contract_start: string
+          created_at: string | null
+          created_by: string | null
+          evaluation_date: string | null
+          evaluation_note: string | null
+          id: string
+          lot_id: string
+          monthly_fee: number | null
+          notes: string | null
+          performance_score: number | null
+          representative: string | null
+          revenue_share_rate: number | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_renew?: boolean | null
+          business_number?: string | null
+          company_name: string
+          contact_email?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          contract_amount?: number | null
+          contract_end: string
+          contract_number?: string | null
+          contract_start: string
+          created_at?: string | null
+          created_by?: string | null
+          evaluation_date?: string | null
+          evaluation_note?: string | null
+          id?: string
+          lot_id: string
+          monthly_fee?: number | null
+          notes?: string | null
+          performance_score?: number | null
+          representative?: string | null
+          revenue_share_rate?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_renew?: boolean | null
+          business_number?: string | null
+          company_name?: string
+          contact_email?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          contract_amount?: number | null
+          contract_end?: string
+          contract_number?: string | null
+          contract_start?: string
+          created_at?: string | null
+          created_by?: string | null
+          evaluation_date?: string | null
+          evaluation_note?: string | null
+          id?: string
+          lot_id?: string
+          monthly_fee?: number | null
+          notes?: string | null
+          performance_score?: number | null
+          representative?: string | null
+          revenue_share_rate?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outsourcing_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outsourcing_contracts_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
             referencedColumns: ["id"]
           },
         ]
