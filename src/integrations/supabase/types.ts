@@ -71,6 +71,188 @@ export type Database = {
           },
         ]
       }
+      approval_lines: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          document_type: string
+          id: string
+          is_default: boolean | null
+          line_name: string
+          module: string
+          steps: Json
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          document_type: string
+          id?: string
+          is_default?: boolean | null
+          line_name: string
+          module: string
+          steps: Json
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          document_type?: string
+          id?: string
+          is_default?: boolean | null
+          line_name?: string
+          module?: string
+          steps?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_lines_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "approval_lines_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval_records: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_step: number | null
+          document_type: string
+          id: string
+          initiated_at: string | null
+          initiated_by: string
+          line_id: string
+          module: string
+          ref_id: string
+          ref_number: string | null
+          status: string | null
+          title: string
+          total_steps: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_step?: number | null
+          document_type: string
+          id?: string
+          initiated_at?: string | null
+          initiated_by: string
+          line_id: string
+          module: string
+          ref_id: string
+          ref_number?: string | null
+          status?: string | null
+          title: string
+          total_steps: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_step?: number | null
+          document_type?: string
+          id?: string
+          initiated_at?: string | null
+          initiated_by?: string
+          line_id?: string
+          module?: string
+          ref_id?: string
+          ref_number?: string | null
+          status?: string | null
+          title?: string
+          total_steps?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_records_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "approval_records_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_records_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "approval_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval_steps: {
+        Row: {
+          acted_at: string | null
+          action: string | null
+          approver_id: string | null
+          approver_name: string | null
+          comment: string | null
+          created_at: string | null
+          id: string
+          record_id: string
+          step_label: string
+          step_number: number
+        }
+        Insert: {
+          acted_at?: string | null
+          action?: string | null
+          approver_id?: string | null
+          approver_name?: string | null
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          record_id: string
+          step_label: string
+          step_number: number
+        }
+        Update: {
+          acted_at?: string | null
+          action?: string | null
+          approver_id?: string | null
+          approver_name?: string | null
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          record_id?: string
+          step_label?: string
+          step_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_steps_approver_id_fkey"
+            columns: ["approver_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "approval_steps_approver_id_fkey"
+            columns: ["approver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_steps_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "approval_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attachments: {
         Row: {
           category: string | null
@@ -3198,6 +3380,90 @@ export type Database = {
           },
         ]
       }
+      message_logs: {
+        Row: {
+          channel: string
+          content: string
+          created_at: string | null
+          created_by: string | null
+          delivered_at: string | null
+          failed_reason: string | null
+          id: string
+          message_type: string
+          module: string | null
+          recipient_email: string | null
+          recipient_name: string | null
+          recipient_phone: string
+          ref_id: string | null
+          ref_type: string | null
+          retry_count: number | null
+          sent_at: string | null
+          status: string | null
+          template_code: string | null
+          title: string | null
+          variables: Json | null
+        }
+        Insert: {
+          channel: string
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          delivered_at?: string | null
+          failed_reason?: string | null
+          id?: string
+          message_type?: string
+          module?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          recipient_phone: string
+          ref_id?: string | null
+          ref_type?: string | null
+          retry_count?: number | null
+          sent_at?: string | null
+          status?: string | null
+          template_code?: string | null
+          title?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          channel?: string
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          delivered_at?: string | null
+          failed_reason?: string | null
+          id?: string
+          message_type?: string
+          module?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string
+          ref_id?: string | null
+          ref_type?: string | null
+          retry_count?: number | null
+          sent_at?: string | null
+          status?: string | null
+          template_code?: string | null
+          title?: string | null
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_logs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "message_logs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       module_licenses: {
         Row: {
           activated_at: string | null
@@ -3601,6 +3867,7 @@ export type Database = {
           has_sensor: boolean | null
           id: string
           latitude: number | null
+          layout_data: Json | null
           longitude: number | null
           lot_type: Database["public"]["Enums"]["lot_type_enum"]
           name: string
@@ -3640,6 +3907,7 @@ export type Database = {
           has_sensor?: boolean | null
           id?: string
           latitude?: number | null
+          layout_data?: Json | null
           longitude?: number | null
           lot_type?: Database["public"]["Enums"]["lot_type_enum"]
           name: string
@@ -3679,6 +3947,7 @@ export type Database = {
           has_sensor?: boolean | null
           id?: string
           latitude?: number | null
+          layout_data?: Json | null
           longitude?: number | null
           lot_type?: Database["public"]["Enums"]["lot_type_enum"]
           name?: string
