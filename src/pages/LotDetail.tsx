@@ -1,0 +1,195 @@
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
+import { logActivity } from "@/lib/activity-logger";
+import { LOT_TYPE_LABELS, LOT_STATUS_LABELS, OPERATOR_LABELS, SURFACE_LABELS, POWER_LABELS } from "@/types/database";
+import type { LotType, LotStatus, OperatorType, SurfaceType, PowerStatus } from "@/types/database";
+import { ArrowLeft, Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
+
+const STATUS_COLORS: Record<string, string> = {
+  active: "bg-success/10 text-success border-success/20",
+  inactive: "bg-muted text-muted-foreground",
+  construction: "bg-warning/10 text-warning border-warning/20",
+  closed: "bg-destructive/10 text-destructive border-destructive/20",
+};
+
+function BoolIcon({ value }: { value: boolean }) {
+  return value ? <CheckCircle className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-muted-foreground/40" />;
+}
+
+function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
+  return (
+    <div className="flex justify-between py-1.5 border-b last:border-0">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs font-medium">{value ?? "-"}</span>
+    </div>
+  );
+}
+
+export default function LotDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  const { data: lot, isLoading } = useQuery({
+    queryKey: ["lot", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("parking_lots").select("*").eq("id", id!).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const canEdit = profile && ["admin", "manager", "editor"].includes(profile.role);
+  const canDelete = profile?.role === "admin";
+
+  const handleDelete = async () => {
+    if (!lot) return;
+    const { error } = await supabase.from("parking_lots").delete().eq("id", lot.id);
+    if (error) {
+      toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
+    } else {
+      await logActivity({ module: "core", action: "delete", targetType: "parking_lot", targetId: lot.id, targetName: lot.name });
+      toast({ title: "삭제되었습니다" });
+      queryClient.invalidateQueries({ queryKey: ["parking-lots"] });
+      navigate("/lots");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-4 max-w-4xl">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-64" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!lot) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <p className="text-muted-foreground">주차장을 찾을 수 없습니다</p>
+          <Button variant="outline" onClick={() => navigate("/lots")}>목록으로 돌아가기</Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="max-w-4xl space-y-6">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/lots")} className="mb-2 -ml-2">
+              <ArrowLeft className="h-4 w-4 mr-1" /> 목록
+            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl font-bold">{lot.name}</h2>
+              <Badge variant="outline" className="font-mono text-[10px]">{lot.code}</Badge>
+              <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[lot.status] || ""}`}>
+                {LOT_STATUS_LABELS[lot.status as LotStatus]}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">{lot.address_jibun || lot.address_road || "주소 미등록"}</p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            {canEdit && (
+              <Button variant="outline" size="sm" onClick={() => navigate(`/lots/${lot.id}/edit`)}>
+                <Pencil className="h-3.5 w-3.5 mr-1" /> 수정
+              </Button>
+            )}
+            {canDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                    <Trash2 className="h-3.5 w-3.5 mr-1" /> 삭제
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>주차장 삭제</AlertDialogTitle>
+                    <AlertDialogDescription>정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>취소</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">삭제</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        </div>
+
+        {/* Info Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-xs font-mono text-muted-foreground uppercase">기본 정보</CardTitle></CardHeader>
+            <CardContent>
+              <InfoRow label="유형" value={LOT_TYPE_LABELS[lot.lot_type as LotType]} />
+              <InfoRow label="운영주체" value={OPERATOR_LABELS[lot.operator_type as OperatorType]} />
+              {lot.operator_name && <InfoRow label="위탁업체" value={lot.operator_name} />}
+              <InfoRow label="총 주차면" value={(lot.total_spaces || 0).toLocaleString()} />
+              <InfoRow label="층수" value={lot.floors} />
+              <InfoRow label="바닥 포장재" value={lot.surface_type ? SURFACE_LABELS[lot.surface_type as SurfaceType] : undefined} />
+              <InfoRow label="면적" value={lot.area_sqm ? `${lot.area_sqm} ㎡` : undefined} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-xs font-mono text-muted-foreground uppercase">설비 현황</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "차단기", val: lot.has_gate },
+                  { label: "LPR", val: lot.has_lpr },
+                  { label: "무인정산기", val: lot.has_kiosk },
+                  { label: "CCTV", val: lot.has_cctv },
+                  { label: "안내전광판", val: lot.has_display_board },
+                  { label: "주차면센서", val: lot.has_sensor },
+                  { label: "통합관제", val: lot.control_system_linked },
+                  { label: "주차포털", val: lot.portal_linked },
+                ].map(({ label, val }) => (
+                  <div key={label} className="flex items-center gap-1.5 py-1">
+                    <BoolIcon value={!!val} />
+                    <span className="text-xs">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-xs font-mono text-muted-foreground uppercase">인프라</CardTitle></CardHeader>
+            <CardContent>
+              <InfoRow label="전기 공급" value={lot.power_status ? POWER_LABELS[lot.power_status as PowerStatus] : undefined} />
+              <InfoRow label="통신망" value={lot.network_type} />
+            </CardContent>
+          </Card>
+
+          {lot.notes && (
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-xs font-mono text-muted-foreground uppercase">비고</CardTitle></CardHeader>
+              <CardContent>
+                <p className="text-sm whitespace-pre-wrap">{lot.notes}</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+}
