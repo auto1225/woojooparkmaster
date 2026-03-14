@@ -85,20 +85,25 @@ export function AppSidebar() {
   const { profile } = useAuth();
   const { data: licenses } = useModuleLicenses();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollTopRef = useRef(0);
 
   const handleScroll = useCallback(() => {
     if (scrollRef.current) {
-      scrollTopRef.current = scrollRef.current.scrollTop;
+      sidebarScrollTop = scrollRef.current.scrollTop;
     }
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollRef.current;
-    if (el) {
-      el.scrollTop = scrollTopRef.current;
-    }
-  });
+    if (!el) return;
+
+    const restore = () => {
+      el.scrollTop = sidebarScrollTop;
+    };
+
+    restore();
+    const raf = requestAnimationFrame(restore);
+    return () => cancelAnimationFrame(raf);
+  }, []);
   const [opsOpen, setOpsOpen] = useState(true);
   const [facilityOpen, setFacilityOpen] = useState(true);
   const [revenueOpen, setRevenueOpen] = useState(true);
