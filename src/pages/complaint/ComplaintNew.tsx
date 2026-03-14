@@ -83,6 +83,10 @@ export default function ComplaintNew() {
       toast({ title: "필수 항목을 입력해주세요", variant: "destructive" });
       return;
     }
+    if (!form.is_anonymous && !form.privacy_agreed) {
+      toast({ title: "개인정보 수집 동의가 필요합니다", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const complaint_number = generateNumber();
