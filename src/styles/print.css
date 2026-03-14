@@ -1,0 +1,39 @@
+@media print {
+  /* 사이드바, 헤더, 하단 버튼 숨김 */
+  nav, header, .sidebar, .no-print, footer,
+  button:not(.print-only), .toast-container,
+  [data-sidebar], [data-sonner-toaster] { 
+    display: none !important; 
+  }
+
+  /* 메인 콘텐츠 전체 폭 */
+  main, .main-content, [role="main"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* 배경색 출력 */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 기관명 + 출력일시 헤더 (인쇄 시만 표시) */
+  .print-header { display: block !important; }
+
+  /* 페이지 넘김 */
+  .page-break { page-break-before: always; }
+  table { page-break-inside: avoid; }
+
+  /* A4 여백 */
+  @page { margin: 15mm; size: A4; }
+
+  /* 인쇄 전용 요소 표시 */
+  .print-only { display: block !important; }
+}
+
+/* 화면에서는 인쇄 전용 요소 숨김 */
+.print-header { display: none; }
+.print-only { display: none; }
