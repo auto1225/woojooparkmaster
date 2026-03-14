@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck } from "lucide-react";
+import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -26,6 +26,15 @@ const opsSubMenu = [
   { title: "무료개방", url: "/ops/free-hours", icon: Clock },
 ];
 
+const facilitySubMenu = [
+  { title: "시설 현황", url: "/facility", icon: Wrench, end: true },
+  { title: "장비 관리", url: "/facility/equipment", icon: HardHat },
+  { title: "유지보수", url: "/facility/maintenance", icon: Building2 },
+  { title: "점검 스케줄", url: "/facility/schedule", icon: CalendarCheck },
+  { title: "안전점검", url: "/facility/safety", icon: ShieldCheck },
+  { title: "노면표시", url: "/facility/markings", icon: PaintBucket },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
@@ -45,9 +54,11 @@ export function AppSidebar() {
   const { profile } = useAuth();
   const { data: licenses } = useModuleLicenses();
   const [opsOpen, setOpsOpen] = useState(true);
+  const [facilityOpen, setFacilityOpen] = useState(true);
 
   const activeModules = (licenses ?? []).filter((m) => m.is_active && m.module_code !== "CORE" && m.module_code !== "OPS");
   const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
+  const facilityActive = (licenses ?? []).some((m) => m.module_code === "FACILITY" && m.is_active);
   const simpleModules = activeModules.map((m) => simpleModuleMap[m.module_code]).filter(Boolean);
   const isAdmin = profile?.role === "admin";
 
@@ -86,7 +97,7 @@ export function AppSidebar() {
           <SidebarGroupContent><SidebarMenu>{coreMenuItems.map(renderLink)}</SidebarMenu></SidebarGroupContent>
         </SidebarGroup>
 
-        {(simpleModules.length > 0 || opsActive) && (
+        {(simpleModules.length > 0 || opsActive || facilityActive) && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.1em] text-sidebar-foreground/40 px-2">모듈</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -115,6 +126,29 @@ export function AppSidebar() {
                 )}
 
                 {opsActive && collapsed && renderLink({ title: "운영관리", url: "/ops", icon: Building2 })}
+
+                {facilityActive && !collapsed && (
+                  <Collapsible open={facilityOpen} onOpenChange={setFacilityOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <Wrench className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">시설관리</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${facilityOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {facilitySubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {facilityActive && collapsed && renderLink({ title: "시설관리", url: "/facility", icon: Wrench })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

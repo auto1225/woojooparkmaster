@@ -21,6 +21,12 @@ import OpsExemptionsPage from "./pages/ops/OpsExemptions";
 import OpsPassesPage from "./pages/ops/OpsPasses";
 import OpsEnforcementPage from "./pages/ops/OpsEnforcement";
 import OpsFreeHoursPage from "./pages/ops/OpsFreeHours";
+import FacilityDashboard from "./pages/facility/FacilityDashboard";
+import FacilityEquipment from "./pages/facility/FacilityEquipment";
+import FacilityMaintenance from "./pages/facility/FacilityMaintenance";
+import FacilitySchedule from "./pages/facility/FacilitySchedule";
+import FacilitySafety from "./pages/facility/FacilitySafety";
+import FacilityMarkings from "./pages/facility/FacilityMarkings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +70,12 @@ const AppRoutes = () => (
     <Route path="/ops/passes" element={<ProtectedRoute><OpsPassesPage /></ProtectedRoute>} />
     <Route path="/ops/enforcement" element={<ProtectedRoute><OpsEnforcementPage /></ProtectedRoute>} />
     <Route path="/ops/free-hours" element={<ProtectedRoute><OpsFreeHoursPage /></ProtectedRoute>} />
+    <Route path="/facility" element={<ProtectedRoute><FacilityDashboard /></ProtectedRoute>} />
+    <Route path="/facility/equipment" element={<ProtectedRoute><FacilityEquipment /></ProtectedRoute>} />
+    <Route path="/facility/maintenance" element={<ProtectedRoute><FacilityMaintenance /></ProtectedRoute>} />
+    <Route path="/facility/schedule" element={<ProtectedRoute><FacilitySchedule /></ProtectedRoute>} />
+    <Route path="/facility/safety" element={<ProtectedRoute><FacilitySafety /></ProtectedRoute>} />
+    <Route path="/facility/markings" element={<ProtectedRoute><FacilityMarkings /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

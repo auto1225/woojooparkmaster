@@ -249,6 +249,138 @@ export type Database = {
           },
         ]
       }
+      equipment: {
+        Row: {
+          created_at: string | null
+          current_value: number | null
+          depreciation_method: string | null
+          equipment_code: string
+          equipment_type: string
+          firmware_version: string | null
+          floor: number | null
+          id: string
+          install_date: string | null
+          ip_address: string | null
+          last_maintenance_date: string | null
+          location_detail: string | null
+          lot_id: string
+          maintenance_count: number | null
+          manual_path: string | null
+          manufacturer: string | null
+          model: string | null
+          name: string
+          network_required: boolean | null
+          next_maintenance_date: string | null
+          notes: string | null
+          photo_path: string | null
+          power_consumption: string | null
+          purchase_cost: number | null
+          quantity: number | null
+          registered_by: string | null
+          replacement_due: string | null
+          serial_number: string | null
+          specification: Json | null
+          status: string | null
+          status_changed_at: string | null
+          total_maintenance_cost: number | null
+          updated_at: string | null
+          useful_life_years: number | null
+          warranty_end: string | null
+          warranty_start: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_value?: number | null
+          depreciation_method?: string | null
+          equipment_code: string
+          equipment_type: string
+          firmware_version?: string | null
+          floor?: number | null
+          id?: string
+          install_date?: string | null
+          ip_address?: string | null
+          last_maintenance_date?: string | null
+          location_detail?: string | null
+          lot_id: string
+          maintenance_count?: number | null
+          manual_path?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          name: string
+          network_required?: boolean | null
+          next_maintenance_date?: string | null
+          notes?: string | null
+          photo_path?: string | null
+          power_consumption?: string | null
+          purchase_cost?: number | null
+          quantity?: number | null
+          registered_by?: string | null
+          replacement_due?: string | null
+          serial_number?: string | null
+          specification?: Json | null
+          status?: string | null
+          status_changed_at?: string | null
+          total_maintenance_cost?: number | null
+          updated_at?: string | null
+          useful_life_years?: number | null
+          warranty_end?: string | null
+          warranty_start?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_value?: number | null
+          depreciation_method?: string | null
+          equipment_code?: string
+          equipment_type?: string
+          firmware_version?: string | null
+          floor?: number | null
+          id?: string
+          install_date?: string | null
+          ip_address?: string | null
+          last_maintenance_date?: string | null
+          location_detail?: string | null
+          lot_id?: string
+          maintenance_count?: number | null
+          manual_path?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          name?: string
+          network_required?: boolean | null
+          next_maintenance_date?: string | null
+          notes?: string | null
+          photo_path?: string | null
+          power_consumption?: string | null
+          purchase_cost?: number | null
+          quantity?: number | null
+          registered_by?: string | null
+          replacement_due?: string | null
+          serial_number?: string | null
+          specification?: Json | null
+          status?: string | null
+          status_changed_at?: string | null
+          total_maintenance_cost?: number | null
+          updated_at?: string | null
+          useful_life_years?: number | null
+          warranty_end?: string | null
+          warranty_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fee_exemptions: {
         Row: {
           created_at: string | null
@@ -461,6 +593,267 @@ export type Database = {
           },
           {
             foreignKeyName: "free_hours_settings_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_logs: {
+        Row: {
+          after_photo: string | null
+          assigned_at: string | null
+          assigned_to: string | null
+          before_photo: string | null
+          cause: string | null
+          checklist_results: Json | null
+          closed_at: string | null
+          closed_by: string | null
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          downtime_hours: number | null
+          equipment_id: string | null
+          id: string
+          labor_cost: number | null
+          labor_hours: number | null
+          log_number: string
+          lot_id: string
+          maintenance_type: string
+          notes: string | null
+          other_cost: number | null
+          parts_cost: number | null
+          parts_used: Json | null
+          priority: string
+          reported_at: string | null
+          reported_by: string | null
+          resolution: string | null
+          satisfaction_score: number | null
+          schedule_id: string | null
+          started_at: string | null
+          status: string
+          symptom: string | null
+          title: string
+          total_cost: number | null
+          updated_at: string | null
+          vendor_contact: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          after_photo?: string | null
+          assigned_at?: string | null
+          assigned_to?: string | null
+          before_photo?: string | null
+          cause?: string | null
+          checklist_results?: Json | null
+          closed_at?: string | null
+          closed_by?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          downtime_hours?: number | null
+          equipment_id?: string | null
+          id?: string
+          labor_cost?: number | null
+          labor_hours?: number | null
+          log_number: string
+          lot_id: string
+          maintenance_type: string
+          notes?: string | null
+          other_cost?: number | null
+          parts_cost?: number | null
+          parts_used?: Json | null
+          priority?: string
+          reported_at?: string | null
+          reported_by?: string | null
+          resolution?: string | null
+          satisfaction_score?: number | null
+          schedule_id?: string | null
+          started_at?: string | null
+          status?: string
+          symptom?: string | null
+          title: string
+          total_cost?: number | null
+          updated_at?: string | null
+          vendor_contact?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          after_photo?: string | null
+          assigned_at?: string | null
+          assigned_to?: string | null
+          before_photo?: string | null
+          cause?: string | null
+          checklist_results?: Json | null
+          closed_at?: string | null
+          closed_by?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          downtime_hours?: number | null
+          equipment_id?: string | null
+          id?: string
+          labor_cost?: number | null
+          labor_hours?: number | null
+          log_number?: string
+          lot_id?: string
+          maintenance_type?: string
+          notes?: string | null
+          other_cost?: number | null
+          parts_cost?: number | null
+          parts_used?: Json | null
+          priority?: string
+          reported_at?: string | null
+          reported_by?: string | null
+          resolution?: string | null
+          satisfaction_score?: number | null
+          schedule_id?: string | null
+          started_at?: string | null
+          status?: string
+          symptom?: string | null
+          title?: string
+          total_cost?: number | null
+          updated_at?: string | null
+          vendor_contact?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_logs_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_logs_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_logs_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_logs_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_logs_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_logs_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_schedules: {
+        Row: {
+          advance_notice_days: number | null
+          assigned_team: Database["public"]["Enums"]["team_type"] | null
+          assigned_to: string | null
+          checklist: Json | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          equipment_id: string | null
+          estimated_cost: number | null
+          estimated_hours: number | null
+          id: string
+          is_active: boolean | null
+          last_completed: string | null
+          lot_id: string
+          next_due_date: string
+          recurrence_rule: Json | null
+          schedule_name: string
+          schedule_type: string
+          updated_at: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          advance_notice_days?: number | null
+          assigned_team?: Database["public"]["Enums"]["team_type"] | null
+          assigned_to?: string | null
+          checklist?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          equipment_id?: string | null
+          estimated_cost?: number | null
+          estimated_hours?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_completed?: string | null
+          lot_id: string
+          next_due_date: string
+          recurrence_rule?: Json | null
+          schedule_name: string
+          schedule_type: string
+          updated_at?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          advance_notice_days?: number | null
+          assigned_team?: Database["public"]["Enums"]["team_type"] | null
+          assigned_to?: string | null
+          checklist?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          equipment_id?: string | null
+          estimated_cost?: number | null
+          estimated_hours?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_completed?: string | null
+          lot_id?: string
+          next_due_date?: string
+          recurrence_rule?: Json | null
+          schedule_name?: string
+          schedule_type?: string
+          updated_at?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_schedules_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_schedules_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_schedules_lot_id_fkey"
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "parking_lots"
@@ -1028,6 +1421,217 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      safety_inspections: {
+        Row: {
+          checklist_results: Json
+          checklist_template: string | null
+          correction_completed: string | null
+          correction_deadline: string | null
+          correction_verified_by: string | null
+          corrective_actions: string | null
+          created_at: string | null
+          created_by: string | null
+          fail_items: number | null
+          follow_up_date: string | null
+          follow_up_required: boolean | null
+          id: string
+          inspection_date: string
+          inspection_number: string
+          inspection_type: string
+          inspector_id: string | null
+          inspector_name: string | null
+          inspector_org: string | null
+          issues_found: string | null
+          lot_id: string
+          na_items: number | null
+          notes: string | null
+          overall_grade: string | null
+          pass_items: number | null
+          photo_paths: Json | null
+          report_path: string | null
+          status: string | null
+          total_items: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          checklist_results: Json
+          checklist_template?: string | null
+          correction_completed?: string | null
+          correction_deadline?: string | null
+          correction_verified_by?: string | null
+          corrective_actions?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          fail_items?: number | null
+          follow_up_date?: string | null
+          follow_up_required?: boolean | null
+          id?: string
+          inspection_date: string
+          inspection_number: string
+          inspection_type: string
+          inspector_id?: string | null
+          inspector_name?: string | null
+          inspector_org?: string | null
+          issues_found?: string | null
+          lot_id: string
+          na_items?: number | null
+          notes?: string | null
+          overall_grade?: string | null
+          pass_items?: number | null
+          photo_paths?: Json | null
+          report_path?: string | null
+          status?: string | null
+          total_items?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          checklist_results?: Json
+          checklist_template?: string | null
+          correction_completed?: string | null
+          correction_deadline?: string | null
+          correction_verified_by?: string | null
+          corrective_actions?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          fail_items?: number | null
+          follow_up_date?: string | null
+          follow_up_required?: boolean | null
+          id?: string
+          inspection_date?: string
+          inspection_number?: string
+          inspection_type?: string
+          inspector_id?: string | null
+          inspector_name?: string | null
+          inspector_org?: string | null
+          issues_found?: string | null
+          lot_id?: string
+          na_items?: number | null
+          notes?: string | null
+          overall_grade?: string | null
+          pass_items?: number | null
+          photo_paths?: Json | null
+          report_path?: string | null
+          status?: string | null
+          total_items?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safety_inspections_correction_verified_by_fkey"
+            columns: ["correction_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "safety_inspections_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "safety_inspections_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "safety_inspections_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      surface_markings: {
+        Row: {
+          color: string | null
+          condition: string | null
+          condition_note: string | null
+          created_at: string | null
+          dimension: string | null
+          estimated_cost: number | null
+          floor: number | null
+          id: string
+          install_date: string | null
+          is_regulatory: boolean | null
+          last_repainted: string | null
+          location_detail: string | null
+          lot_id: string
+          marking_name: string
+          marking_type: string
+          material: string | null
+          next_due: string | null
+          notes: string | null
+          photo_path: string | null
+          quantity: number | null
+          regulation_ref: string | null
+          repaint_cycle_months: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          condition?: string | null
+          condition_note?: string | null
+          created_at?: string | null
+          dimension?: string | null
+          estimated_cost?: number | null
+          floor?: number | null
+          id?: string
+          install_date?: string | null
+          is_regulatory?: boolean | null
+          last_repainted?: string | null
+          location_detail?: string | null
+          lot_id: string
+          marking_name: string
+          marking_type: string
+          material?: string | null
+          next_due?: string | null
+          notes?: string | null
+          photo_path?: string | null
+          quantity?: number | null
+          regulation_ref?: string | null
+          repaint_cycle_months?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          condition?: string | null
+          condition_note?: string | null
+          created_at?: string | null
+          dimension?: string | null
+          estimated_cost?: number | null
+          floor?: number | null
+          id?: string
+          install_date?: string | null
+          is_regulatory?: boolean | null
+          last_repainted?: string | null
+          location_detail?: string | null
+          lot_id?: string
+          marking_name?: string
+          marking_type?: string
+          material?: string | null
+          next_due?: string | null
+          notes?: string | null
+          photo_path?: string | null
+          quantity?: number | null
+          regulation_ref?: string | null
+          repaint_cycle_months?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "surface_markings_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       survey_basic_info: {
         Row: {
