@@ -31,6 +31,10 @@ import RevenueDashboard from "./pages/revenue/RevenueDashboard";
 import RevenueDaily from "./pages/revenue/RevenueDaily";
 import RevenueReconcile from "./pages/revenue/RevenueReconcile";
 import RevenueAnalysis from "./pages/revenue/RevenueAnalysis";
+import BudgetDashboard from "./pages/budget/BudgetDashboard";
+import BudgetPlans from "./pages/budget/BudgetPlans";
+import BudgetExecutions from "./pages/budget/BudgetExecutions";
+import BudgetTransfers from "./pages/budget/BudgetTransfers";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
