@@ -232,6 +232,7 @@ function AppWithSync() {
   }, []);
   return (
     <>
+      <SecurityDiagnosisBanner />
       <AppRoutes />
       <HelpPanel />
       <OnboardingGuide />
