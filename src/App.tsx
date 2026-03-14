@@ -41,6 +41,13 @@ import ProcurementProjectNew from "./pages/procurement/ProcurementProjectNew";
 import ProcurementProjectDetail from "./pages/procurement/ProcurementProjectDetail";
 import ProcurementContracts from "./pages/procurement/ProcurementContracts";
 import ProcurementDocuments from "./pages/procurement/ProcurementDocuments";
+import ServiceDashboard from "./pages/service/ServiceDashboard";
+import ServiceProjects from "./pages/service/ServiceProjects";
+import ServiceProjectNew from "./pages/service/ServiceProjectNew";
+import ServiceProjectDetail from "./pages/service/ServiceProjectDetail";
+import ServiceInspections from "./pages/service/ServiceInspections";
+import ServicePayments from "./pages/service/ServicePayments";
+import ServiceIssues from "./pages/service/ServiceIssues";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -105,6 +112,13 @@ const AppRoutes = () => (
     <Route path="/procurement/projects/:id" element={<ProtectedRoute><ProcurementProjectDetail /></ProtectedRoute>} />
     <Route path="/procurement/contracts" element={<ProtectedRoute><ProcurementContracts /></ProtectedRoute>} />
     <Route path="/procurement/documents" element={<ProtectedRoute><ProcurementDocuments /></ProtectedRoute>} />
+    <Route path="/service" element={<ProtectedRoute><ServiceDashboard /></ProtectedRoute>} />
+    <Route path="/service/projects" element={<ProtectedRoute><ServiceProjects /></ProtectedRoute>} />
+    <Route path="/service/projects/new" element={<ProtectedRoute><ServiceProjectNew /></ProtectedRoute>} />
+    <Route path="/service/projects/:id" element={<ProtectedRoute><ServiceProjectDetail /></ProtectedRoute>} />
+    <Route path="/service/inspections" element={<ProtectedRoute><ServiceInspections /></ProtectedRoute>} />
+    <Route path="/service/payments" element={<ProtectedRoute><ServicePayments /></ProtectedRoute>} />
+    <Route path="/service/issues" element={<ProtectedRoute><ServiceIssues /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

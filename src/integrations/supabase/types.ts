@@ -2833,6 +2833,857 @@ export type Database = {
           },
         ]
       }
+      service_deliverables: {
+        Row: {
+          created_at: string | null
+          deliverable_number: string
+          deliverable_type: string
+          description: string | null
+          file_format: string | null
+          file_path: string | null
+          file_size: number | null
+          format_required: string | null
+          id: string
+          milestone_id: string | null
+          project_id: string
+          required_copies: number | null
+          review_note: string | null
+          review_score: number | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revision_count: number | null
+          revision_deadline: string | null
+          revision_note: string | null
+          sort_order: number | null
+          status: string | null
+          submitted_at: string | null
+          submitted_by: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deliverable_number: string
+          deliverable_type: string
+          description?: string | null
+          file_format?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          format_required?: string | null
+          id?: string
+          milestone_id?: string | null
+          project_id: string
+          required_copies?: number | null
+          review_note?: string | null
+          review_score?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision_count?: number | null
+          revision_deadline?: string | null
+          revision_note?: string | null
+          sort_order?: number | null
+          status?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deliverable_number?: string
+          deliverable_type?: string
+          description?: string | null
+          file_format?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          format_required?: string | null
+          id?: string
+          milestone_id?: string | null
+          project_id?: string
+          required_copies?: number | null
+          review_note?: string | null
+          review_score?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision_count?: number | null
+          revision_deadline?: string | null
+          revision_note?: string | null
+          sort_order?: number | null
+          status?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_deliverables_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "service_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_deliverables_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_payment_summary"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "service_deliverables_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_deliverables_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_inspections: {
+        Row: {
+          approved_amount: number | null
+          approved_at: string | null
+          approved_by: string | null
+          checklist_results: Json | null
+          correction_deadline: string | null
+          correction_items: Json | null
+          correction_submitted_at: string | null
+          correction_verified: boolean | null
+          correction_verified_at: string | null
+          correction_verified_by: string | null
+          created_at: string | null
+          deduction_amount: number | null
+          deduction_reason: string | null
+          deficiency_note: string | null
+          fail_items: number | null
+          id: string
+          inspection_date: string
+          inspection_number: string
+          inspection_seq: number
+          inspection_type: string
+          inspector_id: string
+          inspector_name: string | null
+          milestone_id: string | null
+          notes: string | null
+          pass_items: number | null
+          photos: Json | null
+          project_id: string
+          report_path: string | null
+          result: string | null
+          result_note: string | null
+          status: string | null
+          sub_inspector_id: string | null
+          target_amount: number
+          title: string
+          total_items: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          checklist_results?: Json | null
+          correction_deadline?: string | null
+          correction_items?: Json | null
+          correction_submitted_at?: string | null
+          correction_verified?: boolean | null
+          correction_verified_at?: string | null
+          correction_verified_by?: string | null
+          created_at?: string | null
+          deduction_amount?: number | null
+          deduction_reason?: string | null
+          deficiency_note?: string | null
+          fail_items?: number | null
+          id?: string
+          inspection_date: string
+          inspection_number: string
+          inspection_seq: number
+          inspection_type: string
+          inspector_id: string
+          inspector_name?: string | null
+          milestone_id?: string | null
+          notes?: string | null
+          pass_items?: number | null
+          photos?: Json | null
+          project_id: string
+          report_path?: string | null
+          result?: string | null
+          result_note?: string | null
+          status?: string | null
+          sub_inspector_id?: string | null
+          target_amount: number
+          title: string
+          total_items?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          checklist_results?: Json | null
+          correction_deadline?: string | null
+          correction_items?: Json | null
+          correction_submitted_at?: string | null
+          correction_verified?: boolean | null
+          correction_verified_at?: string | null
+          correction_verified_by?: string | null
+          created_at?: string | null
+          deduction_amount?: number | null
+          deduction_reason?: string | null
+          deficiency_note?: string | null
+          fail_items?: number | null
+          id?: string
+          inspection_date?: string
+          inspection_number?: string
+          inspection_seq?: number
+          inspection_type?: string
+          inspector_id?: string
+          inspector_name?: string | null
+          milestone_id?: string | null
+          notes?: string | null
+          pass_items?: number | null
+          photos?: Json | null
+          project_id?: string
+          report_path?: string | null
+          result?: string | null
+          result_note?: string | null
+          status?: string | null
+          sub_inspector_id?: string | null
+          target_amount?: number
+          title?: string
+          total_items?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_inspections_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_inspections_correction_verified_by_fkey"
+            columns: ["correction_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_inspections_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_inspections_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "service_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_inspections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_payment_summary"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "service_inspections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_inspections_sub_inspector_id_fkey"
+            columns: ["sub_inspector_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_issues: {
+        Row: {
+          approval_document_path: string | null
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
+          assigned_to: string | null
+          attachments: Json | null
+          created_at: string | null
+          description: string
+          id: string
+          impact_amount: number | null
+          impact_days: number | null
+          impact_scope: string | null
+          issue_number: string
+          issue_type: string
+          notes: string | null
+          project_id: string
+          reported_at: string | null
+          reported_by: string | null
+          requires_approval: boolean | null
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          revised_amount: number | null
+          revised_end_date: string | null
+          severity: string
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          approval_document_path?: string | null
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          assigned_to?: string | null
+          attachments?: Json | null
+          created_at?: string | null
+          description: string
+          id?: string
+          impact_amount?: number | null
+          impact_days?: number | null
+          impact_scope?: string | null
+          issue_number: string
+          issue_type: string
+          notes?: string | null
+          project_id: string
+          reported_at?: string | null
+          reported_by?: string | null
+          requires_approval?: boolean | null
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          revised_amount?: number | null
+          revised_end_date?: string | null
+          severity?: string
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          approval_document_path?: string | null
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          assigned_to?: string | null
+          attachments?: Json | null
+          created_at?: string | null
+          description?: string
+          id?: string
+          impact_amount?: number | null
+          impact_days?: number | null
+          impact_scope?: string | null
+          issue_number?: string
+          issue_type?: string
+          notes?: string | null
+          project_id?: string
+          reported_at?: string | null
+          reported_by?: string | null
+          requires_approval?: boolean | null
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          revised_amount?: number | null
+          revised_end_date?: string | null
+          severity?: string
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_issues_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_issues_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_issues_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_payment_summary"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "service_issues_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_issues_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_issues_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_milestones: {
+        Row: {
+          actual_date: string | null
+          created_at: string | null
+          delay_days: number | null
+          deliverables_count: number | null
+          deliverables_expected: string | null
+          deliverables_submitted: number | null
+          description: string | null
+          id: string
+          milestone_number: number
+          milestone_type: string
+          notes: string | null
+          payment_amount: number | null
+          payment_requested: boolean | null
+          project_id: string
+          status: string | null
+          target_date: string
+          title: string
+          updated_at: string | null
+          weight_pct: number | null
+        }
+        Insert: {
+          actual_date?: string | null
+          created_at?: string | null
+          delay_days?: number | null
+          deliverables_count?: number | null
+          deliverables_expected?: string | null
+          deliverables_submitted?: number | null
+          description?: string | null
+          id?: string
+          milestone_number: number
+          milestone_type?: string
+          notes?: string | null
+          payment_amount?: number | null
+          payment_requested?: boolean | null
+          project_id: string
+          status?: string | null
+          target_date: string
+          title: string
+          updated_at?: string | null
+          weight_pct?: number | null
+        }
+        Update: {
+          actual_date?: string | null
+          created_at?: string | null
+          delay_days?: number | null
+          deliverables_count?: number | null
+          deliverables_expected?: string | null
+          deliverables_submitted?: number | null
+          description?: string | null
+          id?: string
+          milestone_number?: number
+          milestone_type?: string
+          notes?: string | null
+          payment_amount?: number | null
+          payment_requested?: boolean | null
+          project_id?: string
+          status?: string | null
+          target_date?: string
+          title?: string
+          updated_at?: string | null
+          weight_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_milestones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_payment_summary"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "service_milestones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_payments: {
+        Row: {
+          advance_deduction: number | null
+          approved_at: string | null
+          approved_by: string | null
+          bank_account: string | null
+          bank_name: string | null
+          budget_execution_id: string | null
+          created_at: string | null
+          created_by: string | null
+          deduction_detail: Json | null
+          delay_days: number | null
+          delay_interest: number | null
+          due_date: string | null
+          gross_amount: number
+          id: string
+          inspection_id: string | null
+          is_delayed: boolean | null
+          net_amount: number | null
+          notes: string | null
+          other_deduction: number | null
+          paid_amount: number | null
+          paid_date: string | null
+          payment_method: string | null
+          payment_number: string
+          payment_seq: number
+          payment_type: string
+          project_id: string
+          receipt_number: string | null
+          reject_reason: string | null
+          request_date: string
+          request_document_path: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          advance_deduction?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          budget_execution_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deduction_detail?: Json | null
+          delay_days?: number | null
+          delay_interest?: number | null
+          due_date?: string | null
+          gross_amount: number
+          id?: string
+          inspection_id?: string | null
+          is_delayed?: boolean | null
+          net_amount?: number | null
+          notes?: string | null
+          other_deduction?: number | null
+          paid_amount?: number | null
+          paid_date?: string | null
+          payment_method?: string | null
+          payment_number: string
+          payment_seq: number
+          payment_type: string
+          project_id: string
+          receipt_number?: string | null
+          reject_reason?: string | null
+          request_date: string
+          request_document_path?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          advance_deduction?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          budget_execution_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deduction_detail?: Json | null
+          delay_days?: number | null
+          delay_interest?: number | null
+          due_date?: string | null
+          gross_amount?: number
+          id?: string
+          inspection_id?: string | null
+          is_delayed?: boolean | null
+          net_amount?: number | null
+          notes?: string | null
+          other_deduction?: number | null
+          paid_amount?: number | null
+          paid_date?: string | null
+          payment_method?: string | null
+          payment_number?: string
+          payment_seq?: number
+          payment_type?: string
+          project_id?: string
+          receipt_number?: string | null
+          reject_reason?: string | null
+          request_date?: string
+          request_document_path?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_payments_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_payments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_payments_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "service_inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_payments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_payment_summary"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "service_payments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_projects: {
+        Row: {
+          actual_end_date: string | null
+          actual_start_date: string | null
+          bid_contract_id: string | null
+          budget_item_id: string | null
+          contract_amount: number
+          contract_date: string | null
+          contractor_address: string | null
+          contractor_business_number: string | null
+          contractor_email: string | null
+          contractor_manager: string | null
+          contractor_manager_phone: string | null
+          contractor_name: string
+          contractor_phone: string | null
+          contractor_representative: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          end_date: string
+          extended_days: number | null
+          extended_end_date: string | null
+          id: string
+          inspector_id: string | null
+          last_progress_update: string | null
+          lot_id: string | null
+          notes: string | null
+          paid_amount: number | null
+          payment_rate: number | null
+          progress_note: string | null
+          progress_pct: number | null
+          project_number: string
+          remaining_amount: number | null
+          scope_of_work: string | null
+          service_category: string | null
+          service_type: string
+          start_date: string
+          status: string
+          status_changed_at: string | null
+          sub_supervisor_id: string | null
+          supervisor_id: string | null
+          suspension_end: string | null
+          suspension_reason: string | null
+          suspension_start: string | null
+          termination_date: string | null
+          termination_reason: string | null
+          title: string
+          total_amount: number
+          updated_at: string | null
+          vat_amount: number | null
+          warranty_bond_amount: number | null
+          warranty_bond_company: string | null
+          warranty_bond_number: string | null
+          warranty_end: string | null
+          warranty_months: number | null
+          warranty_start: string | null
+          work_days: number | null
+        }
+        Insert: {
+          actual_end_date?: string | null
+          actual_start_date?: string | null
+          bid_contract_id?: string | null
+          budget_item_id?: string | null
+          contract_amount: number
+          contract_date?: string | null
+          contractor_address?: string | null
+          contractor_business_number?: string | null
+          contractor_email?: string | null
+          contractor_manager?: string | null
+          contractor_manager_phone?: string | null
+          contractor_name: string
+          contractor_phone?: string | null
+          contractor_representative?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date: string
+          extended_days?: number | null
+          extended_end_date?: string | null
+          id?: string
+          inspector_id?: string | null
+          last_progress_update?: string | null
+          lot_id?: string | null
+          notes?: string | null
+          paid_amount?: number | null
+          payment_rate?: number | null
+          progress_note?: string | null
+          progress_pct?: number | null
+          project_number: string
+          remaining_amount?: number | null
+          scope_of_work?: string | null
+          service_category?: string | null
+          service_type: string
+          start_date: string
+          status?: string
+          status_changed_at?: string | null
+          sub_supervisor_id?: string | null
+          supervisor_id?: string | null
+          suspension_end?: string | null
+          suspension_reason?: string | null
+          suspension_start?: string | null
+          termination_date?: string | null
+          termination_reason?: string | null
+          title: string
+          total_amount: number
+          updated_at?: string | null
+          vat_amount?: number | null
+          warranty_bond_amount?: number | null
+          warranty_bond_company?: string | null
+          warranty_bond_number?: string | null
+          warranty_end?: string | null
+          warranty_months?: number | null
+          warranty_start?: string | null
+          work_days?: number | null
+        }
+        Update: {
+          actual_end_date?: string | null
+          actual_start_date?: string | null
+          bid_contract_id?: string | null
+          budget_item_id?: string | null
+          contract_amount?: number
+          contract_date?: string | null
+          contractor_address?: string | null
+          contractor_business_number?: string | null
+          contractor_email?: string | null
+          contractor_manager?: string | null
+          contractor_manager_phone?: string | null
+          contractor_name?: string
+          contractor_phone?: string | null
+          contractor_representative?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string
+          extended_days?: number | null
+          extended_end_date?: string | null
+          id?: string
+          inspector_id?: string | null
+          last_progress_update?: string | null
+          lot_id?: string | null
+          notes?: string | null
+          paid_amount?: number | null
+          payment_rate?: number | null
+          progress_note?: string | null
+          progress_pct?: number | null
+          project_number?: string
+          remaining_amount?: number | null
+          scope_of_work?: string | null
+          service_category?: string | null
+          service_type?: string
+          start_date?: string
+          status?: string
+          status_changed_at?: string | null
+          sub_supervisor_id?: string | null
+          supervisor_id?: string | null
+          suspension_end?: string | null
+          suspension_reason?: string | null
+          suspension_start?: string | null
+          termination_date?: string | null
+          termination_reason?: string | null
+          title?: string
+          total_amount?: number
+          updated_at?: string | null
+          vat_amount?: number | null
+          warranty_bond_amount?: number | null
+          warranty_bond_company?: string | null
+          warranty_bond_number?: string | null
+          warranty_end?: string | null
+          warranty_months?: number | null
+          warranty_start?: string | null
+          work_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_projects_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_projects_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_projects_sub_supervisor_id_fkey"
+            columns: ["sub_supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_projects_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       surface_markings: {
         Row: {
           color: string | null
@@ -3497,6 +4348,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      service_issue_summary: {
+        Row: {
+          critical_open: number | null
+          open_issues: number | null
+          project_id: string | null
+          total_impact_amount: number | null
+          total_impact_days: number | null
+          total_issues: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_issues_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_payment_summary"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "service_issues_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_payment_summary: {
+        Row: {
+          actual_paid: number | null
+          paid_amount: number | null
+          paid_count: number | null
+          payment_rate: number | null
+          pending_count: number | null
+          project_id: string | null
+          project_number: string | null
+          remaining_amount: number | null
+          title: string | null
+          total_amount: number | null
+          total_delay_interest: number | null
+        }
+        Relationships: []
       }
     }
     Functions: {

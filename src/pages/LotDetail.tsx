@@ -20,6 +20,7 @@ import type { LotType, LotStatus, OperatorType, SurfaceType, PowerStatus } from 
 import { EXECUTION_TYPE_LABELS, BUDGET_STATUS_LABELS } from "@/types/budget";
 import { formatManWon } from "@/types/revenue";
 import { BID_STATUS_LABELS, BID_STATUS_COLORS } from "@/types/procurement";
+import { PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS, SERVICE_TYPE_LABELS, formatServiceAmount } from "@/types/service";
 import { ArrowLeft, Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
@@ -180,6 +181,7 @@ export default function LotDetailPage() {
   const { data: licenses } = useModuleLicenses();
   const budgetActive = (licenses ?? []).some(m => m.module_code === 'BUDGET' && m.is_active);
   const procurementActive = (licenses ?? []).some(m => m.module_code === 'PROCUREMENT' && m.is_active);
+  const serviceActive = (licenses ?? []).some(m => m.module_code === 'SERVICE' && m.is_active);
 
   const { data: bidProjects } = useQuery({
     queryKey: ['lot-bid-projects', id],
@@ -189,6 +191,17 @@ export default function LotDetailPage() {
       return data || [];
     },
     enabled: !!id && procurementActive,
+  });
+
+  const { data: serviceProjects } = useQuery({
+    queryKey: ['lot-service-projects', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('service_projects')
+        .select('id, project_number, title, service_type, contractor_name, start_date, end_date, progress_pct, status')
+        .eq('lot_id', id!).order('created_at', { ascending: false });
+      return data || [];
+    },
+    enabled: !!id && serviceActive,
   });
 
   const { data: lot, isLoading } = useQuery({
@@ -290,6 +303,7 @@ export default function LotDetailPage() {
             <TabsTrigger value="info">기본정보</TabsTrigger>
             {budgetActive && <TabsTrigger value="budget">예산현황</TabsTrigger>}
             {procurementActive && <TabsTrigger value="procurement">입찰/계약</TabsTrigger>}
+            {serviceActive && <TabsTrigger value="service">용역사업</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="info">
@@ -383,6 +397,50 @@ export default function LotDetailPage() {
                       ))}
                       {!bidProjects?.length && (
                         <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-6">관련 입찰 사업 없음</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {serviceActive && (
+            <TabsContent value="service">
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">관련 용역사업</CardTitle></CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>사업번호</TableHead>
+                        <TableHead>사업명</TableHead>
+                        <TableHead>유형</TableHead>
+                        <TableHead>업체</TableHead>
+                        <TableHead>기간</TableHead>
+                        <TableHead>진척률</TableHead>
+                        <TableHead>상태</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {serviceProjects?.map(sp => (
+                        <TableRow key={sp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/service/projects/${sp.id}`)}>
+                          <TableCell className="text-xs font-mono">{sp.project_number}</TableCell>
+                          <TableCell className="text-sm">{sp.title}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-[10px]">{SERVICE_TYPE_LABELS[sp.service_type] || sp.service_type}</Badge></TableCell>
+                          <TableCell className="text-sm">{sp.contractor_name}</TableCell>
+                          <TableCell className="text-xs">{sp.start_date}~{sp.end_date}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Progress value={Number(sp.progress_pct || 0)} className="h-1.5 w-16" />
+                              <span className="text-xs">{Number(sp.progress_pct || 0).toFixed(0)}%</span>
+                            </div>
+                          </TableCell>
+                          <TableCell><Badge variant="outline" className={`text-[10px] ${PROJECT_STATUS_COLORS[sp.status] || ''}`}>{PROJECT_STATUS_LABELS[sp.status] || sp.status}</Badge></TableCell>
+                        </TableRow>
+                      ))}
+                      {!serviceProjects?.length && (
+                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground text-sm py-6">관련 용역사업 없음</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
