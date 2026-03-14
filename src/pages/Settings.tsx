@@ -317,6 +317,9 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
+          {/* Security Management */}
+          <TabsContent value="security" className="mt-4"><SecurityManagement /></TabsContent>
+
           {/* Demo Data (P5-1) */}
           <TabsContent value="demo" className="mt-4">
             <Card>

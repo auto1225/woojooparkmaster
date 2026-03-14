@@ -160,6 +160,14 @@ export default function LoginPage() {
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               로그인
             </Button>
+            <div className="flex items-center justify-between w-full">
+              <Link to="/forgot-password" className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                비밀번호를 잊으셨나요?
+              </Link>
+              <Link to="/privacy" className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                개인정보 처리방침
+              </Link>
+            </div>
             <p className="text-[10px] text-muted-foreground/50 font-mono">우주주차 (WoojooJoocha)</p>
           </CardFooter>
         </form>
