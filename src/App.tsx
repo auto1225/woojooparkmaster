@@ -90,9 +90,19 @@ import ActivityAnalyticsPage from "./pages/settings/ActivityAnalytics";
 import SettingsPage from "./pages/Settings";
 import HelpPage from "./pages/Help";
 import DeliveryChecklist from "./pages/admin/DeliveryChecklist";
+import SecurityReview from "./pages/admin/SecurityReview";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import PrivacyPage from "./pages/Privacy";
+import ForbiddenPage from "./pages/Forbidden";
 import NotFound from "./pages/NotFound";
 import { HelpPanel } from "./components/help/HelpPanel";
 import { OnboardingGuide } from "./components/help/OnboardingGuide";
+import { SecurityDiagnosisBanner } from "./pages/settings/SecurityManagement";
+import { initProductionErrorFilter } from "./lib/error-sanitizer";
+
+// SEC-C-2: 프로덕션 에러 필터링 초기화
+initProductionErrorFilter();
 
 const queryClient = new QueryClient({
   defaultOptions: {
