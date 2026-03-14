@@ -112,6 +112,13 @@ const AppRoutes = () => (
     <Route path="/procurement/projects/:id" element={<ProtectedRoute><ProcurementProjectDetail /></ProtectedRoute>} />
     <Route path="/procurement/contracts" element={<ProtectedRoute><ProcurementContracts /></ProtectedRoute>} />
     <Route path="/procurement/documents" element={<ProtectedRoute><ProcurementDocuments /></ProtectedRoute>} />
+    <Route path="/service" element={<ProtectedRoute><ServiceDashboard /></ProtectedRoute>} />
+    <Route path="/service/projects" element={<ProtectedRoute><ServiceProjects /></ProtectedRoute>} />
+    <Route path="/service/projects/new" element={<ProtectedRoute><ServiceProjectNew /></ProtectedRoute>} />
+    <Route path="/service/projects/:id" element={<ProtectedRoute><ServiceProjectDetail /></ProtectedRoute>} />
+    <Route path="/service/inspections" element={<ProtectedRoute><ServiceInspections /></ProtectedRoute>} />
+    <Route path="/service/payments" element={<ProtectedRoute><ServicePayments /></ProtectedRoute>} />
+    <Route path="/service/issues" element={<ProtectedRoute><ServiceIssues /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
