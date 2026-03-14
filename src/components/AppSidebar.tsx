@@ -405,6 +405,29 @@ export function AppSidebar() {
                 )}
 
                 {realtimeActive && collapsed && renderLink({ title: "실시간 정보", url: "/realtime", icon: Radio })}
+
+                {reportActive && !collapsed && (
+                  <Collapsible open={reportOpen} onOpenChange={setReportOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <FileBarChart className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">보고서/통계</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${reportOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {reportSubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {reportActive && collapsed && renderLink({ title: "보고서/통계", url: "/reports", icon: FileBarChart })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
