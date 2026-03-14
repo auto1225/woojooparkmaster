@@ -256,7 +256,7 @@ export async function createExcelWorkbook(config: ExcelWorkbookConfig): Promise<
       const ps = sheetConfig.pageSetup;
       ws.pageSetup = {
         orientation: ps.orientation,
-        paperSize: ps.paperSize === 'A4' ? 9 : 1,
+        paperSize: ps.paperSize === 'A4' ? 9 as any : 1 as any,
         fitToPage: ps.fitToPage,
         fitToWidth: ps.fitToWidth,
         fitToHeight: ps.fitToHeight || 0,

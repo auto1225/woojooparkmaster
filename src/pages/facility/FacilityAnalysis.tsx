@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Server, CheckCircle, AlertTriangle, Gauge, Wrench, FileSpreadsheet } from "lucide-react";
-import { PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, ScatterChart, Scatter, XAxis, YAxis, ZAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, ScatterChart, Scatter, XAxis, YAxis, ZAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { CompareKPI } from "@/components/common/CompareKPI";
 import { CHART_COLORS, ChartTooltipContent } from "@/lib/chart-config";
 import { useTheme } from "@/hooks/useTheme";
