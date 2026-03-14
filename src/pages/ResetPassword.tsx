@@ -17,9 +17,10 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const validation = validatePassword(password);
+  const checks = validatePassword(password);
+  const allPassed = checks.every(c => c.passed);
   const passwordMatch = password === confirm && password.length > 0;
-  const canSubmit = validation.isValid && passwordMatch;
+  const canSubmit = allPassed && passwordMatch;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
