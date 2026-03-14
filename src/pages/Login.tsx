@@ -52,6 +52,11 @@ export default function LoginPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {isExpired && (
+              <div className="rounded-md bg-destructive/10 text-destructive text-xs p-3 text-center">
+                세션이 만료되었습니다. 다시 로그인해주세요.
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-xs">이메일</Label>
               <Input id="email" type="email" placeholder="admin@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
