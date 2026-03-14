@@ -224,6 +224,7 @@ const AppRoutes = () => (
     <Route path="/help" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
     <Route path="/admin/delivery-checklist" element={<ProtectedRoute><DeliveryChecklist /></ProtectedRoute>} />
     <Route path="/admin/security-review" element={<ProtectedRoute><SecurityReview /></ProtectedRoute>} />
+    <Route path="/settings/security/report" element={<ProtectedRoute><SecurityReport /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
