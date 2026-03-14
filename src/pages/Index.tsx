@@ -7,6 +7,8 @@ import { Building2, Car, LayoutGrid, Activity } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LOT_TYPE_LABELS, LOT_STATUS_LABELS } from "@/types/database";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { KakaoMap, type MapMarker } from "@/components/common/KakaoMap";
+import { useNavigate } from "react-router-dom";
 import type { LotType, LotStatus } from "@/types/database";
 
 const COLORS = ["hsl(211,65%,45%)", "hsl(152,55%,38%)", "hsl(38,92%,50%)", "hsl(280,60%,50%)", "hsl(0,72%,51%)"];
