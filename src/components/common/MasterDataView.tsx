@@ -332,7 +332,7 @@ export function MasterDataView({
       {loading ? (
         <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
       ) : processed.length === 0 ? (
-        <EmptyState message="조회 결과가 없습니다" />
+        <EmptyState icon={Search} title="조회 결과가 없습니다" />
       ) : (
         <div ref={tableRef} className="border rounded-lg overflow-x-auto max-h-[calc(100vh-280px)]" style={{ position: 'relative' }}>
           <table className="w-max min-w-full text-sm border-collapse">
