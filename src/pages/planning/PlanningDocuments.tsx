@@ -43,7 +43,7 @@ export default function PlanningDocuments() {
     queryKey: ["planning-docs", selectedProject],
     queryFn: async () => {
       let query = supabase.from("design_documents").select("*").eq("is_current", true);
-      if (selectedProject) query = query.eq("project_id", selectedProject);
+      if (selectedProject && selectedProject !== "__all__") query = query.eq("project_id", selectedProject);
       const { data, error } = await query.order("category").order("doc_type");
       if (error) throw error;
       return data || [];
