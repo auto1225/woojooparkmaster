@@ -599,3 +599,48 @@ export async function exportToExcelProfessional(options: {
     }],
   });
 }
+
+// ─── 기존 createExcelWorkbook 하위 호환 래퍼 ───
+interface LegacySheetConfig {
+  name: string;
+  type?: 'data' | 'summary';
+  headers: { key: string; label: string; format?: string; width?: number; subTotal?: string }[];
+  data: Record<string, any>[];
+  autoFilter?: boolean;
+  freezePane?: { row: number; col: number };
+  summaryRows?: { type: string; label: string; labelColumn: number; style: string }[];
+  pageSetup?: any;
+}
+
+interface LegacyExcelConfig {
+  fileName: string;
+  orgName: string;
+  title: string;
+  subtitle?: string;
+  sheets: LegacySheetConfig[];
+}
+
+export async function createExcelWorkbook(config: LegacyExcelConfig): Promise<void> {
+  await createProfessionalExcel({
+    fileName: config.fileName,
+    orgName: config.orgName,
+    title: config.title,
+    subtitle: config.subtitle,
+    sheets: config.sheets.map(s => ({
+      name: s.name.slice(0, 31),
+      columns: s.headers.map(h => ({
+        key: h.key,
+        label: h.label,
+        width: h.width ? h.width * 8 : undefined,
+        format: (h.format as ExcelColumnDef['format']) || 'text',
+        aggregation: h.subTotal as ExcelColumnDef['aggregation'] || undefined,
+      })),
+      data: s.data,
+      autoFilter: s.autoFilter,
+      freezePane: s.freezePane ? { row: s.freezePane.row + 5, col: s.freezePane.col } : undefined,
+      totalRow: s.summaryRows?.some(sr => sr.type === 'total')
+        ? { label: s.summaryRows!.find(sr => sr.type === 'total')!.label, labelColIndex: s.summaryRows!.find(sr => sr.type === 'total')!.labelColumn }
+        : undefined,
+    })),
+  });
+}
