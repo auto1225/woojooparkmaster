@@ -30,6 +30,11 @@ export default function RevenueAnalysis() {
   const [dateEnd, setDateEnd] = useState(now.toISOString().split('T')[0]);
   const [aggUnit, setAggUnit] = useState<AggUnit>('monthly');
   const [showPrevYear, setShowPrevYear] = useState(false);
+  const [aiInsight, setAiInsight] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [insightOpen, setInsightOpen] = useState(true);
+  const { data: config } = useSystemConfig();
+  const aiEnabled = config?.ai_enabled === 'true';
 
   const { data: lots } = useQuery({
     queryKey: ['lots-all'],
