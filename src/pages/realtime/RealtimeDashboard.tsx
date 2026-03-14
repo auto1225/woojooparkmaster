@@ -112,10 +112,10 @@ export default function RealtimeDashboard() {
 
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KpiCard title="전체 주차면" value={totalSpaces.toLocaleString()} icon={Car} iconColor="text-blue-600" iconBg="bg-blue-50" />
-          <KpiCard title="현재 점유" value={totalOccupied.toLocaleString()} icon={ParkingCircle} iconColor="text-orange-600" iconBg="bg-orange-50" />
-          <KpiCard title="잔여 면수" value={totalAvailable.toLocaleString()} icon={CircleCheck} iconColor="text-emerald-600" iconBg="bg-emerald-50" />
-          <KpiCard title="만차 주차장" value={`${fullCount}개소`} icon={XCircle} iconColor="text-red-600" iconBg="bg-red-50" />
+          <KpiCard label="전체 주차면" value={totalSpaces.toLocaleString()} icon={Car} />
+          <KpiCard label="현재 점유" value={totalOccupied.toLocaleString()} icon={ParkingCircle} />
+          <KpiCard label="잔여 면수" value={totalAvailable.toLocaleString()} icon={CircleCheck} />
+          <KpiCard label="만차 주차장" value={`${fullCount}개소`} icon={XCircle} />
         </div>
 
         {/* Filters */}

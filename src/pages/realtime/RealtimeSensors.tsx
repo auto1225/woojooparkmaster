@@ -126,11 +126,11 @@ export default function RealtimeSensors() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <KpiCard title="전체 센서" value={totalCount} icon={Cpu} iconColor="text-blue-600" iconBg="bg-blue-50" />
-          <KpiCard title="정상 가동" value={activeCount} icon={CheckCircle} iconColor="text-emerald-600" iconBg="bg-emerald-50" />
-          <KpiCard title="오프라인" value={offlineCount} icon={WifiOff} iconColor="text-red-600" iconBg="bg-red-50" />
-          <KpiCard title="배터리 부족" value={lowBatteryCount} icon={BatteryLow} iconColor="text-orange-600" iconBg="bg-orange-50" />
-          <KpiCard title="오류" value={errorCount} icon={AlertTriangle} iconColor="text-red-600" iconBg="bg-red-50" />
+          <KpiCard label="전체 센서" value={String(totalCount)} icon={Cpu} />
+          <KpiCard label="정상 가동" value={String(activeCount)} icon={CheckCircle} />
+          <KpiCard label="오프라인" value={String(offlineCount)} icon={WifiOff} />
+          <KpiCard label="배터리 부족" value={String(lowBatteryCount)} icon={BatteryLow} />
+          <KpiCard label="오류" value={String(errorCount)} icon={AlertTriangle} />
         </div>
 
         <div className="flex gap-2 flex-wrap">

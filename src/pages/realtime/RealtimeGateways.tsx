@@ -104,9 +104,9 @@ export default function RealtimeGateways() {
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <KpiCard title="전체 게이트웨이" value={totalCount} icon={Server} iconColor="text-blue-600" iconBg="bg-blue-50" />
-          <KpiCard title="온라인" value={onlineCount} icon={Wifi} iconColor="text-emerald-600" iconBg="bg-emerald-50" />
-          <KpiCard title="오프라인" value={offlineCount} icon={WifiOff} iconColor="text-red-600" iconBg="bg-red-50" />
+          <KpiCard label="전체 게이트웨이" value={String(totalCount)} icon={Server} />
+          <KpiCard label="온라인" value={String(onlineCount)} icon={Wifi} />
+          <KpiCard label="오프라인" value={String(offlineCount)} icon={WifiOff} />
         </div>
 
         {isLoading ? (
