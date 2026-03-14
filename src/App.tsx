@@ -13,6 +13,14 @@ import SurveysPage from "./pages/Surveys";
 import SurveyWizardPage from "./pages/SurveyWizard";
 import SurveyReviewPage from "./pages/SurveyReview";
 import SurveyProgressPage from "./pages/SurveyProgress";
+import OpsDashboardPage from "./pages/ops/OpsDashboard";
+import OpsStaffPage from "./pages/ops/OpsStaff";
+import OpsContractsPage from "./pages/ops/OpsContracts";
+import OpsFeesPage from "./pages/ops/OpsFees";
+import OpsExemptionsPage from "./pages/ops/OpsExemptions";
+import OpsPassesPage from "./pages/ops/OpsPasses";
+import OpsEnforcementPage from "./pages/ops/OpsEnforcement";
+import OpsFreeHoursPage from "./pages/ops/OpsFreeHours";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +56,14 @@ const AppRoutes = () => (
     <Route path="/surveys/progress" element={<ProtectedRoute><SurveyProgressPage /></ProtectedRoute>} />
     <Route path="/surveys/:id" element={<ProtectedRoute><SurveyWizardPage /></ProtectedRoute>} />
     <Route path="/surveys/:id/review" element={<ProtectedRoute><SurveyReviewPage /></ProtectedRoute>} />
+    <Route path="/ops" element={<ProtectedRoute><OpsDashboardPage /></ProtectedRoute>} />
+    <Route path="/ops/staff" element={<ProtectedRoute><OpsStaffPage /></ProtectedRoute>} />
+    <Route path="/ops/contracts" element={<ProtectedRoute><OpsContractsPage /></ProtectedRoute>} />
+    <Route path="/ops/fees" element={<ProtectedRoute><OpsFeesPage /></ProtectedRoute>} />
+    <Route path="/ops/exemptions" element={<ProtectedRoute><OpsExemptionsPage /></ProtectedRoute>} />
+    <Route path="/ops/passes" element={<ProtectedRoute><OpsPassesPage /></ProtectedRoute>} />
+    <Route path="/ops/enforcement" element={<ProtectedRoute><OpsEnforcementPage /></ProtectedRoute>} />
+    <Route path="/ops/free-hours" element={<ProtectedRoute><OpsFreeHoursPage /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

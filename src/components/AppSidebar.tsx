@@ -1,31 +1,33 @@
-import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarHeader,
-  SidebarFooter,
-  useSidebar,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const coreMenuItems = [
   { title: "대시보드", url: "/", icon: LayoutDashboard, end: true },
   { title: "주차장 관리", url: "/lots", icon: Car },
 ];
 
-const moduleMenuMap: Record<string, { title: string; url: string; icon: any }> = {
+const opsSubMenu = [
+  { title: "운영 현황", url: "/ops", icon: BarChart3, end: true },
+  { title: "인력 관리", url: "/ops/staff", icon: UserCheck },
+  { title: "위탁 계약", url: "/ops/contracts", icon: FileText },
+  { title: "요금 정책", url: "/ops/fees", icon: DollarSign },
+  { title: "감면 관리", url: "/ops/exemptions", icon: Scale },
+  { title: "월정기권", url: "/ops/passes", icon: CreditCard },
+  { title: "단속 기록", url: "/ops/enforcement", icon: Shield },
+  { title: "무료개방", url: "/ops/free-hours", icon: Clock },
+];
+
+const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
-  OPS: { title: "운영관리", url: "/ops", icon: Building2 },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
   REVENUE: { title: "수입관리", url: "/revenue", icon: DollarSign },
   BUDGET: { title: "예산관리", url: "/budget", icon: BarChart3 },
@@ -42,13 +44,25 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { profile } = useAuth();
   const { data: licenses } = useModuleLicenses();
+  const [opsOpen, setOpsOpen] = useState(true);
 
-  const activeModules = (licenses ?? [])
-    .filter((m) => m.is_active && m.module_code !== "CORE")
-    .map((m) => moduleMenuMap[m.module_code])
-    .filter(Boolean);
-
+  const activeModules = (licenses ?? []).filter((m) => m.is_active && m.module_code !== "CORE" && m.module_code !== "OPS");
+  const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
+  const simpleModules = activeModules.map((m) => simpleModuleMap[m.module_code]).filter(Boolean);
   const isAdmin = profile?.role === "admin";
+
+  const renderLink = (item: { title: string; url: string; icon: any; end?: boolean }) => (
+    <SidebarMenuItem key={item.title}>
+      <SidebarMenuButton asChild>
+        <NavLink to={item.url} end={item.end}
+          className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md"
+          activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium">
+          <item.icon className="mr-2 h-4 w-4 shrink-0" />
+          {!collapsed && <span className="text-sm">{item.title}</span>}
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -68,51 +82,39 @@ export function AppSidebar() {
 
       <SidebarContent className="px-2 pt-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.1em] text-sidebar-foreground/40 px-2">
-            메인
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {coreMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.end}
-                      className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md"
-                      activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                    >
-                      <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                      {!collapsed && <span className="text-sm">{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
+          <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.1em] text-sidebar-foreground/40 px-2">메인</SidebarGroupLabel>
+          <SidebarGroupContent><SidebarMenu>{coreMenuItems.map(renderLink)}</SidebarMenu></SidebarGroupContent>
         </SidebarGroup>
 
-        {activeModules.length > 0 && (
+        {(simpleModules.length > 0 || opsActive) && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.1em] text-sidebar-foreground/40 px-2">
-              모듈
-            </SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.1em] text-sidebar-foreground/40 px-2">모듈</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {activeModules.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.url}
-                        className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md"
-                        activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                      >
-                        <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                        {!collapsed && <span className="text-sm">{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {simpleModules.map(renderLink)}
+
+                {opsActive && !collapsed && (
+                  <Collapsible open={opsOpen} onOpenChange={setOpsOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <Building2 className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">운영관리</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${opsOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {opsSubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {opsActive && collapsed && renderLink({ title: "운영관리", url: "/ops", icon: Building2 })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -120,24 +122,9 @@ export function AppSidebar() {
 
         {isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.1em] text-sidebar-foreground/40 px-2">
-              시스템
-            </SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.1em] text-sidebar-foreground/40 px-2">시스템</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to="/settings"
-                      className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md"
-                      activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                    >
-                      <Settings className="mr-2 h-4 w-4 shrink-0" />
-                      {!collapsed && <span className="text-sm">시스템 설정</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
+              <SidebarMenu>{renderLink({ title: "시스템 설정", url: "/settings", icon: Settings })}</SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
@@ -155,12 +142,7 @@ export function AppSidebar() {
             </div>
           </div>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={toggleSidebar}
-          className="w-full justify-center text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-        >
+        <Button variant="ghost" size="sm" onClick={toggleSidebar} className="w-full justify-center text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent">
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </SidebarFooter>
