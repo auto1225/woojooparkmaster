@@ -35,6 +35,13 @@ const facilitySubMenu = [
   { title: "노면표시", url: "/facility/markings", icon: PaintBucket },
 ];
 
+const revenueSubMenu = [
+  { title: "수입 현황", url: "/revenue", icon: Banknote, end: true },
+  { title: "일별 수입", url: "/revenue/daily", icon: Calculator },
+  { title: "위탁 대사", url: "/revenue/reconcile", icon: FileSearch },
+  { title: "수입 분석", url: "/revenue/analysis", icon: LineChart },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
