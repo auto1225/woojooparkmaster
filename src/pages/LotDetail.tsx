@@ -219,6 +219,42 @@ export default function LotDetailPage() {
     enabled: !!id && complaintActive,
   });
 
+  const { data: realtimeStatus } = useQuery({
+    queryKey: ['lot-realtime-status', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('lot_realtime_status').select('*').eq('lot_id', id!).maybeSingle();
+      return data;
+    },
+    enabled: !!id && realtimeActive,
+  });
+
+  const { data: lotSensors } = useQuery({
+    queryKey: ['lot-sensors-count', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('sensor_devices').select('id, status').eq('lot_id', id!);
+      return data || [];
+    },
+    enabled: !!id && realtimeActive,
+  });
+
+  const { data: lotGateways } = useQuery({
+    queryKey: ['lot-gateways-count', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('gateway_devices').select('id, status').eq('lot_id', id!);
+      return data || [];
+    },
+    enabled: !!id && realtimeActive,
+  });
+
+  const { data: lotDisplays } = useQuery({
+    queryKey: ['lot-displays-count', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('display_boards').select('id, status').eq('lot_id', id!);
+      return data || [];
+    },
+    enabled: !!id && realtimeActive,
+  });
+
   const { data: lot, isLoading } = useQuery({
     queryKey: ["lot", id],
     queryFn: async () => {
