@@ -67,13 +67,13 @@ export default function FacilityDashboard() {
         <h1 className="text-2xl font-bold text-foreground">시설 현황</h1>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <KpiCard title="총 장비 수" value={active.length} icon={Building2} variant="blue" />
-          <KpiCard title="정상 가동" value={normal} icon={CheckCircle} variant="green" />
-          <KpiCard title="점검 필요" value={warning} icon={AlertTriangle} variant="yellow" />
+          <KpiCard label="총 장비 수" value={String(active.length)} icon={Building2} />
+          <KpiCard label="정상 가동" value={String(normal)} icon={CheckCircle} />
+          <KpiCard label="점검 필요" value={String(warning)} icon={AlertTriangle} />
           <div className="cursor-pointer" onClick={() => navigate('/facility/maintenance?filter=active')}>
-            <KpiCard title="고장/수리중" value={brokenMaint} icon={XCircle} variant="red" />
+            <KpiCard label="고장/수리중" value={String(brokenMaint)} icon={XCircle} />
           </div>
-          <KpiCard title="미완료 유지보수" value={pendingCount} icon={Wrench} variant="orange" />
+          <KpiCard label="미완료 유지보수" value={String(pendingCount)} icon={Wrench} />
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
