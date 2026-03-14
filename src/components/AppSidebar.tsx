@@ -78,11 +78,13 @@ export function AppSidebar() {
   const [facilityOpen, setFacilityOpen] = useState(true);
   const [revenueOpen, setRevenueOpen] = useState(true);
   const [budgetOpen, setBudgetOpen] = useState(true);
-  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET"].includes(m.module_code));
+  const [procurementOpen, setProcurementOpen] = useState(true);
+  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT"].includes(m.module_code));
   const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
   const facilityActive = (licenses ?? []).some((m) => m.module_code === "FACILITY" && m.is_active);
   const revenueActive = (licenses ?? []).some((m) => m.module_code === "REVENUE" && m.is_active);
   const budgetActive = (licenses ?? []).some((m) => m.module_code === "BUDGET" && m.is_active);
+  const procurementActive = (licenses ?? []).some((m) => m.module_code === "PROCUREMENT" && m.is_active);
   const simpleModules = activeModules.map((m) => simpleModuleMap[m.module_code]).filter(Boolean);
   const isAdmin = profile?.role === "admin";
 
