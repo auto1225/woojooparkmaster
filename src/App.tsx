@@ -102,9 +102,15 @@ import { HelpPanel } from "./components/help/HelpPanel";
 import { OnboardingGuide } from "./components/help/OnboardingGuide";
 import { SecurityDiagnosisBanner } from "./pages/settings/SecurityManagement";
 import { initProductionErrorFilter } from "./lib/error-sanitizer";
+import { runSecurityChecks } from "./lib/security-check";
+import { initTokenSecurity } from "./lib/token-security";
 
 // SEC-C-2: 프로덕션 에러 필터링 초기화
 initProductionErrorFilter();
+// SEC-WEB-5: 프론트엔드 보안 체크
+runSecurityChecks();
+// SEC-WEB-4: 토큰 보안 초기화
+initTokenSecurity();
 
 const queryClient = new QueryClient({
   defaultOptions: {
