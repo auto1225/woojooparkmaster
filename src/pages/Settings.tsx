@@ -120,6 +120,7 @@ export default function SettingsPage() {
             <TabsTrigger value="approval"><GitBranch className="h-3 w-3 mr-1" />결재선</TabsTrigger>
             <TabsTrigger value="system"><Info className="h-3 w-3 mr-1" />시스템 정보</TabsTrigger>
             <TabsTrigger value="backup"><HardDrive className="h-3 w-3 mr-1" />백업</TabsTrigger>
+            <TabsTrigger value="security"><Lock className="h-3 w-3 mr-1" />보안 관리</TabsTrigger>
             <TabsTrigger value="demo"><Database className="h-3 w-3 mr-1" />데모 데이터</TabsTrigger>
           </TabsList>
 
