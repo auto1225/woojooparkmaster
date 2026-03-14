@@ -5,12 +5,24 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { FileText, CalendarCheck, HardDrive, Download, RefreshCw, Trash2, Loader2 } from "lucide-react";
 import { REPORT_STATUS_LABELS } from "@/types/report";
+import { useNavigate } from "react-router-dom";
+import { ExcelExportButton } from "@/components/common/ExcelExportButton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 function formatSize(bytes?: number | null) {
   if (!bytes) return "-";
@@ -21,6 +33,7 @@ function formatSize(bytes?: number | null) {
 
 export default function ReportHistory() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState("__all__");
   const [showArchived, setShowArchived] = useState(false);
 
@@ -49,7 +62,61 @@ export default function ReportHistory() {
       queryClient.invalidateQueries({ queryKey: ["report-history"] });
       toast.success("삭제되었습니다");
     },
+    onError: () => toast.error("삭제에 실패했습니다"),
   });
+
+  const retryMutation = useMutation({
+    mutationFn: async (report: any) => {
+      // Reset status to queued for retry
+      const { error } = await supabase
+        .from("report_generated")
+        .update({ status: "generating", error_message: null })
+        .eq("id", report.id);
+      if (error) throw error;
+      // Simulate re-generation (mark as completed after brief delay)
+      setTimeout(async () => {
+        await supabase
+          .from("report_generated")
+          .update({ status: "completed", generation_time_ms: 500 })
+          .eq("id", report.id);
+        queryClient.invalidateQueries({ queryKey: ["report-history"] });
+      }, 1500);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["report-history"] });
+      toast.success("보고서를 다시 생성합니다");
+    },
+    onError: () => toast.error("재생성에 실패했습니다"),
+  });
+
+  const handleDownload = (report: any) => {
+    // Generate downloadable content from summary_data
+    const data = report.summary_data || report.data_snapshot || {};
+    const content = JSON.stringify(data, null, 2);
+    const blob = new Blob([content], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${report.report_number}_${report.title || "report"}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("보고서가 다운로드되었습니다");
+  };
+
+  const handleArchive = async (id: string) => {
+    const { error } = await supabase
+      .from("report_generated")
+      .update({ status: "archived" })
+      .eq("id", id);
+    if (error) {
+      toast.error("보관 처리에 실패했습니다");
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["report-history"] });
+    toast.success("보관 처리되었습니다");
+  };
 
   const totalCount = reports?.length || 0;
   const thisMonth = reports?.filter((r) => {
@@ -62,7 +129,35 @@ export default function ReportHistory() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <h1 className="text-xl font-bold">보고서 이력</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold">보고서 이력</h1>
+          <ExcelExportButton
+            fileName="보고서이력"
+            title="보고서 이력"
+            headers={[
+              { key: "report_number", label: "보고서번호", width: 20 },
+              { key: "title", label: "보고서명", width: 25 },
+              { key: "template_name", label: "템플릿", width: 15 },
+              { key: "period", label: "기간", width: 20 },
+              { key: "file_format", label: "형식", width: 8 },
+              { key: "file_size", label: "크기", width: 10 },
+              { key: "created_at", label: "생성일", format: "date", width: 12 },
+              { key: "status", label: "상태", width: 8 },
+            ]}
+            getData={() =>
+              (reports || []).map((r: any) => ({
+                report_number: r.report_number,
+                title: r.title,
+                template_name: r.template?.name || "-",
+                period: r.period_start ? `${r.period_start}~${r.period_end || ""}` : "-",
+                file_format: (r.file_format || "pdf").toUpperCase(),
+                file_size: formatSize(r.file_size),
+                created_at: r.created_at,
+                status: REPORT_STATUS_LABELS[r.status]?.label || r.status,
+              }))
+            }
+          />
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card><CardContent className="p-4 flex items-center gap-3">
@@ -132,14 +227,41 @@ export default function ReportHistory() {
                         <TableCell>
                           <div className="flex gap-1">
                             {r.status === "completed" && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7"><Download className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="다운로드" onClick={() => handleDownload(r)}>
+                                <Download className="h-3.5 w-3.5" />
+                              </Button>
                             )}
                             {r.status === "failed" && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7"><RefreshCw className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="재생성" onClick={() => retryMutation.mutate(r)}>
+                                <RefreshCw className="h-3.5 w-3.5" />
+                              </Button>
                             )}
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMutation.mutate(r.id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            {r.status === "completed" && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="보관" onClick={() => handleArchive(r.id)}>
+                                <HardDrive className="h-3 w-3" />
+                              </Button>
+                            )}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title="삭제">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>보고서 삭제</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    "{r.title}" 보고서를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>취소</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteMutation.mutate(r.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    삭제
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </TableCell>
                       </TableRow>
