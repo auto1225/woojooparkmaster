@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useLayoutEffect } from "react";
 import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -77,26 +77,33 @@ const simpleModuleMap: Record<string, { title: string; url: string; icon: any }>
   REPORT: { title: "보고서/통계", url: "/report", icon: BarChart3 },
 };
 
+let sidebarScrollTop = 0;
+
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
   const { profile } = useAuth();
   const { data: licenses } = useModuleLicenses();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollTopRef = useRef(0);
 
   const handleScroll = useCallback(() => {
     if (scrollRef.current) {
-      scrollTopRef.current = scrollRef.current.scrollTop;
+      sidebarScrollTop = scrollRef.current.scrollTop;
     }
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollRef.current;
-    if (el) {
-      el.scrollTop = scrollTopRef.current;
-    }
-  });
+    if (!el) return;
+
+    const restore = () => {
+      el.scrollTop = sidebarScrollTop;
+    };
+
+    restore();
+    const raf = requestAnimationFrame(restore);
+    return () => cancelAnimationFrame(raf);
+  }, []);
   const [opsOpen, setOpsOpen] = useState(true);
   const [facilityOpen, setFacilityOpen] = useState(true);
   const [revenueOpen, setRevenueOpen] = useState(true);
