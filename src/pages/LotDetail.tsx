@@ -183,6 +183,7 @@ export default function LotDetailPage() {
   const budgetActive = (licenses ?? []).some(m => m.module_code === 'BUDGET' && m.is_active);
   const procurementActive = (licenses ?? []).some(m => m.module_code === 'PROCUREMENT' && m.is_active);
   const serviceActive = (licenses ?? []).some(m => m.module_code === 'SERVICE' && m.is_active);
+  const complaintActive = (licenses ?? []).some(m => m.module_code === 'COMPLAINT' && m.is_active);
 
   const { data: bidProjects } = useQuery({
     queryKey: ['lot-bid-projects', id],
