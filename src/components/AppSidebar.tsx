@@ -78,6 +78,14 @@ const planningSubMenu = [
   { title: "인허가", url: "/planning/permits", icon: ScrollText },
 ];
 
+const realtimeSubMenu = [
+  { title: "실시간 현황", url: "/realtime", icon: Radio, end: true },
+  { title: "센서 모니터링", url: "/realtime/sensors", icon: Cpu },
+  { title: "게이트웨이", url: "/realtime/gateways", icon: Server },
+  { title: "전광판 관리", url: "/realtime/displays", icon: Monitor },
+  { title: "API 관리", url: "/realtime/api", icon: Key },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
