@@ -93,7 +93,7 @@ export default function ComplaintNew() {
         complainant_address: form.is_anonymous ? null : form.complainant_address || null,
         is_anonymous: form.is_anonymous,
         lot_id: form.lot_id || null,
-        assigned_team: form.assigned_team || null,
+        assigned_team: (form.assigned_team || null) as any,
         assigned_to: form.assigned_to || null,
         assigned_at: form.assigned_to ? new Date().toISOString() : null,
         saeol_ref: form.saeol_ref || null,
