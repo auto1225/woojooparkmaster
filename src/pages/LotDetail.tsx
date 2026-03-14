@@ -355,6 +355,41 @@ export default function LotDetailPage() {
               <BudgetTab lotId={lot.id} />
             </TabsContent>
           )}
+
+          {procurementActive && (
+            <TabsContent value="procurement">
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">관련 입찰 사업</CardTitle></CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>입찰번호</TableHead>
+                        <TableHead>사업명</TableHead>
+                        <TableHead>상태</TableHead>
+                        <TableHead className="text-right">설계금액</TableHead>
+                        <TableHead>낙찰업체</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {bidProjects?.map(bp => (
+                        <TableRow key={bp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/procurement/projects/${bp.id}`)}>
+                          <TableCell className="text-sm font-mono">{bp.bid_number}</TableCell>
+                          <TableCell className="text-sm">{bp.title}</TableCell>
+                          <TableCell><Badge variant="outline" className={`text-xs ${BID_STATUS_COLORS[bp.status] || ''}`}>{BID_STATUS_LABELS[bp.status] || bp.status}</Badge></TableCell>
+                          <TableCell className="text-right text-sm">{bp.estimated_amount ? formatManWon(bp.estimated_amount) : '-'}</TableCell>
+                          <TableCell className="text-sm">{bp.successful_bidder || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                      {!bidProjects?.length && (
+                        <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-6">관련 입찰 사업 없음</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </DashboardLayout>
