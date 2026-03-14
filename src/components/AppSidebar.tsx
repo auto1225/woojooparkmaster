@@ -142,7 +142,8 @@ export function AppSidebar() {
   const [complaintOpen, setComplaintOpen] = useState(true);
   const [planningOpen, setPlanningOpen] = useState(true);
   const [realtimeOpen, setRealtimeOpen] = useState(true);
-  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT", "PLANNING", "REALTIME"].includes(m.module_code));
+  const [reportOpen, setReportOpen] = useState(true);
+  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT", "PLANNING", "REALTIME", "REPORT"].includes(m.module_code));
   const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
   const facilityActive = (licenses ?? []).some((m) => m.module_code === "FACILITY" && m.is_active);
   const revenueActive = (licenses ?? []).some((m) => m.module_code === "REVENUE" && m.is_active);
@@ -152,6 +153,7 @@ export function AppSidebar() {
   const complaintActive = (licenses ?? []).some((m) => m.module_code === "COMPLAINT" && m.is_active);
   const planningActive = (licenses ?? []).some((m) => m.module_code === "PLANNING" && m.is_active);
   const realtimeActive = (licenses ?? []).some((m) => m.module_code === "REALTIME" && m.is_active);
+  const reportActive = (licenses ?? []).some((m) => m.module_code === "REPORT" && m.is_active);
   const simpleModules = activeModules.map((m) => simpleModuleMap[m.module_code]).filter(Boolean);
   const isAdmin = profile?.role === "admin";
 
