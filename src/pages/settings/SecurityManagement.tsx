@@ -568,7 +568,7 @@ export default function SecurityManagement() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-sm flex items-center gap-2"><FileShield className="h-4 w-4" />파일 업로드 보안</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm flex items-center gap-2"><File className="h-4 w-4" />파일 업로드 보안</CardTitle></CardHeader>
             <CardContent className="text-xs space-y-2">
               <div className="grid grid-cols-2 gap-3">
                 {[
