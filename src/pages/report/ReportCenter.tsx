@@ -215,10 +215,23 @@ export default function ReportCenter() {
                       <div className="flex items-center gap-2">
                         <Badge className={`text-[10px] ${st.color}`}>{st.label}</Badge>
                         {r.status === "completed" && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7"><Download className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="다운로드" onClick={() => {
+                            const data = r.summary_data || r.data_snapshot || {};
+                            const content = JSON.stringify(data, null, 2);
+                            const blob = new Blob([content], { type: "application/json" });
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement("a");
+                            link.href = url;
+                            link.download = `${r.report_number}_${r.title || "report"}.json`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                            toast.success("보고서가 다운로드되었습니다");
+                          }}><Download className="h-3.5 w-3.5" /></Button>
                         )}
                         {r.status === "failed" && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7"><RefreshCw className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="재생성" onClick={() => navigate(`/reports/generate?template=${r.template?.template_code}`)}><RefreshCw className="h-3.5 w-3.5" /></Button>
                         )}
                         {r.status === "generating" && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
                       </div>
