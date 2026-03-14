@@ -9,17 +9,17 @@ import { useNavigate } from "react-router-dom";
 import { ClipboardCheck, Wrench, DollarSign, BarChart3, FileText, Users, MapPin, Radio, Megaphone, Gavel, Briefcase, Lock, LayoutGrid } from "lucide-react";
 
 const MODULES = [
-  { code: 'SURVEY', label: '현황조사', icon: ClipboardCheck, url: '/surveys/master', countKey: 'surveys' },
-  { code: 'OPS', label: '운영관리', icon: Users, url: '/ops/master', countKey: 'ops' },
-  { code: 'FACILITY', label: '시설관리', icon: Wrench, url: '/facility/master', countKey: 'facility' },
-  { code: 'REVENUE', label: '수입관리', icon: DollarSign, url: '/revenue/master', countKey: 'revenue' },
-  { code: 'BUDGET', label: '예산관리', icon: BarChart3, url: '/budget/master', countKey: 'budget' },
-  { code: 'PROCUREMENT', label: '입찰관리', icon: Gavel, url: '/procurement/master', countKey: 'procurement' },
-  { code: 'SERVICE', label: '용역사업', icon: Briefcase, url: '/service/master', countKey: 'service' },
-  { code: 'COMPLAINT', label: '민원관리', icon: Megaphone, url: '/complaints/master', countKey: 'complaint' },
-  { code: 'PLANNING', label: '신설기획', icon: MapPin, url: '/planning/master', countKey: 'planning' },
-  { code: 'REALTIME', label: '실시간정보', icon: Radio, url: '/realtime/master', countKey: 'realtime' },
-  { code: 'REPORT', label: '보고서', icon: FileText, url: '/reports/master', countKey: 'report' },
+  { code: 'SURVEY', label: '현황조사', icon: ClipboardCheck, url: '/master/surveys', countKey: 'surveys' },
+  { code: 'OPS', label: '운영관리', icon: Users, url: '/master/ops', countKey: 'ops' },
+  { code: 'FACILITY', label: '시설관리', icon: Wrench, url: '/master/facility', countKey: 'facility' },
+  { code: 'REVENUE', label: '수입관리', icon: DollarSign, url: '/master/revenue', countKey: 'revenue' },
+  { code: 'BUDGET', label: '예산관리', icon: BarChart3, url: '/master/budget', countKey: 'budget' },
+  { code: 'PROCUREMENT', label: '입찰관리', icon: Gavel, url: '/master/procurement', countKey: 'procurement' },
+  { code: 'SERVICE', label: '용역사업', icon: Briefcase, url: '/master/service', countKey: 'service' },
+  { code: 'COMPLAINT', label: '민원관리', icon: Megaphone, url: '/master/complaints', countKey: 'complaint' },
+  { code: 'PLANNING', label: '신설기획', icon: MapPin, url: '/master/planning', countKey: 'planning' },
+  { code: 'REALTIME', label: '실시간정보', icon: Radio, url: '/master/realtime', countKey: 'realtime' },
+  { code: 'REPORT', label: '보고서', icon: FileText, url: '/master/reports', countKey: 'report' },
 ];
 
 export default function MasterHub() {
