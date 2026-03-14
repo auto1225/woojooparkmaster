@@ -22,6 +22,7 @@ import { formatManWon } from "@/types/revenue";
 import { BID_STATUS_LABELS, BID_STATUS_COLORS } from "@/types/procurement";
 import { CATEGORY_LABELS, COMPLAINT_STATUS_LABELS, COMPLAINT_STATUS_COLORS } from "@/types/complaint";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS, SERVICE_TYPE_LABELS, formatServiceAmount } from "@/types/service";
+import { CONGESTION_LABELS, CONGESTION_COLORS, CONGESTION_BG } from "@/types/realtime";
 import { ArrowLeft, Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
@@ -184,6 +185,7 @@ export default function LotDetailPage() {
   const procurementActive = (licenses ?? []).some(m => m.module_code === 'PROCUREMENT' && m.is_active);
   const serviceActive = (licenses ?? []).some(m => m.module_code === 'SERVICE' && m.is_active);
   const complaintActive = (licenses ?? []).some(m => m.module_code === 'COMPLAINT' && m.is_active);
+  const realtimeActive = (licenses ?? []).some(m => m.module_code === 'REALTIME' && m.is_active);
 
   const { data: bidProjects } = useQuery({
     queryKey: ['lot-bid-projects', id],
@@ -215,6 +217,42 @@ export default function LotDetailPage() {
       return data || [];
     },
     enabled: !!id && complaintActive,
+  });
+
+  const { data: realtimeStatus } = useQuery({
+    queryKey: ['lot-realtime-status', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('lot_realtime_status').select('*').eq('lot_id', id!).maybeSingle();
+      return data;
+    },
+    enabled: !!id && realtimeActive,
+  });
+
+  const { data: lotSensors } = useQuery({
+    queryKey: ['lot-sensors-count', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('sensor_devices').select('id, status').eq('lot_id', id!);
+      return data || [];
+    },
+    enabled: !!id && realtimeActive,
+  });
+
+  const { data: lotGateways } = useQuery({
+    queryKey: ['lot-gateways-count', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('gateway_devices').select('id, status').eq('lot_id', id!);
+      return data || [];
+    },
+    enabled: !!id && realtimeActive,
+  });
+
+  const { data: lotDisplays } = useQuery({
+    queryKey: ['lot-displays-count', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('display_boards').select('id, status').eq('lot_id', id!);
+      return data || [];
+    },
+    enabled: !!id && realtimeActive,
   });
 
   const { data: lot, isLoading } = useQuery({
@@ -318,6 +356,7 @@ export default function LotDetailPage() {
             {procurementActive && <TabsTrigger value="procurement">입찰/계약</TabsTrigger>}
             {serviceActive && <TabsTrigger value="service">용역사업</TabsTrigger>}
             {complaintActive && <TabsTrigger value="complaint">민원</TabsTrigger>}
+            {realtimeActive && <TabsTrigger value="realtime">실시간</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="info">
@@ -497,6 +536,80 @@ export default function LotDetailPage() {
                   </Table>
                 </CardContent>
               </Card>
+            </TabsContent>
+          )}
+          {realtimeActive && (
+            <TabsContent value="realtime">
+              <div className="space-y-4">
+                {realtimeStatus ? (
+                  <>
+                    <Card>
+                      <CardContent className="pt-4 pb-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <Badge className={`${CONGESTION_COLORS[realtimeStatus.congestion_level] || ''}`}>
+                            {CONGESTION_LABELS[realtimeStatus.congestion_level] || realtimeStatus.congestion_level}
+                          </Badge>
+                          {realtimeStatus.last_updated && (
+                            <span className="text-[10px] text-muted-foreground">갱신: {new Date(realtimeStatus.last_updated).toLocaleTimeString('ko-KR')}</span>
+                          )}
+                        </div>
+                        <div className="text-center mb-3">
+                          <span className="text-4xl font-bold">{(realtimeStatus.available_spaces ?? 0).toLocaleString()}</span>
+                          <span className="text-sm text-muted-foreground ml-1">대 잔여</span>
+                          <span className="text-xs text-muted-foreground ml-2">/ 총 {(realtimeStatus.total_spaces || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="h-3 rounded-full bg-muted overflow-hidden">
+                          <div className={`h-full rounded-full ${CONGESTION_BG[realtimeStatus.congestion_level] || 'bg-blue-500'}`}
+                            style={{ width: `${Math.min(Number(realtimeStatus.occupancy_rate || 0), 100)}%` }} />
+                        </div>
+                        <p className="text-xs text-center text-muted-foreground mt-1">점유율 {Number(realtimeStatus.occupancy_rate || 0).toFixed(1)}%</p>
+                      </CardContent>
+                    </Card>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <Card><CardContent className="pt-3 pb-3">
+                        <p className="text-xs text-muted-foreground">금일 입차</p>
+                        <p className="text-lg font-bold">{(realtimeStatus.today_total_in || 0).toLocaleString()}</p>
+                      </CardContent></Card>
+                      <Card><CardContent className="pt-3 pb-3">
+                        <p className="text-xs text-muted-foreground">금일 출차</p>
+                        <p className="text-lg font-bold">{(realtimeStatus.today_total_out || 0).toLocaleString()}</p>
+                      </CardContent></Card>
+                      <Card><CardContent className="pt-3 pb-3">
+                        <p className="text-xs text-muted-foreground">피크 점유</p>
+                        <p className="text-lg font-bold">{realtimeStatus.today_peak_occupied || 0}대</p>
+                        {realtimeStatus.today_peak_time && <p className="text-[10px] text-muted-foreground">{realtimeStatus.today_peak_time}</p>}
+                      </CardContent></Card>
+                      <Card><CardContent className="pt-3 pb-3">
+                        <p className="text-xs text-muted-foreground">평균 주차시간</p>
+                        <p className="text-lg font-bold">{realtimeStatus.today_avg_duration_min ? `${realtimeStatus.today_avg_duration_min}분` : '—'}</p>
+                      </CardContent></Card>
+                    </div>
+                  </>
+                ) : (
+                  <Card><CardContent className="py-8 text-center text-muted-foreground">실시간 데이터가 아직 수집되지 않았습니다</CardContent></Card>
+                )}
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">설치 장비 현황</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-3 text-sm">
+                      <div>
+                        <p className="text-muted-foreground text-xs">센서</p>
+                        <p className="font-bold">{lotSensors?.length || 0}대</p>
+                        <p className="text-[10px] text-muted-foreground">정상 {lotSensors?.filter(s => s.status === 'active').length || 0} / 이상 {lotSensors?.filter(s => s.status !== 'active').length || 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs">게이트웨이</p>
+                        <p className="font-bold">{lotGateways?.length || 0}대</p>
+                        <p className="text-[10px] text-muted-foreground">정상 {lotGateways?.filter(g => g.status === 'active').length || 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs">전광판</p>
+                        <p className="font-bold">{lotDisplays?.length || 0}대</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           )}
         </Tabs>

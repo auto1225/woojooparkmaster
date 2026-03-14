@@ -640,6 +640,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bid_projects_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bid_projects_previous_bid_id_fkey"
             columns: ["previous_bid_id"]
             isOneToOne: false
@@ -892,6 +899,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budget_executions_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "budget_executions_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
@@ -1013,6 +1027,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_items_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
             referencedColumns: ["id"]
           },
           {
@@ -1589,6 +1610,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "complaints_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "complaints_related_complaint_id_fkey"
             columns: ["related_complaint_id"]
             isOneToOne: false
@@ -1759,6 +1787,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "construction_projects_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "construction_projects_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -1923,6 +1958,114 @@ export type Database = {
           },
         ]
       }
+      display_boards: {
+        Row: {
+          board_id: string
+          board_name: string | null
+          created_at: string | null
+          current_message: string | null
+          direction: string | null
+          display_size: string | null
+          display_template: Json | null
+          display_type: string | null
+          floor: number | null
+          id: string
+          install_date: string | null
+          ip_address: string | null
+          last_error: string | null
+          last_push: string | null
+          last_push_success: boolean | null
+          location: string | null
+          location_type: string | null
+          lot_id: string
+          manufacturer: string | null
+          max_lines: number | null
+          model: string | null
+          notes: string | null
+          port: number | null
+          protocol: string | null
+          push_interval_sec: number | null
+          serial_config: Json | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          board_id: string
+          board_name?: string | null
+          created_at?: string | null
+          current_message?: string | null
+          direction?: string | null
+          display_size?: string | null
+          display_template?: Json | null
+          display_type?: string | null
+          floor?: number | null
+          id?: string
+          install_date?: string | null
+          ip_address?: string | null
+          last_error?: string | null
+          last_push?: string | null
+          last_push_success?: boolean | null
+          location?: string | null
+          location_type?: string | null
+          lot_id: string
+          manufacturer?: string | null
+          max_lines?: number | null
+          model?: string | null
+          notes?: string | null
+          port?: number | null
+          protocol?: string | null
+          push_interval_sec?: number | null
+          serial_config?: Json | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          board_id?: string
+          board_name?: string | null
+          created_at?: string | null
+          current_message?: string | null
+          direction?: string | null
+          display_size?: string | null
+          display_template?: Json | null
+          display_type?: string | null
+          floor?: number | null
+          id?: string
+          install_date?: string | null
+          ip_address?: string | null
+          last_error?: string | null
+          last_push?: string | null
+          last_push_success?: boolean | null
+          location?: string | null
+          location_type?: string | null
+          lot_id?: string
+          manufacturer?: string | null
+          max_lines?: number | null
+          model?: string | null
+          notes?: string | null
+          port?: number | null
+          protocol?: string | null
+          push_interval_sec?: number | null
+          serial_config?: Json | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "display_boards_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "display_boards_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enforcement_records: {
         Row: {
           appeal_date: string | null
@@ -2005,6 +2148,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enforcement_records_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
             referencedColumns: ["id"]
           },
           {
@@ -2147,6 +2297,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "equipment_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "equipment_registered_by_fkey"
             columns: ["registered_by"]
             isOneToOne: false
@@ -2223,6 +2380,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_exemptions_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
             referencedColumns: ["id"]
           },
         ]
@@ -2333,6 +2497,13 @@ export type Database = {
             referencedRelation: "parking_lots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fee_policies_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       free_hours_settings: {
@@ -2398,6 +2569,234 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "free_hours_settings_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gateway_devices: {
+        Row: {
+          alert_offline_minutes: number | null
+          alert_sent: boolean | null
+          config: Json | null
+          connected_sensors: number | null
+          created_at: string | null
+          device_id: string
+          device_name: string | null
+          firmware_version: string | null
+          floor: number | null
+          hardware_version: string | null
+          id: string
+          install_date: string | null
+          ip_address: string | null
+          last_data_received: string | null
+          last_heartbeat: string | null
+          location_detail: string | null
+          lot_id: string
+          mac_address: string | null
+          max_sensors: number | null
+          mqtt_topic: string | null
+          notes: string | null
+          protocol: string | null
+          registered_by: string | null
+          restart_count: number | null
+          status: string | null
+          status_changed_at: string | null
+          subnet: string | null
+          updated_at: string | null
+          uptime_hours: number | null
+        }
+        Insert: {
+          alert_offline_minutes?: number | null
+          alert_sent?: boolean | null
+          config?: Json | null
+          connected_sensors?: number | null
+          created_at?: string | null
+          device_id: string
+          device_name?: string | null
+          firmware_version?: string | null
+          floor?: number | null
+          hardware_version?: string | null
+          id?: string
+          install_date?: string | null
+          ip_address?: string | null
+          last_data_received?: string | null
+          last_heartbeat?: string | null
+          location_detail?: string | null
+          lot_id: string
+          mac_address?: string | null
+          max_sensors?: number | null
+          mqtt_topic?: string | null
+          notes?: string | null
+          protocol?: string | null
+          registered_by?: string | null
+          restart_count?: number | null
+          status?: string | null
+          status_changed_at?: string | null
+          subnet?: string | null
+          updated_at?: string | null
+          uptime_hours?: number | null
+        }
+        Update: {
+          alert_offline_minutes?: number | null
+          alert_sent?: boolean | null
+          config?: Json | null
+          connected_sensors?: number | null
+          created_at?: string | null
+          device_id?: string
+          device_name?: string | null
+          firmware_version?: string | null
+          floor?: number | null
+          hardware_version?: string | null
+          id?: string
+          install_date?: string | null
+          ip_address?: string | null
+          last_data_received?: string | null
+          last_heartbeat?: string | null
+          location_detail?: string | null
+          lot_id?: string
+          mac_address?: string | null
+          max_sensors?: number | null
+          mqtt_topic?: string | null
+          notes?: string | null
+          protocol?: string | null
+          registered_by?: string | null
+          restart_count?: number | null
+          status?: string | null
+          status_changed_at?: string | null
+          subnet?: string | null
+          updated_at?: string | null
+          uptime_hours?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gateway_devices_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gateway_devices_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gateway_devices_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "gateway_devices_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lot_realtime_status: {
+        Row: {
+          available_disabled: number | null
+          available_ev: number | null
+          available_spaces: number | null
+          congestion_level: string | null
+          gate_calculated_occupied: number | null
+          gate_count_in: number | null
+          gate_count_out: number | null
+          last_gate_update: string | null
+          last_sensor_update: string | null
+          last_updated: string | null
+          lot_id: string
+          occupancy_rate: number | null
+          occupied_compact: number | null
+          occupied_disabled: number | null
+          occupied_ev: number | null
+          occupied_spaces: number | null
+          sensor_vs_gate_diff: number | null
+          status: string | null
+          today_avg_duration_min: number | null
+          today_peak_occupied: number | null
+          today_peak_time: string | null
+          today_total_in: number | null
+          today_total_out: number | null
+          total_spaces: number | null
+        }
+        Insert: {
+          available_disabled?: number | null
+          available_ev?: number | null
+          available_spaces?: number | null
+          congestion_level?: string | null
+          gate_calculated_occupied?: number | null
+          gate_count_in?: number | null
+          gate_count_out?: number | null
+          last_gate_update?: string | null
+          last_sensor_update?: string | null
+          last_updated?: string | null
+          lot_id: string
+          occupancy_rate?: number | null
+          occupied_compact?: number | null
+          occupied_disabled?: number | null
+          occupied_ev?: number | null
+          occupied_spaces?: number | null
+          sensor_vs_gate_diff?: number | null
+          status?: string | null
+          today_avg_duration_min?: number | null
+          today_peak_occupied?: number | null
+          today_peak_time?: string | null
+          today_total_in?: number | null
+          today_total_out?: number | null
+          total_spaces?: number | null
+        }
+        Update: {
+          available_disabled?: number | null
+          available_ev?: number | null
+          available_spaces?: number | null
+          congestion_level?: string | null
+          gate_calculated_occupied?: number | null
+          gate_count_in?: number | null
+          gate_count_out?: number | null
+          last_gate_update?: string | null
+          last_sensor_update?: string | null
+          last_updated?: string | null
+          lot_id?: string
+          occupancy_rate?: number | null
+          occupied_compact?: number | null
+          occupied_disabled?: number | null
+          occupied_ev?: number | null
+          occupied_spaces?: number | null
+          sensor_vs_gate_diff?: number | null
+          status?: string | null
+          today_avg_duration_min?: number | null
+          today_peak_occupied?: number | null
+          today_peak_time?: string | null
+          today_total_in?: number | null
+          today_total_out?: number | null
+          total_spaces?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lot_realtime_status_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: true
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lot_realtime_status_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: true
+            referencedRelation: "realtime_map_view"
             referencedColumns: ["id"]
           },
         ]
@@ -2564,6 +2963,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "maintenance_logs_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "maintenance_logs_reported_by_fkey"
             columns: ["reported_by"]
             isOneToOne: false
@@ -2694,6 +3100,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_schedules_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
             referencedColumns: ["id"]
           },
         ]
@@ -2839,6 +3252,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "monthly_passes_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "monthly_passes_previous_pass_id_fkey"
             columns: ["previous_pass_id"]
             isOneToOne: false
@@ -2955,6 +3375,13 @@ export type Database = {
             referencedRelation: "parking_lots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "operations_staff_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       outsourcing_contracts: {
@@ -3053,6 +3480,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outsourcing_contracts_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
             referencedColumns: ["id"]
           },
         ]
@@ -3235,6 +3669,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parking_spaces_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
             referencedColumns: ["id"]
           },
         ]
@@ -3521,6 +3962,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "revenue_daily_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "revenue_daily_verified_by_fkey"
             columns: ["verified_by"]
             isOneToOne: false
@@ -3668,6 +4116,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_reconciliation_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
             referencedColumns: ["id"]
           },
           {
@@ -3830,7 +4285,235 @@ export type Database = {
             referencedRelation: "parking_lots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "safety_inspections_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      sensor_devices: {
+        Row: {
+          alert_battery_threshold: number | null
+          alert_offline_minutes: number | null
+          alert_sent: boolean | null
+          battery_level: number | null
+          battery_voltage: number | null
+          calibration_date: string | null
+          calibration_offset: Json | null
+          config: Json | null
+          created_at: string | null
+          device_id: string
+          device_name: string | null
+          device_type: string
+          error_count: number | null
+          false_negative_rate: number | null
+          false_positive_rate: number | null
+          firmware_version: string | null
+          floor: number | null
+          gateway_id: string | null
+          hardware_version: string | null
+          id: string
+          install_date: string | null
+          last_battery_change: string | null
+          last_heartbeat: string | null
+          last_reading: string | null
+          location_detail: string | null
+          lot_id: string
+          model: string | null
+          mounting_height_cm: number | null
+          mounting_type: string | null
+          notes: string | null
+          registered_by: string | null
+          rssi: number | null
+          snr: number | null
+          space_id: string | null
+          status: string | null
+          status_changed_at: string | null
+          total_readings: number | null
+          updated_at: string | null
+          zone: string | null
+        }
+        Insert: {
+          alert_battery_threshold?: number | null
+          alert_offline_minutes?: number | null
+          alert_sent?: boolean | null
+          battery_level?: number | null
+          battery_voltage?: number | null
+          calibration_date?: string | null
+          calibration_offset?: Json | null
+          config?: Json | null
+          created_at?: string | null
+          device_id: string
+          device_name?: string | null
+          device_type?: string
+          error_count?: number | null
+          false_negative_rate?: number | null
+          false_positive_rate?: number | null
+          firmware_version?: string | null
+          floor?: number | null
+          gateway_id?: string | null
+          hardware_version?: string | null
+          id?: string
+          install_date?: string | null
+          last_battery_change?: string | null
+          last_heartbeat?: string | null
+          last_reading?: string | null
+          location_detail?: string | null
+          lot_id: string
+          model?: string | null
+          mounting_height_cm?: number | null
+          mounting_type?: string | null
+          notes?: string | null
+          registered_by?: string | null
+          rssi?: number | null
+          snr?: number | null
+          space_id?: string | null
+          status?: string | null
+          status_changed_at?: string | null
+          total_readings?: number | null
+          updated_at?: string | null
+          zone?: string | null
+        }
+        Update: {
+          alert_battery_threshold?: number | null
+          alert_offline_minutes?: number | null
+          alert_sent?: boolean | null
+          battery_level?: number | null
+          battery_voltage?: number | null
+          calibration_date?: string | null
+          calibration_offset?: Json | null
+          config?: Json | null
+          created_at?: string | null
+          device_id?: string
+          device_name?: string | null
+          device_type?: string
+          error_count?: number | null
+          false_negative_rate?: number | null
+          false_positive_rate?: number | null
+          firmware_version?: string | null
+          floor?: number | null
+          gateway_id?: string | null
+          hardware_version?: string | null
+          id?: string
+          install_date?: string | null
+          last_battery_change?: string | null
+          last_heartbeat?: string | null
+          last_reading?: string | null
+          location_detail?: string | null
+          lot_id?: string
+          model?: string | null
+          mounting_height_cm?: number | null
+          mounting_type?: string | null
+          notes?: string | null
+          registered_by?: string | null
+          rssi?: number | null
+          snr?: number | null
+          space_id?: string | null
+          status?: string | null
+          status_changed_at?: string | null
+          total_readings?: number | null
+          updated_at?: string | null
+          zone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sensor_devices_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: false
+            referencedRelation: "gateway_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensor_devices_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: false
+            referencedRelation: "gateway_health_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensor_devices_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensor_devices_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensor_devices_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "sensor_devices_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensor_devices_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "parking_spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sensor_readings: {
+        Row: {
+          battery_level: number | null
+          confidence: number | null
+          device_id: string
+          distance_cm: number | null
+          lot_id: string
+          occupied: boolean
+          raw_data: Json | null
+          rssi: number | null
+          snr: number | null
+          space_id: string | null
+          temperature: number | null
+          time: string
+        }
+        Insert: {
+          battery_level?: number | null
+          confidence?: number | null
+          device_id: string
+          distance_cm?: number | null
+          lot_id: string
+          occupied: boolean
+          raw_data?: Json | null
+          rssi?: number | null
+          snr?: number | null
+          space_id?: string | null
+          temperature?: number | null
+          time: string
+        }
+        Update: {
+          battery_level?: number | null
+          confidence?: number | null
+          device_id?: string
+          distance_cm?: number | null
+          lot_id?: string
+          occupied?: boolean
+          raw_data?: Json | null
+          rssi?: number | null
+          snr?: number | null
+          space_id?: string | null
+          temperature?: number | null
+          time?: string
+        }
+        Relationships: []
       }
       service_deliverables: {
         Row: {
@@ -4759,6 +5442,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "service_projects_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "service_projects_sub_supervisor_id_fkey"
             columns: ["sub_supervisor_id"]
             isOneToOne: false
@@ -5109,6 +5799,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "surface_markings_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
             referencedColumns: ["id"]
           },
         ]
@@ -5560,6 +6257,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "surveys_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "surveys_reviewer_id_fkey"
             columns: ["reviewer_id"]
             isOneToOne: false
@@ -5675,6 +6379,13 @@ export type Database = {
             referencedRelation: "parking_lots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "complaints_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       complaint_staff_performance: {
@@ -5727,6 +6438,65 @@ export type Database = {
         }
         Relationships: []
       }
+      gateway_health_view: {
+        Row: {
+          active_sensors: number | null
+          connected_sensors: number | null
+          device_id: string | null
+          device_name: string | null
+          firmware_version: string | null
+          health_status: string | null
+          id: string | null
+          ip_address: string | null
+          last_heartbeat: string | null
+          lot_code: string | null
+          lot_id: string | null
+          lot_name: string | null
+          max_sensors: number | null
+          minutes_since_heartbeat: number | null
+          problem_sensors: number | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gateway_devices_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gateway_devices_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      realtime_map_view: {
+        Row: {
+          address_jibun: string | null
+          address_road: string | null
+          available_spaces: number | null
+          code: string | null
+          congestion_level: string | null
+          id: string | null
+          last_updated: string | null
+          latitude: number | null
+          longitude: number | null
+          lot_type: Database["public"]["Enums"]["lot_type_enum"] | null
+          name: string | null
+          occupancy_rate: number | null
+          occupied_spaces: number | null
+          realtime_status: string | null
+          today_peak_occupied: number | null
+          today_peak_time: string | null
+          today_total_in: number | null
+          total_spaces: number | null
+        }
+        Relationships: []
+      }
       revenue_monthly: {
         Row: {
           card_total: number | null
@@ -5748,6 +6518,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_daily_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
             referencedColumns: ["id"]
           },
         ]
@@ -5780,6 +6557,63 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_daily_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sensor_health_view: {
+        Row: {
+          battery_level: number | null
+          device_id: string | null
+          device_name: string | null
+          device_type: string | null
+          gateway_device_id: string | null
+          gateway_id: string | null
+          health_status: string | null
+          id: string | null
+          last_heartbeat: string | null
+          last_reading: string | null
+          lot_code: string | null
+          lot_id: string | null
+          lot_name: string | null
+          minutes_since_heartbeat: number | null
+          rssi: number | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sensor_devices_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: false
+            referencedRelation: "gateway_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensor_devices_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: false
+            referencedRelation: "gateway_health_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensor_devices_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensor_devices_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "realtime_map_view"
             referencedColumns: ["id"]
           },
         ]

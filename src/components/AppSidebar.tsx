@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useLayoutEffect } from "react";
-import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText } from "lucide-react";
+import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText, Radio, Cpu, Server, Monitor, Key } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -78,6 +78,14 @@ const planningSubMenu = [
   { title: "인허가", url: "/planning/permits", icon: ScrollText },
 ];
 
+const realtimeSubMenu = [
+  { title: "실시간 현황", url: "/realtime", icon: Radio, end: true },
+  { title: "센서 모니터링", url: "/realtime/sensors", icon: Cpu },
+  { title: "게이트웨이", url: "/realtime/gateways", icon: Server },
+  { title: "전광판 관리", url: "/realtime/displays", icon: Monitor },
+  { title: "API 관리", url: "/realtime/api", icon: Key },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
@@ -86,7 +94,7 @@ const simpleModuleMap: Record<string, { title: string; url: string; icon: any }>
   PROCUREMENT: { title: "입찰관리", url: "/procurement", icon: FileText },
   SERVICE: { title: "용역사업관리", url: "/service", icon: Users },
   PLANNING: { title: "신설기획", url: "/planning", icon: MapPin },
-  REALTIME: { title: "실시간 정보", url: "/realtime", icon: PieChart },
+  REALTIME: { title: "실시간 정보", url: "/realtime", icon: Radio },
   REPORT: { title: "보고서/통계", url: "/report", icon: BarChart3 },
 };
 
@@ -125,7 +133,8 @@ export function AppSidebar() {
   const [serviceOpen, setServiceOpen] = useState(true);
   const [complaintOpen, setComplaintOpen] = useState(true);
   const [planningOpen, setPlanningOpen] = useState(true);
-  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT", "PLANNING"].includes(m.module_code));
+  const [realtimeOpen, setRealtimeOpen] = useState(true);
+  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT", "PLANNING", "REALTIME"].includes(m.module_code));
   const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
   const facilityActive = (licenses ?? []).some((m) => m.module_code === "FACILITY" && m.is_active);
   const revenueActive = (licenses ?? []).some((m) => m.module_code === "REVENUE" && m.is_active);
@@ -134,6 +143,7 @@ export function AppSidebar() {
   const serviceActive = (licenses ?? []).some((m) => m.module_code === "SERVICE" && m.is_active);
   const complaintActive = (licenses ?? []).some((m) => m.module_code === "COMPLAINT" && m.is_active);
   const planningActive = (licenses ?? []).some((m) => m.module_code === "PLANNING" && m.is_active);
+  const realtimeActive = (licenses ?? []).some((m) => m.module_code === "REALTIME" && m.is_active);
   const simpleModules = activeModules.map((m) => simpleModuleMap[m.module_code]).filter(Boolean);
   const isAdmin = profile?.role === "admin";
 
@@ -362,6 +372,29 @@ export function AppSidebar() {
                 )}
 
                 {planningActive && collapsed && renderLink({ title: "신설기획", url: "/planning", icon: Compass })}
+
+                {realtimeActive && !collapsed && (
+                  <Collapsible open={realtimeOpen} onOpenChange={setRealtimeOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <Radio className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">실시간 정보</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${realtimeOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {realtimeSubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {realtimeActive && collapsed && renderLink({ title: "실시간 정보", url: "/realtime", icon: Radio })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
