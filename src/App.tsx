@@ -9,6 +9,7 @@ import LoginPage from "./pages/Login";
 import LotsPage from "./pages/Lots";
 import LotNewPage from "./pages/LotNew";
 import LotDetailPage from "./pages/LotDetail";
+import LotEditPage from "./pages/LotEdit";
 import SurveysPage from "./pages/Surveys";
 import SurveyWizardPage from "./pages/SurveyWizard";
 import SurveyReviewPage from "./pages/SurveyReview";
@@ -100,6 +101,7 @@ const AppRoutes = () => (
     <Route path="/lots" element={<ProtectedRoute><LotsPage /></ProtectedRoute>} />
     <Route path="/lots/new" element={<ProtectedRoute><LotNewPage /></ProtectedRoute>} />
     <Route path="/lots/:id" element={<ProtectedRoute><LotDetailPage /></ProtectedRoute>} />
+    <Route path="/lots/:id/edit" element={<ProtectedRoute><LotEditPage /></ProtectedRoute>} />
     <Route path="/surveys" element={<ProtectedRoute><SurveysPage /></ProtectedRoute>} />
     <Route path="/surveys/progress" element={<ProtectedRoute><SurveyProgressPage /></ProtectedRoute>} />
     <Route path="/surveys/:id" element={<ProtectedRoute><SurveyWizardPage /></ProtectedRoute>} />
