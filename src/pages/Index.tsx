@@ -39,7 +39,7 @@ export default function Index() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("parking_lots")
-        .select("id, lot_type, total_spaces, status");
+        .select("id, lot_name, lot_type, total_spaces, status, address_road, latitude, longitude");
       if (error) throw error;
       return data;
     },
