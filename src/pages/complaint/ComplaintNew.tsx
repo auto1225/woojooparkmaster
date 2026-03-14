@@ -111,6 +111,7 @@ export default function ComplaintNew() {
           message: `[${complaint_number}] ${form.title}`,
           link: `/complaints/${data.id}`,
           type: "complaint",
+          module: "COMPLAINT",
         }]);
       }
 

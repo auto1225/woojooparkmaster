@@ -117,7 +117,7 @@ export default function ComplaintDetail() {
       assigned_to: assignTo, assigned_at: new Date().toISOString(), status: complaint?.status === "received" ? "assigned" : complaint?.status,
     }).eq("id", id!);
     await supabase.from("notifications").insert([{
-      user_id: assignTo, title: "민원 배정", message: `[${complaint?.complaint_number}] ${complaint?.title}`, link: `/complaints/${id}`, type: "complaint",
+      user_id: assignTo, title: "민원 배정", message: `[${complaint?.complaint_number}] ${complaint?.title}`, link: `/complaints/${id}`, type: "complaint", module: "COMPLAINT",
     }]);
     setAssignDialog(false);
     queryClient.invalidateQueries({ queryKey: ["complaint", id] });
