@@ -15,9 +15,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Settings, Shield, Package, Save, MessageSquare, GitBranch, Sparkles, Database, Info, HardDrive, CheckCircle2, XCircle, Trash2, PlayCircle } from "lucide-react";
+import { Settings, Shield, Package, Save, MessageSquare, GitBranch, Sparkles, Database, Info, HardDrive, CheckCircle2, XCircle, Trash2, PlayCircle, Lock } from "lucide-react";
 import MessageManagement from "@/pages/settings/MessageManagement";
 import ApprovalLineManagement from "@/pages/settings/ApprovalLineManagement";
+import SecurityManagement from "@/pages/settings/SecurityManagement";
 
 export default function SettingsPage() {
   const { profile } = useAuth();
