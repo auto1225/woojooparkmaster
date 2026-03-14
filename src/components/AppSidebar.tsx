@@ -42,6 +42,13 @@ const revenueSubMenu = [
   { title: "수입 분석", url: "/revenue/analysis", icon: LineChart },
 ];
 
+const budgetSubMenu = [
+  { title: "예산 현황", url: "/budget", icon: Wallet, end: true },
+  { title: "예산 편성", url: "/budget/plans", icon: BookOpen },
+  { title: "예산 집행", url: "/budget/executions", icon: CircleDollarSign },
+  { title: "예산 전용/이체", url: "/budget/transfers", icon: ArrowRightLeft },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
