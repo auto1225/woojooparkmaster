@@ -53,7 +53,7 @@ export default function DynamicMasterView() {
 }
 
 function SingleTabMaster({ config, tab, navigate }: { config: any; tab: any; navigate: any }) {
-  const { data = [], isLoading } = useQuery({
+  const { data = [], isLoading } = useQuery<Record<string, any>[]>({
     queryKey: [tab.queryKey],
     queryFn: tab.queryFn,
   });
