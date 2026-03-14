@@ -339,6 +339,29 @@ export function AppSidebar() {
                 )}
 
                 {complaintActive && collapsed && renderLink({ title: "민원관리", url: "/complaints", icon: Megaphone })}
+
+                {planningActive && !collapsed && (
+                  <Collapsible open={planningOpen} onOpenChange={setPlanningOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <Compass className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">신설기획</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${planningOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {planningSubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {planningActive && collapsed && renderLink({ title: "신설기획", url: "/planning", icon: Compass })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
