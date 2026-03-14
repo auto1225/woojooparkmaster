@@ -64,6 +64,12 @@ const serviceSubMenu = [
   { title: "이슈 관리", url: "/service/issues", icon: AlertTriangle },
 ];
 
+const complaintSubMenu = [
+  { title: "민원 현황", url: "/complaints", icon: Megaphone, end: true },
+  { title: "민원 접수", url: "/complaints/new", icon: Plus },
+  { title: "민원 통계", url: "/complaints/stats", icon: BarChart2 },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
@@ -71,7 +77,6 @@ const simpleModuleMap: Record<string, { title: string; url: string; icon: any }>
   BUDGET: { title: "예산관리", url: "/budget", icon: BarChart3 },
   PROCUREMENT: { title: "입찰관리", url: "/procurement", icon: FileText },
   SERVICE: { title: "용역사업관리", url: "/service", icon: Users },
-  COMPLAINT: { title: "민원관리", url: "/complaint", icon: Megaphone },
   PLANNING: { title: "신설기획", url: "/planning", icon: MapPin },
   REALTIME: { title: "실시간 정보", url: "/realtime", icon: PieChart },
   REPORT: { title: "보고서/통계", url: "/report", icon: BarChart3 },
