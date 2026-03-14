@@ -127,10 +127,10 @@ export function SecureFileUpload({ category, bucket, folder, maxFiles = 1, onUpl
       {files.map((f, i) => (
         <div key={`${f.name}-${i}`} className={`flex items-center gap-3 p-3 rounded-lg border text-sm
           ${f.status === 'error' ? 'border-destructive/50 bg-destructive/5' :
-            f.status === 'done' ? 'border-green-500/50 bg-green-50 dark:bg-green-950/20' :
+            f.status === 'done' ? 'border-primary/50 bg-primary/5' :
             'border-border'}`}>
           <div className="flex-shrink-0">
-            {f.status === 'done' && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+            {f.status === 'done' && <CheckCircle2 className="h-5 w-5 text-primary" />}
             {f.status === 'error' && <XCircle className="h-5 w-5 text-destructive" />}
             {(f.status === 'validating' || f.status === 'uploading') && (
               <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
