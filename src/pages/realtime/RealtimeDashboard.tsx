@@ -100,6 +100,10 @@ export default function RealtimeDashboard() {
             <p className="text-sm text-muted-foreground">전체 주차장 실시간 점유 모니터링</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate('/realtime/monitor')}>
+              <Monitor className="h-3.5 w-3.5 mr-1" />관제 모니터
+            </Button>
+
             {connected ? (
               <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 gap-1">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> 실시간 연결됨
