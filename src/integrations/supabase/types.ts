@@ -4172,8 +4172,11 @@ export type Database = {
           id: string
           is_active: boolean | null
           last_login_at: string | null
+          locked_until: string | null
+          login_fail_count: number | null
           name: string
           notification_settings: Json | null
+          onboarding_completed: boolean | null
           phone: string | null
           role: Database["public"]["Enums"]["role_type"]
           team: Database["public"]["Enums"]["team_type"]
@@ -4189,8 +4192,11 @@ export type Database = {
           id: string
           is_active?: boolean | null
           last_login_at?: string | null
+          locked_until?: string | null
+          login_fail_count?: number | null
           name: string
           notification_settings?: Json | null
+          onboarding_completed?: boolean | null
           phone?: string | null
           role?: Database["public"]["Enums"]["role_type"]
           team?: Database["public"]["Enums"]["team_type"]
@@ -4206,8 +4212,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_login_at?: string | null
+          locked_until?: string | null
+          login_fail_count?: number | null
           name?: string
           notification_settings?: Json | null
+          onboarding_completed?: boolean | null
           phone?: string | null
           role?: Database["public"]["Enums"]["role_type"]
           team?: Database["public"]["Enums"]["team_type"]
