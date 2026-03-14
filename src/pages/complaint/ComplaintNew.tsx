@@ -114,7 +114,7 @@ export default function ComplaintNew() {
         });
       }
 
-      await logActivity({ module: "COMPLAINT", action: "접수", target_type: "complaint", target_id: data.id, target_name: complaint_number });
+      await logActivity({ module: "COMPLAINT", action: "접수", targetType: "complaint", targetId: data.id, targetName: complaint_number });
 
       toast({ title: "민원이 접수되었습니다", description: complaint_number });
 
