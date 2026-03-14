@@ -123,6 +123,10 @@ const AppRoutes = () => (
     <Route path="/service/inspections" element={<ProtectedRoute><ServiceInspections /></ProtectedRoute>} />
     <Route path="/service/payments" element={<ProtectedRoute><ServicePayments /></ProtectedRoute>} />
     <Route path="/service/issues" element={<ProtectedRoute><ServiceIssues /></ProtectedRoute>} />
+    <Route path="/complaints" element={<ProtectedRoute><ComplaintDashboard /></ProtectedRoute>} />
+    <Route path="/complaints/new" element={<ProtectedRoute><ComplaintNew /></ProtectedRoute>} />
+    <Route path="/complaints/stats" element={<ProtectedRoute><ComplaintStats /></ProtectedRoute>} />
+    <Route path="/complaints/:id" element={<ProtectedRoute><ComplaintDetail /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
