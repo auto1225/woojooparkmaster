@@ -127,7 +127,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2 pt-2">
+      <SidebarContent className="px-2 pt-2" onFocusCapture={(e) => e.stopPropagation()}>
         <SidebarGroup>
           <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.1em] text-sidebar-foreground/40 px-2">메인</SidebarGroupLabel>
           <SidebarGroupContent><SidebarMenu>{coreMenuItems.map(renderLink)}</SidebarMenu></SidebarGroupContent>
