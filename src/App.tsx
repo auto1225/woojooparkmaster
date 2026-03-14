@@ -9,6 +9,10 @@ import LoginPage from "./pages/Login";
 import LotsPage from "./pages/Lots";
 import LotNewPage from "./pages/LotNew";
 import LotDetailPage from "./pages/LotDetail";
+import SurveysPage from "./pages/Surveys";
+import SurveyWizardPage from "./pages/SurveyWizard";
+import SurveyReviewPage from "./pages/SurveyReview";
+import SurveyProgressPage from "./pages/SurveyProgress";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +44,10 @@ const AppRoutes = () => (
     <Route path="/lots" element={<ProtectedRoute><LotsPage /></ProtectedRoute>} />
     <Route path="/lots/new" element={<ProtectedRoute><LotNewPage /></ProtectedRoute>} />
     <Route path="/lots/:id" element={<ProtectedRoute><LotDetailPage /></ProtectedRoute>} />
+    <Route path="/surveys" element={<ProtectedRoute><SurveysPage /></ProtectedRoute>} />
+    <Route path="/surveys/progress" element={<ProtectedRoute><SurveyProgressPage /></ProtectedRoute>} />
+    <Route path="/surveys/:id" element={<ProtectedRoute><SurveyWizardPage /></ProtectedRoute>} />
+    <Route path="/surveys/:id/review" element={<ProtectedRoute><SurveyReviewPage /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

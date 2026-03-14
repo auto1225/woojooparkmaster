@@ -468,6 +468,461 @@ export type Database = {
         }
         Relationships: []
       }
+      survey_basic_info: {
+        Row: {
+          address: string | null
+          compact_spaces: number | null
+          disabled_spaces: number | null
+          entry_count: number | null
+          entry_exit_same: boolean | null
+          ev_spaces: number | null
+          exit_count: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          id: string
+          lot_name: string | null
+          lot_type: string | null
+          lot_type_floor: number | null
+          operator_type: string | null
+          other_spaces: number | null
+          other_spaces_desc: string | null
+          pregnant_spaces: number | null
+          surface_type: string | null
+          surface_type_etc: string | null
+          survey_id: string
+          total_spaces: number | null
+        }
+        Insert: {
+          address?: string | null
+          compact_spaces?: number | null
+          disabled_spaces?: number | null
+          entry_count?: number | null
+          entry_exit_same?: boolean | null
+          ev_spaces?: number | null
+          exit_count?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          lot_name?: string | null
+          lot_type?: string | null
+          lot_type_floor?: number | null
+          operator_type?: string | null
+          other_spaces?: number | null
+          other_spaces_desc?: string | null
+          pregnant_spaces?: number | null
+          surface_type?: string | null
+          surface_type_etc?: string | null
+          survey_id: string
+          total_spaces?: number | null
+        }
+        Update: {
+          address?: string | null
+          compact_spaces?: number | null
+          disabled_spaces?: number | null
+          entry_count?: number | null
+          entry_exit_same?: boolean | null
+          ev_spaces?: number | null
+          exit_count?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          lot_name?: string | null
+          lot_type?: string | null
+          lot_type_floor?: number | null
+          operator_type?: string | null
+          other_spaces?: number | null
+          other_spaces_desc?: string | null
+          pregnant_spaces?: number | null
+          surface_type?: string | null
+          surface_type_etc?: string | null
+          survey_id?: string
+          total_spaces?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_basic_info_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: true
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_infra: {
+        Row: {
+          display_company: string | null
+          display_in_use: boolean | null
+          display_installed: boolean | null
+          display_network: string | null
+          display_not_use_reason: string | null
+          display_sw_note: string | null
+          display_sw_status: string | null
+          equipment_company: string | null
+          has_barrier: boolean | null
+          has_cctv: boolean | null
+          has_kiosk: boolean | null
+          has_lpr: boolean | null
+          id: string
+          network_etc: string | null
+          network_lte: boolean | null
+          network_wifi: boolean | null
+          network_wired: boolean | null
+          power_note: string | null
+          power_status: string | null
+          sensor_company: string | null
+          sensor_count: number | null
+          sensor_in_use: boolean | null
+          sensor_installed: boolean | null
+          survey_id: string
+        }
+        Insert: {
+          display_company?: string | null
+          display_in_use?: boolean | null
+          display_installed?: boolean | null
+          display_network?: string | null
+          display_not_use_reason?: string | null
+          display_sw_note?: string | null
+          display_sw_status?: string | null
+          equipment_company?: string | null
+          has_barrier?: boolean | null
+          has_cctv?: boolean | null
+          has_kiosk?: boolean | null
+          has_lpr?: boolean | null
+          id?: string
+          network_etc?: string | null
+          network_lte?: boolean | null
+          network_wifi?: boolean | null
+          network_wired?: boolean | null
+          power_note?: string | null
+          power_status?: string | null
+          sensor_company?: string | null
+          sensor_count?: number | null
+          sensor_in_use?: boolean | null
+          sensor_installed?: boolean | null
+          survey_id: string
+        }
+        Update: {
+          display_company?: string | null
+          display_in_use?: boolean | null
+          display_installed?: boolean | null
+          display_network?: string | null
+          display_not_use_reason?: string | null
+          display_sw_note?: string | null
+          display_sw_status?: string | null
+          equipment_company?: string | null
+          has_barrier?: boolean | null
+          has_cctv?: boolean | null
+          has_kiosk?: boolean | null
+          has_lpr?: boolean | null
+          id?: string
+          network_etc?: string | null
+          network_lte?: boolean | null
+          network_wifi?: boolean | null
+          network_wired?: boolean | null
+          power_note?: string | null
+          power_status?: string | null
+          sensor_company?: string | null
+          sensor_count?: number | null
+          sensor_in_use?: boolean | null
+          sensor_installed?: boolean | null
+          survey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_infra_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: true
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_operation: {
+        Row: {
+          control_linked: boolean | null
+          id: string
+          management_etc: string | null
+          management_type: string | null
+          operating_hours: string | null
+          operating_hours_custom: string | null
+          payment_card: boolean | null
+          payment_cash: boolean | null
+          payment_mobile: boolean | null
+          payment_none: boolean | null
+          portal_linked: boolean | null
+          staff_count: number | null
+          staff_type: string | null
+          survey_id: string
+        }
+        Insert: {
+          control_linked?: boolean | null
+          id?: string
+          management_etc?: string | null
+          management_type?: string | null
+          operating_hours?: string | null
+          operating_hours_custom?: string | null
+          payment_card?: boolean | null
+          payment_cash?: boolean | null
+          payment_mobile?: boolean | null
+          payment_none?: boolean | null
+          portal_linked?: boolean | null
+          staff_count?: number | null
+          staff_type?: string | null
+          survey_id: string
+        }
+        Update: {
+          control_linked?: boolean | null
+          id?: string
+          management_etc?: string | null
+          management_type?: string | null
+          operating_hours?: string | null
+          operating_hours_custom?: string | null
+          payment_card?: boolean | null
+          payment_cash?: boolean | null
+          payment_mobile?: boolean | null
+          payment_none?: boolean | null
+          portal_linked?: boolean | null
+          staff_count?: number | null
+          staff_type?: string | null
+          survey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_operation_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: true
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_photos: {
+        Row: {
+          caption: string | null
+          category: string
+          created_at: string | null
+          file_path: string
+          gps_lat: number | null
+          gps_lng: number | null
+          id: string
+          sort_order: number | null
+          survey_id: string
+          taken_at: string | null
+          thumbnail_path: string | null
+        }
+        Insert: {
+          caption?: string | null
+          category: string
+          created_at?: string | null
+          file_path: string
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          sort_order?: number | null
+          survey_id: string
+          taken_at?: string | null
+          thumbnail_path?: string | null
+        }
+        Update: {
+          caption?: string | null
+          category?: string
+          created_at?: string | null
+          file_path?: string
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          sort_order?: number | null
+          survey_id?: string
+          taken_at?: string | null
+          thumbnail_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_photos_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_sensor_plan: {
+        Row: {
+          display_sw_feasibility: string | null
+          display_sw_note: string | null
+          gateway_location: string | null
+          id: string
+          planned_gateways: number | null
+          planned_sensors: number | null
+          portal_feasibility: string | null
+          portal_note: string | null
+          survey_id: string
+        }
+        Insert: {
+          display_sw_feasibility?: string | null
+          display_sw_note?: string | null
+          gateway_location?: string | null
+          id?: string
+          planned_gateways?: number | null
+          planned_sensors?: number | null
+          portal_feasibility?: string | null
+          portal_note?: string | null
+          survey_id: string
+        }
+        Update: {
+          display_sw_feasibility?: string | null
+          display_sw_note?: string | null
+          gateway_location?: string | null
+          id?: string
+          planned_gateways?: number | null
+          planned_sensors?: number | null
+          portal_feasibility?: string | null
+          portal_note?: string | null
+          survey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_sensor_plan_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: true
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_usage: {
+        Row: {
+          avg_usage_rate: string | null
+          id: string
+          peak_afternoon: boolean | null
+          peak_free_time: boolean | null
+          peak_morning: boolean | null
+          peak_night: boolean | null
+          survey_id: string
+          user_commercial: boolean | null
+          user_etc: string | null
+          user_residents: boolean | null
+          user_tourists: boolean | null
+        }
+        Insert: {
+          avg_usage_rate?: string | null
+          id?: string
+          peak_afternoon?: boolean | null
+          peak_free_time?: boolean | null
+          peak_morning?: boolean | null
+          peak_night?: boolean | null
+          survey_id: string
+          user_commercial?: boolean | null
+          user_etc?: string | null
+          user_residents?: boolean | null
+          user_tourists?: boolean | null
+        }
+        Update: {
+          avg_usage_rate?: string | null
+          id?: string
+          peak_afternoon?: boolean | null
+          peak_free_time?: boolean | null
+          peak_morning?: boolean | null
+          peak_night?: boolean | null
+          survey_id?: string
+          user_commercial?: boolean | null
+          user_etc?: string | null
+          user_residents?: boolean | null
+          user_tourists?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_usage_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: true
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      surveys: {
+        Row: {
+          approved_at: string | null
+          approver_id: string | null
+          created_at: string | null
+          id: string
+          lot_id: string
+          notes: string | null
+          reject_reason: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          status: Database["public"]["Enums"]["survey_status_enum"]
+          submitted_at: string | null
+          survey_date: string | null
+          survey_type: string
+          surveyor_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approver_id?: string | null
+          created_at?: string | null
+          id?: string
+          lot_id: string
+          notes?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: Database["public"]["Enums"]["survey_status_enum"]
+          submitted_at?: string | null
+          survey_date?: string | null
+          survey_type?: string
+          surveyor_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approver_id?: string | null
+          created_at?: string | null
+          id?: string
+          lot_id?: string
+          notes?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: Database["public"]["Enums"]["survey_status_enum"]
+          submitted_at?: string | null
+          survey_date?: string | null
+          survey_type?: string
+          surveyor_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "surveys_approver_id_fkey"
+            columns: ["approver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "surveys_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "surveys_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "surveys_surveyor_id_fkey"
+            columns: ["surveyor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_config: {
         Row: {
           config_key: string
