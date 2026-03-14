@@ -86,6 +86,14 @@ const realtimeSubMenu = [
   { title: "API 관리", url: "/realtime/api", icon: Key },
 ];
 
+const reportSubMenu = [
+  { title: "보고서 센터", url: "/reports", icon: FileBarChart, end: true },
+  { title: "보고서 생성", url: "/reports/generate", icon: Plus },
+  { title: "보고서 이력", url: "/reports/history", icon: FileText },
+  { title: "스케줄 관리", url: "/reports/schedules", icon: CalendarClock },
+  { title: "대시보드 빌더", url: "/reports/dashboard-builder", icon: LayoutTemplate },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
@@ -95,7 +103,7 @@ const simpleModuleMap: Record<string, { title: string; url: string; icon: any }>
   SERVICE: { title: "용역사업관리", url: "/service", icon: Users },
   PLANNING: { title: "신설기획", url: "/planning", icon: MapPin },
   REALTIME: { title: "실시간 정보", url: "/realtime", icon: Radio },
-  REPORT: { title: "보고서/통계", url: "/report", icon: BarChart3 },
+  REPORT: { title: "보고서/통계", url: "/reports", icon: FileBarChart },
 };
 
 let sidebarScrollTop = 0;
