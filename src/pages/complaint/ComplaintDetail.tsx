@@ -45,6 +45,7 @@ export default function ComplaintDetail() {
   const [satDialog, setSatDialog] = useState(false);
   const [satScore, setSatScore] = useState(3);
   const [satFeedback, setSatFeedback] = useState("");
+  const [aiDrafting, setAiDrafting] = useState(false);
 
   const { data: complaint, isLoading } = useQuery({
     queryKey: ["complaint", id],
