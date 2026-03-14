@@ -1809,6 +1809,93 @@ export type Database = {
           },
         ]
       }
+      dashboard_widgets: {
+        Row: {
+          chart_config: Json | null
+          chart_type: string | null
+          created_at: string | null
+          dashboard_name: string | null
+          data_config: Json
+          data_source: string
+          description: string | null
+          display_config: Json | null
+          height: number | null
+          id: string
+          is_visible: boolean | null
+          lot_filter: Json | null
+          period_filter: Json | null
+          position_x: number | null
+          position_y: number | null
+          sort_order: number | null
+          title: string
+          updated_at: string | null
+          user_id: string
+          widget_type: string
+          width: number | null
+        }
+        Insert: {
+          chart_config?: Json | null
+          chart_type?: string | null
+          created_at?: string | null
+          dashboard_name?: string | null
+          data_config: Json
+          data_source: string
+          description?: string | null
+          display_config?: Json | null
+          height?: number | null
+          id?: string
+          is_visible?: boolean | null
+          lot_filter?: Json | null
+          period_filter?: Json | null
+          position_x?: number | null
+          position_y?: number | null
+          sort_order?: number | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+          widget_type: string
+          width?: number | null
+        }
+        Update: {
+          chart_config?: Json | null
+          chart_type?: string | null
+          created_at?: string | null
+          dashboard_name?: string | null
+          data_config?: Json
+          data_source?: string
+          description?: string | null
+          display_config?: Json | null
+          height?: number | null
+          id?: string
+          is_visible?: boolean | null
+          lot_filter?: Json | null
+          period_filter?: Json | null
+          position_x?: number | null
+          position_y?: number | null
+          sort_order?: number | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          widget_type?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_widgets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "dashboard_widgets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       design_documents: {
         Row: {
           approved_at: string | null
@@ -3853,6 +3940,330 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      report_generated: {
+        Row: {
+          created_at: string | null
+          data_snapshot: Json | null
+          description: string | null
+          error_message: string | null
+          excel_path: string | null
+          file_format: string | null
+          file_path: string | null
+          file_size: number | null
+          generated_by: string | null
+          generation_time_ms: number | null
+          hwp_path: string | null
+          id: string
+          is_shared: boolean | null
+          page_count: number | null
+          parameters_used: Json | null
+          period_end: string | null
+          period_start: string | null
+          period_type: string | null
+          report_number: string
+          shared_at: string | null
+          shared_with: Json | null
+          status: string | null
+          summary_data: Json | null
+          target_lots: Json | null
+          template_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_snapshot?: Json | null
+          description?: string | null
+          error_message?: string | null
+          excel_path?: string | null
+          file_format?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          generated_by?: string | null
+          generation_time_ms?: number | null
+          hwp_path?: string | null
+          id?: string
+          is_shared?: boolean | null
+          page_count?: number | null
+          parameters_used?: Json | null
+          period_end?: string | null
+          period_start?: string | null
+          period_type?: string | null
+          report_number: string
+          shared_at?: string | null
+          shared_with?: Json | null
+          status?: string | null
+          summary_data?: Json | null
+          target_lots?: Json | null
+          template_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          data_snapshot?: Json | null
+          description?: string | null
+          error_message?: string | null
+          excel_path?: string | null
+          file_format?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          generated_by?: string | null
+          generation_time_ms?: number | null
+          hwp_path?: string | null
+          id?: string
+          is_shared?: boolean | null
+          page_count?: number | null
+          parameters_used?: Json | null
+          period_end?: string | null
+          period_start?: string | null
+          period_type?: string | null
+          report_number?: string
+          shared_at?: string | null
+          shared_with?: Json | null
+          status?: string | null
+          summary_data?: Json | null
+          target_lots?: Json | null
+          template_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_generated_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "report_generated_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_generated_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_schedules: {
+        Row: {
+          consecutive_fails: number | null
+          created_at: string | null
+          created_by: string | null
+          day_of_month: number | null
+          day_of_week: number | null
+          email_body: string | null
+          email_subject: string | null
+          execution_time: string | null
+          fail_count: number | null
+          frequency: string
+          id: string
+          include_excel: boolean | null
+          is_active: boolean | null
+          last_report_id: string | null
+          last_run: string | null
+          last_status: string | null
+          month_of_year: number | null
+          next_run: string | null
+          output_format: string | null
+          parameters: Json | null
+          recipients: Json
+          run_count: number | null
+          schedule_name: string
+          send_method: string | null
+          target_lots: Json | null
+          template_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          consecutive_fails?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          day_of_month?: number | null
+          day_of_week?: number | null
+          email_body?: string | null
+          email_subject?: string | null
+          execution_time?: string | null
+          fail_count?: number | null
+          frequency: string
+          id?: string
+          include_excel?: boolean | null
+          is_active?: boolean | null
+          last_report_id?: string | null
+          last_run?: string | null
+          last_status?: string | null
+          month_of_year?: number | null
+          next_run?: string | null
+          output_format?: string | null
+          parameters?: Json | null
+          recipients: Json
+          run_count?: number | null
+          schedule_name: string
+          send_method?: string | null
+          target_lots?: Json | null
+          template_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          consecutive_fails?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          day_of_month?: number | null
+          day_of_week?: number | null
+          email_body?: string | null
+          email_subject?: string | null
+          execution_time?: string | null
+          fail_count?: number | null
+          frequency?: string
+          id?: string
+          include_excel?: boolean | null
+          is_active?: boolean | null
+          last_report_id?: string | null
+          last_run?: string | null
+          last_status?: string | null
+          month_of_year?: number | null
+          next_run?: string | null
+          output_format?: string | null
+          parameters?: Json | null
+          recipients?: Json
+          run_count?: number | null
+          schedule_name?: string
+          send_method?: string | null
+          target_lots?: Json | null
+          template_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "report_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_schedules_last_report_id_fkey"
+            columns: ["last_report_id"]
+            isOneToOne: false
+            referencedRelation: "report_generated"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_schedules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_templates: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          data_sources: Json | null
+          description: string | null
+          footer_config: Json | null
+          header_config: Json | null
+          id: string
+          is_favorite: boolean | null
+          is_system: boolean | null
+          name: string
+          page_orientation: string | null
+          page_size: string | null
+          parameters: Json | null
+          report_category: string | null
+          report_type: string
+          required_modules: Json | null
+          sections: Json | null
+          sort_order: number | null
+          target_audience: string | null
+          template_code: string
+          template_format: string | null
+          template_html: string | null
+          template_path: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          data_sources?: Json | null
+          description?: string | null
+          footer_config?: Json | null
+          header_config?: Json | null
+          id?: string
+          is_favorite?: boolean | null
+          is_system?: boolean | null
+          name: string
+          page_orientation?: string | null
+          page_size?: string | null
+          parameters?: Json | null
+          report_category?: string | null
+          report_type: string
+          required_modules?: Json | null
+          sections?: Json | null
+          sort_order?: number | null
+          target_audience?: string | null
+          template_code: string
+          template_format?: string | null
+          template_html?: string | null
+          template_path?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          data_sources?: Json | null
+          description?: string | null
+          footer_config?: Json | null
+          header_config?: Json | null
+          id?: string
+          is_favorite?: boolean | null
+          is_system?: boolean | null
+          name?: string
+          page_orientation?: string | null
+          page_size?: string | null
+          parameters?: Json | null
+          report_category?: string | null
+          report_type?: string
+          required_modules?: Json | null
+          sections?: Json | null
+          sort_order?: number | null
+          target_audience?: string | null
+          template_code?: string
+          template_format?: string | null
+          template_html?: string | null
+          template_path?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "report_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       revenue_daily: {
         Row: {
