@@ -603,7 +603,7 @@ export async function exportToExcelProfessional(options: {
 // ─── 기존 createExcelWorkbook 하위 호환 래퍼 ───
 interface LegacySheetConfig {
   name: string;
-  type?: 'data' | 'summary';
+  type?: string;
   headers: { key: string; label: string; format?: string; width?: number; subTotal?: string }[];
   data: Record<string, any>[];
   autoFilter?: boolean;
