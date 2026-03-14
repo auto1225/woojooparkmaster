@@ -115,7 +115,10 @@ initTokenSecurity();
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 2,
+      retry: (failureCount, error: any) => {
+        if (error?.status === 429) return false; // SEC-WEB-3: 429는 재시도 안 함
+        return failureCount < 2;
+      },
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
     },
     mutations: {
