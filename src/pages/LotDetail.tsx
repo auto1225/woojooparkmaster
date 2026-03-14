@@ -19,6 +19,7 @@ import { LOT_TYPE_LABELS, LOT_STATUS_LABELS, OPERATOR_LABELS, SURFACE_LABELS, PO
 import type { LotType, LotStatus, OperatorType, SurfaceType, PowerStatus } from "@/types/database";
 import { EXECUTION_TYPE_LABELS, BUDGET_STATUS_LABELS } from "@/types/budget";
 import { formatManWon } from "@/types/revenue";
+import { BID_STATUS_LABELS, BID_STATUS_COLORS } from "@/types/procurement";
 import { ArrowLeft, Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
@@ -178,6 +179,17 @@ export default function LotDetailPage() {
   const { profile } = useAuth();
   const { data: licenses } = useModuleLicenses();
   const budgetActive = (licenses ?? []).some(m => m.module_code === 'BUDGET' && m.is_active);
+  const procurementActive = (licenses ?? []).some(m => m.module_code === 'PROCUREMENT' && m.is_active);
+
+  const { data: bidProjects } = useQuery({
+    queryKey: ['lot-bid-projects', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('bid_projects').select('id, bid_number, title, status, bid_type, estimated_amount, contract_amount, successful_bidder, bid_deadline')
+        .eq('lot_id', id!).order('created_at', { ascending: false });
+      return data || [];
+    },
+    enabled: !!id && procurementActive,
+  });
 
   const { data: lot, isLoading } = useQuery({
     queryKey: ["lot", id],
@@ -277,6 +289,7 @@ export default function LotDetailPage() {
           <TabsList>
             <TabsTrigger value="info">기본정보</TabsTrigger>
             {budgetActive && <TabsTrigger value="budget">예산현황</TabsTrigger>}
+            {procurementActive && <TabsTrigger value="procurement">입찰/계약</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="info">
@@ -340,6 +353,41 @@ export default function LotDetailPage() {
           {budgetActive && (
             <TabsContent value="budget">
               <BudgetTab lotId={lot.id} />
+            </TabsContent>
+          )}
+
+          {procurementActive && (
+            <TabsContent value="procurement">
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">관련 입찰 사업</CardTitle></CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>입찰번호</TableHead>
+                        <TableHead>사업명</TableHead>
+                        <TableHead>상태</TableHead>
+                        <TableHead className="text-right">설계금액</TableHead>
+                        <TableHead>낙찰업체</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {bidProjects?.map(bp => (
+                        <TableRow key={bp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/procurement/projects/${bp.id}`)}>
+                          <TableCell className="text-sm font-mono">{bp.bid_number}</TableCell>
+                          <TableCell className="text-sm">{bp.title}</TableCell>
+                          <TableCell><Badge variant="outline" className={`text-xs ${BID_STATUS_COLORS[bp.status] || ''}`}>{BID_STATUS_LABELS[bp.status] || bp.status}</Badge></TableCell>
+                          <TableCell className="text-right text-sm">{bp.estimated_amount ? formatManWon(bp.estimated_amount) : '-'}</TableCell>
+                          <TableCell className="text-sm">{bp.successful_bidder || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                      {!bidProjects?.length && (
+                        <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-6">관련 입찰 사업 없음</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
             </TabsContent>
           )}
         </Tabs>

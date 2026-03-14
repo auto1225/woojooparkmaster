@@ -221,6 +221,29 @@ export function AppSidebar() {
                 )}
 
                 {budgetActive && collapsed && renderLink({ title: "예산관리", url: "/budget", icon: Wallet })}
+
+                {procurementActive && !collapsed && (
+                  <Collapsible open={procurementOpen} onOpenChange={setProcurementOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <Gavel className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">입찰관리</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${procurementOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {procurementSubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {procurementActive && collapsed && renderLink({ title: "입찰관리", url: "/procurement", icon: Gavel })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
