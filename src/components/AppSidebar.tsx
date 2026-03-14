@@ -49,6 +49,13 @@ const budgetSubMenu = [
   { title: "예산 전용/이체", url: "/budget/transfers", icon: ArrowRightLeft },
 ];
 
+const procurementSubMenu = [
+  { title: "입찰 현황", url: "/procurement", icon: Gavel, end: true },
+  { title: "입찰 사업", url: "/procurement/projects", icon: FileText },
+  { title: "계약 관리", url: "/procurement/contracts", icon: FileCheck },
+  { title: "서류 관리", url: "/procurement/documents", icon: FolderOpen },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
