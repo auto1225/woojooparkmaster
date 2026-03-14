@@ -20,7 +20,7 @@ export default function QuarterlyReport() {
 
   const { data: lots = [] } = useQuery({
     queryKey: ['qr-lots'],
-    queryFn: async () => { const { data } = await supabase.from('parking_lots').select('id, name, total_spaces, operation_type, lot_type'); return data || []; },
+    queryFn: async () => { const { data } = await supabase.from('parking_lots').select('id, name, total_spaces, lot_type'); return data || []; },
   });
 
   const { data: revenue = [] } = useQuery({
