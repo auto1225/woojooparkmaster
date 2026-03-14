@@ -1621,6 +1621,7 @@ export type Database = {
           lot_id: string | null
           notes: string | null
           priority: string | null
+          privacy_agreed_at: string | null
           received_at: string | null
           related_complaint_id: string | null
           repeat_count: number | null
@@ -1671,6 +1672,7 @@ export type Database = {
           lot_id?: string | null
           notes?: string | null
           priority?: string | null
+          privacy_agreed_at?: string | null
           received_at?: string | null
           related_complaint_id?: string | null
           repeat_count?: number | null
@@ -1721,6 +1723,7 @@ export type Database = {
           lot_id?: string | null
           notes?: string | null
           priority?: string | null
+          privacy_agreed_at?: string | null
           received_at?: string | null
           related_complaint_id?: string | null
           repeat_count?: number | null
@@ -4162,6 +4165,51 @@ export type Database = {
           },
         ]
       }
+      pii_purge_logs: {
+        Row: {
+          executed_at: string | null
+          executed_by: string | null
+          id: string
+          purge_method: string
+          purge_reason: string
+          target_count: number
+          target_table: string
+        }
+        Insert: {
+          executed_at?: string | null
+          executed_by?: string | null
+          id?: string
+          purge_method?: string
+          purge_reason: string
+          target_count: number
+          target_table: string
+        }
+        Update: {
+          executed_at?: string | null
+          executed_by?: string | null
+          id?: string
+          purge_method?: string
+          purge_reason?: string
+          target_count?: number
+          target_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pii_purge_logs_executed_by_fkey"
+            columns: ["executed_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pii_purge_logs_executed_by_fkey"
+            columns: ["executed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -4177,6 +4225,7 @@ export type Database = {
           name: string
           notification_settings: Json | null
           onboarding_completed: boolean | null
+          password_changed_at: string | null
           phone: string | null
           role: Database["public"]["Enums"]["role_type"]
           team: Database["public"]["Enums"]["team_type"]
@@ -4197,6 +4246,7 @@ export type Database = {
           name: string
           notification_settings?: Json | null
           onboarding_completed?: boolean | null
+          password_changed_at?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["role_type"]
           team?: Database["public"]["Enums"]["team_type"]
@@ -4217,6 +4267,7 @@ export type Database = {
           name?: string
           notification_settings?: Json | null
           onboarding_completed?: boolean | null
+          password_changed_at?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["role_type"]
           team?: Database["public"]["Enums"]["team_type"]
@@ -4985,6 +5036,60 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      security_training_logs: {
+        Row: {
+          certificate_path: string | null
+          created_at: string | null
+          duration_hours: number | null
+          id: string
+          notes: string | null
+          provider: string | null
+          training_date: string
+          training_title: string
+          training_type: string
+          user_id: string
+        }
+        Insert: {
+          certificate_path?: string | null
+          created_at?: string | null
+          duration_hours?: number | null
+          id?: string
+          notes?: string | null
+          provider?: string | null
+          training_date: string
+          training_title: string
+          training_type: string
+          user_id: string
+        }
+        Update: {
+          certificate_path?: string | null
+          created_at?: string | null
+          duration_hours?: number | null
+          id?: string
+          notes?: string | null
+          provider?: string | null
+          training_date?: string
+          training_title?: string
+          training_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_training_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "security_training_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
