@@ -11,6 +11,7 @@ import { handleSupabaseError } from "@/lib/api-error-handler";
 import { toast } from "sonner";
 import { setupOnlineSync } from "@/lib/offline-survey";
 import { useEffect } from "react";
+import { useSessionSync } from "@/hooks/useSessionSync";
 import "@/styles/print.css";
 import "@/lib/i18n";
 
