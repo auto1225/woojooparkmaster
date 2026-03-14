@@ -28,8 +28,10 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth();
   const { data: config } = useSystemConfig();
+  const { toggleTheme, isDark } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const isAdmin = profile?.role === "admin";
 
   const pageTitle = ROUTE_TITLES[location.pathname] ||
     (location.pathname.startsWith("/lots/") && location.pathname !== "/lots/new" ? "주차장 상세" : "");
