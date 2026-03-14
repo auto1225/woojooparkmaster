@@ -99,6 +99,12 @@ const AppRoutes = () => (
     <Route path="/budget/plans/:id" element={<ProtectedRoute><BudgetPlans /></ProtectedRoute>} />
     <Route path="/budget/executions" element={<ProtectedRoute><BudgetExecutions /></ProtectedRoute>} />
     <Route path="/budget/transfers" element={<ProtectedRoute><BudgetTransfers /></ProtectedRoute>} />
+    <Route path="/procurement" element={<ProtectedRoute><ProcurementDashboard /></ProtectedRoute>} />
+    <Route path="/procurement/projects" element={<ProtectedRoute><ProcurementProjects /></ProtectedRoute>} />
+    <Route path="/procurement/projects/new" element={<ProtectedRoute><ProcurementProjectNew /></ProtectedRoute>} />
+    <Route path="/procurement/projects/:id" element={<ProtectedRoute><ProcurementProjectDetail /></ProtectedRoute>} />
+    <Route path="/procurement/contracts" element={<ProtectedRoute><ProcurementContracts /></ProtectedRoute>} />
+    <Route path="/procurement/documents" element={<ProtectedRoute><ProcurementDocuments /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
