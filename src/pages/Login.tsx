@@ -16,6 +16,8 @@ export default function LoginPage() {
   const { signIn } = useAuth();
   const { data: config } = useSystemConfig();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isExpired = searchParams.get("expired") === "1";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
