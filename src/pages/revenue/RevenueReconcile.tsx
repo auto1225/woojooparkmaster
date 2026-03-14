@@ -76,7 +76,7 @@ export default function RevenueReconcile() {
     });
     if (error) { toast.error(error.message); return; }
     toast.success('대사 생성 완료');
-    await logActivity({ module: 'REVENUE', action: '위탁대사 생성', target_type: 'revenue_reconciliation', target_name: reconNumber });
+    await logActivity({ module: 'REVENUE', action: '위탁대사 생성', targetType: 'revenue_reconciliation', targetName: reconNumber });
     setCreateOpen(false);
     refetch();
   };

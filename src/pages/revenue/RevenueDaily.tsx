@@ -133,7 +133,7 @@ export default function RevenueDaily() {
       .in('id', Array.from(selectedIds));
     if (error) { toast.error(error.message); return; }
     toast.success(`${selectedIds.size}건 검증 완료`);
-    await logActivity({ module: 'REVENUE', action: `수입 일괄 검증 ${selectedIds.size}건`, target_type: 'revenue_daily' });
+    await logActivity({ module: 'REVENUE', action: `수입 일괄 검증 ${selectedIds.size}건`, targetType: 'revenue_daily' });
     setSelectedIds(new Set());
     refetch();
   };
