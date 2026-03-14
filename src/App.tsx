@@ -88,7 +88,11 @@ import NotificationsPage from "./pages/Notifications";
 import ProfilePage from "./pages/Profile";
 import ActivityAnalyticsPage from "./pages/settings/ActivityAnalytics";
 import SettingsPage from "./pages/Settings";
+import HelpPage from "./pages/Help";
+import DeliveryChecklist from "./pages/admin/DeliveryChecklist";
 import NotFound from "./pages/NotFound";
+import { HelpPanel } from "./components/help/HelpPanel";
+import { OnboardingGuide } from "./components/help/OnboardingGuide";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -200,6 +204,8 @@ const AppRoutes = () => (
     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/settings/analytics" element={<ProtectedRoute><ActivityAnalyticsPage /></ProtectedRoute>} />
+    <Route path="/help" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
+    <Route path="/admin/delivery-checklist" element={<ProtectedRoute><DeliveryChecklist /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
@@ -209,7 +215,13 @@ function AppWithSync() {
     const cleanup = setupOnlineSync();
     return cleanup;
   }, []);
-  return <AppRoutes />;
+  return (
+    <>
+      <AppRoutes />
+      <HelpPanel />
+      <OnboardingGuide />
+    </>
+  );
 }
 
 const App = () => (

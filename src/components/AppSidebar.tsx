@@ -456,9 +456,16 @@ export function AppSidebar() {
             </div>
           </div>
         )}
-        <Button variant="ghost" size="sm" onClick={toggleSidebar} className="w-full justify-center text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent">
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </Button>
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={toggleSidebar} className="text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent">
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
+          {!collapsed && (
+            <a href="/settings" className="text-[10px] text-sidebar-foreground/30 hover:text-sidebar-foreground/60 font-mono">
+              v1.0.0
+            </a>
+          )}
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
