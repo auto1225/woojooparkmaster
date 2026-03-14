@@ -21,6 +21,12 @@ import OpsExemptionsPage from "./pages/ops/OpsExemptions";
 import OpsPassesPage from "./pages/ops/OpsPasses";
 import OpsEnforcementPage from "./pages/ops/OpsEnforcement";
 import OpsFreeHoursPage from "./pages/ops/OpsFreeHours";
+import FacilityDashboard from "./pages/facility/FacilityDashboard";
+import FacilityEquipment from "./pages/facility/FacilityEquipment";
+import FacilityMaintenance from "./pages/facility/FacilityMaintenance";
+import FacilitySchedule from "./pages/facility/FacilitySchedule";
+import FacilitySafety from "./pages/facility/FacilitySafety";
+import FacilityMarkings from "./pages/facility/FacilityMarkings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
