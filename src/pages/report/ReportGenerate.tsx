@@ -32,6 +32,10 @@ export default function ReportGenerate() {
   const [title, setTitle] = useState("");
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{ status: string; id?: string; error?: string } | null>(null);
+  const [aiSummary, setAiSummary] = useState("");
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const { data: config } = useSystemConfig();
+  const aiEnabled = config?.ai_enabled === 'true';
 
   const activeModules = new Set(
     (licenses ?? []).filter((m) => m.is_active).map((m) => m.module_code)
