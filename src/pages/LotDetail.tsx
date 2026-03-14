@@ -317,6 +317,7 @@ export default function LotDetailPage() {
             {budgetActive && <TabsTrigger value="budget">예산현황</TabsTrigger>}
             {procurementActive && <TabsTrigger value="procurement">입찰/계약</TabsTrigger>}
             {serviceActive && <TabsTrigger value="service">용역사업</TabsTrigger>}
+            {complaintActive && <TabsTrigger value="complaint">민원</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="info">
