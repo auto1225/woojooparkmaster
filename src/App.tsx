@@ -68,6 +68,7 @@ import ReportGenerate from "./pages/report/ReportGenerate";
 import ReportHistory from "./pages/report/ReportHistory";
 import ReportSchedules from "./pages/report/ReportSchedules";
 import DashboardBuilder from "./pages/report/DashboardBuilder";
+import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -159,6 +160,7 @@ const AppRoutes = () => (
     <Route path="/reports/history" element={<ProtectedRoute><ReportHistory /></ProtectedRoute>} />
     <Route path="/reports/schedules" element={<ProtectedRoute><ReportSchedules /></ProtectedRoute>} />
     <Route path="/reports/dashboard-builder" element={<ProtectedRoute><DashboardBuilder /></ProtectedRoute>} />
+    <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
