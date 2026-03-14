@@ -19,6 +19,7 @@ import { LOT_TYPE_LABELS, LOT_STATUS_LABELS, OPERATOR_LABELS, SURFACE_LABELS, PO
 import type { LotType, LotStatus, OperatorType, SurfaceType, PowerStatus } from "@/types/database";
 import { EXECUTION_TYPE_LABELS, BUDGET_STATUS_LABELS } from "@/types/budget";
 import { formatManWon } from "@/types/revenue";
+import { BID_STATUS_LABELS, BID_STATUS_COLORS } from "@/types/procurement";
 import { ArrowLeft, Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
