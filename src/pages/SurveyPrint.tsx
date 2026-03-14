@@ -227,19 +227,22 @@ export default function SurveyPrint() {
                 <td style={tdStyle} rowSpan={2}>운영현황</td>
                 <td style={tdStyle}>운영시간</td>
                 <td style={tdStyle}>
-                  평일: {operation.weekday_start || "—"}~{operation.weekday_end || "—"} |
-                  토: {operation.saturday_start || "—"}~{operation.saturday_end || "—"} |
-                  일/공: {operation.holiday_start || "—"}~{operation.holiday_end || "—"}
+                  {operation.operating_hours || "—"}
+                  {operation.operating_hours_custom ? ` (${operation.operating_hours_custom})` : ""}
                 </td>
                 <td style={tdStyle}></td>
               </tr>
               <tr>
-                <td style={tdStyle}>요금정보</td>
+                <td style={tdStyle}>운영정보</td>
                 <td style={tdStyle}>
-                  기본: {operation.base_fee || 0}원 ({operation.base_time || 0}분),
-                  추가: {operation.extra_fee || 0}원 ({operation.extra_time || 0}분),
-                  1일: {operation.daily_max || 0}원,
-                  월정기: {operation.monthly_pass_fee || 0}원
+                  관리유형: {operation.management_type || "—"} |
+                  인력: {operation.staff_count || 0}명 ({operation.staff_type || "—"}) |
+                  결제: {[
+                    operation.payment_cash && "현금",
+                    operation.payment_card && "카드",
+                    operation.payment_mobile && "모바일",
+                  ].filter(Boolean).join(", ") || "무료"}
+                  {operation.management_etc ? ` | 비고: ${operation.management_etc}` : ""}
                 </td>
                 <td style={tdStyle}></td>
               </tr>
