@@ -106,6 +106,18 @@ import LotsPrintSummary from "./pages/report/LotsPrintSummary";
 import RevenuePrintMonthly from "./pages/revenue/RevenuePrintMonthly";
 import QuarterlyReport from "./pages/report/QuarterlyReport";
 import NotFound from "./pages/NotFound";
+import MasterHub from "./pages/MasterHub";
+import SurveysMaster from "./pages/survey/SurveysMaster";
+import OpsMaster from "./pages/ops/OpsMaster";
+import FacilityMaster from "./pages/facility/FacilityMaster";
+import RevenueMaster from "./pages/revenue/RevenueMaster";
+import BudgetMaster from "./pages/budget/BudgetMaster";
+import ProcurementMaster from "./pages/procurement/ProcurementMaster";
+import ServiceMaster from "./pages/service/ServiceMaster";
+import ComplaintMaster from "./pages/complaint/ComplaintMaster";
+import PlanningMaster from "./pages/planning/PlanningMaster";
+import RealtimeMaster from "./pages/realtime/RealtimeMaster";
+import ReportMaster from "./pages/report/ReportMaster";
 import { HelpPanel } from "./components/help/HelpPanel";
 import { OnboardingGuide } from "./components/help/OnboardingGuide";
 import { SecurityDiagnosisBanner } from "./pages/settings/SecurityManagement";
@@ -166,6 +178,18 @@ const AppRoutes = () => (
     <Route path="/privacy" element={<PrivacyPage />} />
     <Route path="/403" element={<ForbiddenPage />} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+    <Route path="/master" element={<ProtectedRoute><MasterHub /></ProtectedRoute>} />
+    <Route path="/surveys/master" element={<ProtectedRoute><SurveysMaster /></ProtectedRoute>} />
+    <Route path="/ops/master" element={<ProtectedRoute><OpsMaster /></ProtectedRoute>} />
+    <Route path="/facility/master" element={<ProtectedRoute><FacilityMaster /></ProtectedRoute>} />
+    <Route path="/revenue/master" element={<ProtectedRoute><RevenueMaster /></ProtectedRoute>} />
+    <Route path="/budget/master" element={<ProtectedRoute><BudgetMaster /></ProtectedRoute>} />
+    <Route path="/procurement/master" element={<ProtectedRoute><ProcurementMaster /></ProtectedRoute>} />
+    <Route path="/service/master" element={<ProtectedRoute><ServiceMaster /></ProtectedRoute>} />
+    <Route path="/complaints/master" element={<ProtectedRoute><ComplaintMaster /></ProtectedRoute>} />
+    <Route path="/planning/master" element={<ProtectedRoute><PlanningMaster /></ProtectedRoute>} />
+    <Route path="/realtime/master" element={<ProtectedRoute><RealtimeMaster /></ProtectedRoute>} />
+    <Route path="/reports/master" element={<ProtectedRoute><ReportMaster /></ProtectedRoute>} />
     <Route path="/lots" element={<ProtectedRoute><LotsPage /></ProtectedRoute>} />
     <Route path="/lots/new" element={<ProtectedRoute><LotNewPage /></ProtectedRoute>} />
     <Route path="/lots/:id" element={<ProtectedRoute><LotDetailPage /></ProtectedRoute>} />
