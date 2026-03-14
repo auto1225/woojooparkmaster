@@ -363,32 +363,71 @@ export default function LotDetailPage() {
             <p className="text-sm text-muted-foreground mt-1">{lot.address_jibun || lot.address_road || "주소 미등록"}</p>
           </div>
           <div className="flex gap-2 shrink-0">
+            <PrintButton />
             {canEdit && (
               <Button variant="outline" size="sm" onClick={() => navigate(`/lots/${lot.id}/edit`)}>
                 <Pencil className="h-3.5 w-3.5 mr-1" /> 수정
               </Button>
             )}
             {canDelete && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-                    <Trash2 className="h-3.5 w-3.5 mr-1" /> 삭제
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>주차장 삭제</AlertDialogTitle>
-                    <AlertDialogDescription>정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>취소</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">삭제</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <>
+                <Button
+                  variant="outline" size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={checkRelatedData}
+                  disabled={checkingRelated}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> 삭제
+                </Button>
+                <AlertDialog open={deleteOpen} onOpenChange={(o) => { setDeleteOpen(o); if (!o) setDeleteConfirmName(""); }}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>주차장 삭제</AlertDialogTitle>
+                      <AlertDialogDescription asChild>
+                        <div className="space-y-3">
+                          {hasRelated ? (
+                            <>
+                              <p>이 주차장에 다음 데이터가 연결되어 있습니다:</p>
+                              <ul className="list-disc list-inside text-sm space-y-1">
+                                {Object.entries(relatedCounts).map(([label, count]) => (
+                                  <li key={label}>{label}: <strong>{count}건</strong></li>
+                                ))}
+                              </ul>
+                              <p className="text-destructive font-medium">삭제하면 연결된 모든 데이터가 함께 삭제됩니다.</p>
+                              <div className="space-y-1.5">
+                                <p className="text-xs">삭제하려면 주차장명 "<strong>{lot.name}</strong>"을 입력하세요:</p>
+                                <Input
+                                  value={deleteConfirmName}
+                                  onChange={(e) => setDeleteConfirmName(e.target.value)}
+                                  placeholder={lot.name}
+                                  className="text-sm"
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <p>정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+                          )}
+                        </div>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>취소</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDelete}
+                        disabled={!canConfirmDelete}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        삭제
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
             )}
           </div>
         </div>
+
+        <PrintHeader />
 
         <Tabs defaultValue="info">
           <TabsList>
