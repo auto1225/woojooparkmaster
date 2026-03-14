@@ -22,7 +22,7 @@ import { DOC_TYPE_LABELS, DOC_CATEGORY_LABELS, REVIEW_STATUS_LABELS } from "@/ty
 export default function PlanningDocuments() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const [selectedProject, setSelectedProject] = useState<string>("");
+  const [selectedProject, setSelectedProject] = useState<string>("__all__");
   const [showUpload, setShowUpload] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
   const updateForm = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
