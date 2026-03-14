@@ -3,6 +3,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
+import { securePostLogin } from "@/lib/csrf-protection";
+import { logSecurityEvent } from "@/lib/security-logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,10 +74,13 @@ export default function LoginPage() {
       await supabase.from("activity_logs").insert({ action: "login_failed", module: "auth", target_name: email });
       toast({ title: "로그인 실패", description: "이메일 또는 비밀번호가 올바르지 않습니다.", variant: "destructive" });
     } else {
+      // SEC-C-1: 세션 고정 방어 — 로그인 후 세션 갱신 + CSRF 토큰 생성
+      await securePostLogin();
       await supabase.from("profiles").update({
         login_fail_count: 0, locked_until: null, last_login_at: new Date().toISOString(),
       } as any).eq("email", email);
       await supabase.from("activity_logs").insert({ action: "login_success", module: "auth", target_name: email });
+      await logSecurityEvent('login_success', 'info', { email });
       navigate("/");
     }
   };
@@ -154,6 +160,14 @@ export default function LoginPage() {
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               로그인
             </Button>
+            <div className="flex items-center justify-between w-full">
+              <Link to="/forgot-password" className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                비밀번호를 잊으셨나요?
+              </Link>
+              <Link to="/privacy" className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                개인정보 처리방침
+              </Link>
+            </div>
             <p className="text-[10px] text-muted-foreground/50 font-mono">우주주차 (WoojooJoocha)</p>
           </CardFooter>
         </form>

@@ -15,9 +15,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Settings, Shield, Package, Save, MessageSquare, GitBranch, Sparkles, Database, Info, HardDrive, CheckCircle2, XCircle, Trash2, PlayCircle } from "lucide-react";
+import { Settings, Shield, Package, Save, MessageSquare, GitBranch, Sparkles, Database, Info, HardDrive, CheckCircle2, XCircle, Trash2, PlayCircle, Lock } from "lucide-react";
 import MessageManagement from "@/pages/settings/MessageManagement";
 import ApprovalLineManagement from "@/pages/settings/ApprovalLineManagement";
+import SecurityManagement from "@/pages/settings/SecurityManagement";
 
 export default function SettingsPage() {
   const { profile } = useAuth();
@@ -119,6 +120,7 @@ export default function SettingsPage() {
             <TabsTrigger value="approval"><GitBranch className="h-3 w-3 mr-1" />결재선</TabsTrigger>
             <TabsTrigger value="system"><Info className="h-3 w-3 mr-1" />시스템 정보</TabsTrigger>
             <TabsTrigger value="backup"><HardDrive className="h-3 w-3 mr-1" />백업</TabsTrigger>
+            <TabsTrigger value="security"><Lock className="h-3 w-3 mr-1" />보안 관리</TabsTrigger>
             <TabsTrigger value="demo"><Database className="h-3 w-3 mr-1" />데모 데이터</TabsTrigger>
           </TabsList>
 
@@ -314,6 +316,9 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Security Management */}
+          <TabsContent value="security" className="mt-4"><SecurityManagement /></TabsContent>
 
           {/* Demo Data (P5-1) */}
           <TabsContent value="demo" className="mt-4">

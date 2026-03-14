@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,7 +35,7 @@ export default function ComplaintNew() {
     title: "", content: "", location_detail: "", incident_date: "", incident_time: "",
     vehicle_number: "", complainant_name: "", complainant_phone: "", complainant_email: "",
     complainant_address: "", is_anonymous: false, lot_id: "", assigned_team: "", assigned_to: "",
-    saeol_ref: "",
+    saeol_ref: "", privacy_agreed: false,
   });
 
   const { data: lots } = useQuery({
@@ -81,6 +82,10 @@ export default function ComplaintNew() {
   const handleSubmit = async (continueAdding = false) => {
     if (!form.title || !form.content || !form.category) {
       toast({ title: "필수 항목을 입력해주세요", variant: "destructive" });
+      return;
+    }
+    if (!form.is_anonymous && !form.privacy_agreed) {
+      toast({ title: "개인정보 수집 동의가 필요합니다", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -132,7 +137,7 @@ export default function ComplaintNew() {
           title: "", content: "", location_detail: "", incident_date: "", incident_time: "",
           vehicle_number: "", complainant_name: "", complainant_phone: "", complainant_email: "",
           complainant_address: "", is_anonymous: false, lot_id: "", assigned_team: "", assigned_to: "",
-          saeol_ref: "",
+          saeol_ref: "", privacy_agreed: false,
         });
       } else {
         navigate(`/complaints/${data.id}`);
@@ -291,6 +296,19 @@ export default function ComplaintNew() {
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">민원인 정보</CardTitle></CardHeader>
               <CardContent className="space-y-3">
+                {/* SEC-C-7: 개인정보 수집 동의 */}
+                {!form.is_anonymous && (
+                  <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
+                    <div className="flex items-start gap-2">
+                      <Checkbox checked={form.privacy_agreed} onCheckedChange={v => update("privacy_agreed", !!v)} className="mt-0.5" />
+                      <div>
+                        <span className="text-xs font-medium">개인정보 수집·이용에 동의합니다. (필수)</span>
+                        <a href="/privacy" target="_blank" className="text-[10px] text-primary ml-1 hover:underline">자세히 보기</a>
+                        <p className="text-[10px] text-muted-foreground mt-1">수집 항목: 이름, 전화번호, 이메일 | 보유 기간: 처리 완료 후 3년</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <Switch checked={form.is_anonymous} onCheckedChange={v => update("is_anonymous", v)} />
                   <Label className="text-xs">익명</Label>

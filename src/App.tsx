@@ -90,9 +90,19 @@ import ActivityAnalyticsPage from "./pages/settings/ActivityAnalytics";
 import SettingsPage from "./pages/Settings";
 import HelpPage from "./pages/Help";
 import DeliveryChecklist from "./pages/admin/DeliveryChecklist";
+import SecurityReview from "./pages/admin/SecurityReview";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import PrivacyPage from "./pages/Privacy";
+import ForbiddenPage from "./pages/Forbidden";
 import NotFound from "./pages/NotFound";
 import { HelpPanel } from "./components/help/HelpPanel";
 import { OnboardingGuide } from "./components/help/OnboardingGuide";
+import { SecurityDiagnosisBanner } from "./pages/settings/SecurityManagement";
+import { initProductionErrorFilter } from "./lib/error-sanitizer";
+
+// SEC-C-2: 프로덕션 에러 필터링 초기화
+initProductionErrorFilter();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -131,6 +141,10 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 const AppRoutes = () => (
   <Routes>
     <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+    <Route path="/forgot-password" element={<ForgotPassword />} />
+    <Route path="/reset-password" element={<ResetPassword />} />
+    <Route path="/privacy" element={<PrivacyPage />} />
+    <Route path="/403" element={<ForbiddenPage />} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/lots" element={<ProtectedRoute><LotsPage /></ProtectedRoute>} />
     <Route path="/lots/new" element={<ProtectedRoute><LotNewPage /></ProtectedRoute>} />
@@ -206,6 +220,7 @@ const AppRoutes = () => (
     <Route path="/settings/analytics" element={<ProtectedRoute><ActivityAnalyticsPage /></ProtectedRoute>} />
     <Route path="/help" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
     <Route path="/admin/delivery-checklist" element={<ProtectedRoute><DeliveryChecklist /></ProtectedRoute>} />
+    <Route path="/admin/security-review" element={<ProtectedRoute><SecurityReview /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
@@ -217,6 +232,7 @@ function AppWithSync() {
   }, []);
   return (
     <>
+      <SecurityDiagnosisBanner />
       <AppRoutes />
       <HelpPanel />
       <OnboardingGuide />
