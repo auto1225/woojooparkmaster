@@ -78,6 +78,8 @@ import ReportHistory from "./pages/report/ReportHistory";
 import ReportSchedules from "./pages/report/ReportSchedules";
 import DashboardBuilder from "./pages/report/DashboardBuilder";
 import SurveyPrint from "./pages/SurveyPrint";
+import ApprovalsPage from "./pages/Approvals";
+import NotificationsPage from "./pages/Notifications";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
