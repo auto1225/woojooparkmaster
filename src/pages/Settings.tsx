@@ -118,6 +118,9 @@ export default function SettingsPage() {
           <TabsList>
             <TabsTrigger value="general">기본 설정</TabsTrigger>
             <TabsTrigger value="modules">모듈 관리</TabsTrigger>
+            <TabsTrigger value="ai"><Sparkles className="h-3 w-3 mr-1" />AI 설정</TabsTrigger>
+            <TabsTrigger value="messages"><MessageSquare className="h-3 w-3 mr-1" />메시지</TabsTrigger>
+            <TabsTrigger value="approval"><GitBranch className="h-3 w-3 mr-1" />결재선</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" className="mt-4">
