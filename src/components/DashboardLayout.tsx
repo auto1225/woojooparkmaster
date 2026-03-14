@@ -102,6 +102,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     {unreadNotifs && unreadNotifs.length > 0 && (
                       <Button variant="ghost" size="sm" className="text-[10px] h-6" onClick={markAllRead}>모두 읽음</Button>
                     )}
+                    <Link to="/notifications" className="text-[10px] text-primary hover:underline">전체 보기</Link>
                   </div>
                   <div className="max-h-60 overflow-auto">
                     {(!unreadNotifs || unreadNotifs.length === 0) ? (
