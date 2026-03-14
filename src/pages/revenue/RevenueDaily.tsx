@@ -120,7 +120,7 @@ export default function RevenueDaily() {
     }
     if (error) { toast.error(error.message); return; }
     toast.success(editItem ? '수정 완료' : '입력 완료');
-    await logActivity({ module: 'REVENUE', action: editItem ? '수입 수정' : '수입 입력', target_type: 'revenue_daily', target_name: form.revenue_date });
+    await logActivity({ module: 'REVENUE', action: editItem ? '수입 수정' : '수입 입력', targetType: 'revenue_daily', targetName: form.revenue_date });
     setDialogOpen(false);
     refetch();
   };
