@@ -306,6 +306,29 @@ export function AppSidebar() {
                 )}
 
                 {serviceActive && collapsed && renderLink({ title: "용역사업관리", url: "/service", icon: Briefcase })}
+
+                {complaintActive && !collapsed && (
+                  <Collapsible open={complaintOpen} onOpenChange={setComplaintOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <Megaphone className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">민원관리</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${complaintOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {complaintSubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {complaintActive && collapsed && renderLink({ title: "민원관리", url: "/complaints", icon: Megaphone })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
