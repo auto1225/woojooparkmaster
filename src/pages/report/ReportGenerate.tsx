@@ -272,6 +272,38 @@ export default function ReportGenerate() {
                 <span>{outputFormat === "pdf+xlsx" ? "PDF + 엑셀" : "PDF"}</span>
               </div>
 
+              {/* AI Summary */}
+              {aiEnabled && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">총평</Label>
+                    <Button type="button" variant="outline" size="sm" className="text-xs gap-1" disabled={aiSummaryLoading}
+                      onClick={async () => {
+                        setAiSummaryLoading(true);
+                        try {
+                          const result = await callAI({
+                            task: 'summarize_report',
+                            input: { template: selectedTemplate?.name, params },
+                            context: `기관: ${config?.org_name || ''}\n보고서: ${title}\n기간: ${params.date || params.month || params.period_start || ''}~${params.period_end || ''}`,
+                          });
+                          setAiSummary(result.result || JSON.stringify(result));
+                          await logActivity({ module: 'ai', action: 'summarize_report' });
+                        } catch (e: any) { /* ignore */ }
+                        finally { setAiSummaryLoading(false); }
+                      }}>
+                      <Sparkles className="h-3 w-3" />{aiSummaryLoading ? '생성 중...' : 'AI 총평 생성'}
+                    </Button>
+                  </div>
+                  {aiSummary && (
+                    <>
+                      <Textarea value={aiSummary} onChange={e => setAiSummary(e.target.value)} rows={6} className="text-sm" />
+                      <p className="text-[10px] text-muted-foreground italic">※ AI가 생성한 초안입니다. 검토 후 사용하세요.</p>
+                    </>
+                  )}
+                </div>
+              )}
+              </div>
+
               {result && (
                 <div className={`p-4 rounded-lg flex items-center gap-3 ${result.status === "completed" ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
                   {result.status === "completed" ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : <XCircle className="h-5 w-5 text-red-600" />}
