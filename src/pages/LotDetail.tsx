@@ -303,6 +303,7 @@ export default function LotDetailPage() {
             <TabsTrigger value="info">기본정보</TabsTrigger>
             {budgetActive && <TabsTrigger value="budget">예산현황</TabsTrigger>}
             {procurementActive && <TabsTrigger value="procurement">입찰/계약</TabsTrigger>}
+            {serviceActive && <TabsTrigger value="service">용역사업</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="info">
