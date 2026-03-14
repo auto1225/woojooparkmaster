@@ -195,6 +195,14 @@ const AppRoutes = () => (
   </Routes>
 );
 
+function AppWithSync() {
+  useEffect(() => {
+    const cleanup = setupOnlineSync();
+    return cleanup;
+  }, []);
+  return <AppRoutes />;
+}
+
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -205,7 +213,7 @@ const App = () => (
           <AuthProvider>
             <SessionManager />
             <GlobalSearch />
-            <AppRoutes />
+            <AppWithSync />
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
