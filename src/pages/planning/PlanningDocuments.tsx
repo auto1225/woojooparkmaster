@@ -103,7 +103,7 @@ export default function PlanningDocuments() {
           <Select value={selectedProject} onValueChange={setSelectedProject}>
             <SelectTrigger className="w-[300px]"><SelectValue placeholder="공사 프로젝트 선택" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">전체 프로젝트</SelectItem>
+              <SelectItem value="__all__">전체 프로젝트</SelectItem>
               {(projects || []).map(p => <SelectItem key={p.id} value={p.id}>{p.project_name} ({p.project_number})</SelectItem>)}
             </SelectContent>
           </Select>
