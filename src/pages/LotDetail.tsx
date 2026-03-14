@@ -179,6 +179,17 @@ export default function LotDetailPage() {
   const { profile } = useAuth();
   const { data: licenses } = useModuleLicenses();
   const budgetActive = (licenses ?? []).some(m => m.module_code === 'BUDGET' && m.is_active);
+  const procurementActive = (licenses ?? []).some(m => m.module_code === 'PROCUREMENT' && m.is_active);
+
+  const { data: bidProjects } = useQuery({
+    queryKey: ['lot-bid-projects', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('bid_projects').select('id, bid_number, title, status, bid_type, estimated_amount, contract_amount, successful_bidder, bid_deadline')
+        .eq('lot_id', id!).order('created_at', { ascending: false });
+      return data || [];
+    },
+    enabled: !!id && procurementActive,
+  });
 
   const { data: lot, isLoading } = useQuery({
     queryKey: ["lot", id],
