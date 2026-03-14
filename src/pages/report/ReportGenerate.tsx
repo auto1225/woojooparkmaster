@@ -259,7 +259,7 @@ export default function ReportGenerate() {
                 <span className="text-muted-foreground">제목</span>
                 <span className="font-medium">{title}</span>
                 {Object.entries(params).map(([k, v]) => (
-                  <><span key={`l-${k}`} className="text-muted-foreground">{k}</span><span key={`v-${k}`}>{v}</span></>
+                  <React.Fragment key={k}><span className="text-muted-foreground">{k}</span><span>{v}</span></React.Fragment>
                 ))}
                 <span className="text-muted-foreground">형식</span>
                 <span>{outputFormat === "pdf+xlsx" ? "PDF + 엑셀" : "PDF"}</span>
