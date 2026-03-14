@@ -63,6 +63,11 @@ import RealtimeSensors from "./pages/realtime/RealtimeSensors";
 import RealtimeGateways from "./pages/realtime/RealtimeGateways";
 import RealtimeDisplays from "./pages/realtime/RealtimeDisplays";
 import RealtimeApi from "./pages/realtime/RealtimeApi";
+import ReportCenter from "./pages/report/ReportCenter";
+import ReportGenerate from "./pages/report/ReportGenerate";
+import ReportHistory from "./pages/report/ReportHistory";
+import ReportSchedules from "./pages/report/ReportSchedules";
+import DashboardBuilder from "./pages/report/DashboardBuilder";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
