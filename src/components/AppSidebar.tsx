@@ -94,7 +94,7 @@ const simpleModuleMap: Record<string, { title: string; url: string; icon: any }>
   PROCUREMENT: { title: "입찰관리", url: "/procurement", icon: FileText },
   SERVICE: { title: "용역사업관리", url: "/service", icon: Users },
   PLANNING: { title: "신설기획", url: "/planning", icon: MapPin },
-  REALTIME: { title: "실시간 정보", url: "/realtime", icon: PieChart },
+  REALTIME: { title: "실시간 정보", url: "/realtime", icon: Radio },
   REPORT: { title: "보고서/통계", url: "/report", icon: BarChart3 },
 };
 
