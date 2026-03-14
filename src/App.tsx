@@ -70,6 +70,12 @@ const AppRoutes = () => (
     <Route path="/ops/passes" element={<ProtectedRoute><OpsPassesPage /></ProtectedRoute>} />
     <Route path="/ops/enforcement" element={<ProtectedRoute><OpsEnforcementPage /></ProtectedRoute>} />
     <Route path="/ops/free-hours" element={<ProtectedRoute><OpsFreeHoursPage /></ProtectedRoute>} />
+    <Route path="/facility" element={<ProtectedRoute><FacilityDashboard /></ProtectedRoute>} />
+    <Route path="/facility/equipment" element={<ProtectedRoute><FacilityEquipment /></ProtectedRoute>} />
+    <Route path="/facility/maintenance" element={<ProtectedRoute><FacilityMaintenance /></ProtectedRoute>} />
+    <Route path="/facility/schedule" element={<ProtectedRoute><FacilitySchedule /></ProtectedRoute>} />
+    <Route path="/facility/safety" element={<ProtectedRoute><FacilitySafety /></ProtectedRoute>} />
+    <Route path="/facility/markings" element={<ProtectedRoute><FacilityMarkings /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
