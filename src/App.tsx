@@ -35,6 +35,12 @@ import BudgetDashboard from "./pages/budget/BudgetDashboard";
 import BudgetPlans from "./pages/budget/BudgetPlans";
 import BudgetExecutions from "./pages/budget/BudgetExecutions";
 import BudgetTransfers from "./pages/budget/BudgetTransfers";
+import ProcurementDashboard from "./pages/procurement/ProcurementDashboard";
+import ProcurementProjects from "./pages/procurement/ProcurementProjects";
+import ProcurementProjectNew from "./pages/procurement/ProcurementProjectNew";
+import ProcurementProjectDetail from "./pages/procurement/ProcurementProjectDetail";
+import ProcurementContracts from "./pages/procurement/ProcurementContracts";
+import ProcurementDocuments from "./pages/procurement/ProcurementDocuments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -93,6 +99,12 @@ const AppRoutes = () => (
     <Route path="/budget/plans/:id" element={<ProtectedRoute><BudgetPlans /></ProtectedRoute>} />
     <Route path="/budget/executions" element={<ProtectedRoute><BudgetExecutions /></ProtectedRoute>} />
     <Route path="/budget/transfers" element={<ProtectedRoute><BudgetTransfers /></ProtectedRoute>} />
+    <Route path="/procurement" element={<ProtectedRoute><ProcurementDashboard /></ProtectedRoute>} />
+    <Route path="/procurement/projects" element={<ProtectedRoute><ProcurementProjects /></ProtectedRoute>} />
+    <Route path="/procurement/projects/new" element={<ProtectedRoute><ProcurementProjectNew /></ProtectedRoute>} />
+    <Route path="/procurement/projects/:id" element={<ProtectedRoute><ProcurementProjectDetail /></ProtectedRoute>} />
+    <Route path="/procurement/contracts" element={<ProtectedRoute><ProcurementContracts /></ProtectedRoute>} />
+    <Route path="/procurement/documents" element={<ProtectedRoute><ProcurementDocuments /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
