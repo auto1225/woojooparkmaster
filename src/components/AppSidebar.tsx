@@ -77,6 +77,8 @@ const simpleModuleMap: Record<string, { title: string; url: string; icon: any }>
   REPORT: { title: "보고서/통계", url: "/report", icon: BarChart3 },
 };
 
+let sidebarScrollTop = 0;
+
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
