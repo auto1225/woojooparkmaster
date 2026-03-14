@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { setupOnlineSync } from "@/lib/offline-survey";
 import { useEffect } from "react";
 import "@/styles/print.css";
+import "@/lib/i18n";
 
 // --- Page imports (unchanged) ---
 import Index from "./pages/Index";
@@ -82,6 +83,8 @@ import DashboardBuilder from "./pages/report/DashboardBuilder";
 import SurveyPrint from "./pages/SurveyPrint";
 import ApprovalsPage from "./pages/Approvals";
 import NotificationsPage from "./pages/Notifications";
+import ProfilePage from "./pages/Profile";
+import ActivityAnalyticsPage from "./pages/settings/ActivityAnalytics";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -190,7 +193,9 @@ const AppRoutes = () => (
     <Route path="/reports/dashboard-builder" element={<ProtectedRoute><DashboardBuilder /></ProtectedRoute>} />
     <Route path="/approvals" element={<ProtectedRoute><ApprovalsPage /></ProtectedRoute>} />
     <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+    <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+    <Route path="/settings/analytics" element={<ProtectedRoute><ActivityAnalyticsPage /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

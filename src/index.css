@@ -100,7 +100,7 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border transition-colors duration-150;
   }
 
   body {
@@ -110,5 +110,30 @@
 
   code, .font-mono {
     font-family: var(--font-mono);
+  }
+
+  /* Focus visible ring for accessibility */
+  *:focus-visible {
+    @apply ring-2 ring-ring ring-offset-2 ring-offset-background outline-none;
+  }
+}
+
+/* Print: force light mode */
+@media print {
+  .dark {
+    --background: 210 20% 97%;
+    --foreground: 213 27% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 213 27% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 213 27% 14%;
+    --primary: 213 55% 20%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 18% 93%;
+    --secondary-foreground: 213 27% 14%;
+    --muted: 210 18% 95%;
+    --muted-foreground: 213 10% 46%;
+    --border: 214 20% 89%;
+    --input: 214 20% 89%;
   }
 }
