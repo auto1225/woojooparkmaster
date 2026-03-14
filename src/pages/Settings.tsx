@@ -82,6 +82,13 @@ export default function SettingsPage() {
     { key: "map_center_lat", label: "지도 중심 위도" },
     { key: "map_center_lng", label: "지도 중심 경도" },
     { key: "map_zoom", label: "지도 줌 레벨" },
+    { key: "kakao_map_appkey", label: "카카오 맵 API 키" },
+  ];
+
+  const AI_TOGGLE_KEY = "ai_enabled";
+  const MSG_TOGGLES = [
+    { key: "alimtalk_enabled", label: "카카오 알림톡" },
+    { key: "sms_enabled", label: "SMS 발송" },
   ];
 
   const MODULE_LABELS: Record<string, string> = {
