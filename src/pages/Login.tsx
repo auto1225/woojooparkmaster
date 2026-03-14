@@ -74,10 +74,13 @@ export default function LoginPage() {
       await supabase.from("activity_logs").insert({ action: "login_failed", module: "auth", target_name: email });
       toast({ title: "로그인 실패", description: "이메일 또는 비밀번호가 올바르지 않습니다.", variant: "destructive" });
     } else {
+      // SEC-C-1: 세션 고정 방어 — 로그인 후 세션 갱신 + CSRF 토큰 생성
+      await securePostLogin();
       await supabase.from("profiles").update({
         login_fail_count: 0, locked_until: null, last_login_at: new Date().toISOString(),
       } as any).eq("email", email);
       await supabase.from("activity_logs").insert({ action: "login_success", module: "auth", target_name: email });
+      await logSecurityEvent('login_success', 'info', { email });
       navigate("/");
     }
   };
