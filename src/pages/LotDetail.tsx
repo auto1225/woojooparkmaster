@@ -20,6 +20,7 @@ import type { LotType, LotStatus, OperatorType, SurfaceType, PowerStatus } from 
 import { EXECUTION_TYPE_LABELS, BUDGET_STATUS_LABELS } from "@/types/budget";
 import { formatManWon } from "@/types/revenue";
 import { BID_STATUS_LABELS, BID_STATUS_COLORS } from "@/types/procurement";
+import { CATEGORY_LABELS, COMPLAINT_STATUS_LABELS, COMPLAINT_STATUS_COLORS } from "@/types/complaint";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS, SERVICE_TYPE_LABELS, formatServiceAmount } from "@/types/service";
 import { ArrowLeft, Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
