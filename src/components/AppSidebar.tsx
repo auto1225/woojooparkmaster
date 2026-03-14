@@ -70,6 +70,14 @@ const complaintSubMenu = [
   { title: "민원 통계", url: "/complaints/stats", icon: BarChart2 },
 ];
 
+const planningSubMenu = [
+  { title: "기획 현황", url: "/planning", icon: Compass, end: true },
+  { title: "후보부지", url: "/planning/sites", icon: MapPin },
+  { title: "공사 관리", url: "/planning/projects", icon: HardHat },
+  { title: "도면 관리", url: "/planning/documents", icon: FileImage },
+  { title: "인허가", url: "/planning/permits", icon: ScrollText },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
