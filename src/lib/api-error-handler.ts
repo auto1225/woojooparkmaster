@@ -28,5 +28,10 @@ export function handleSupabaseError(error: any): string {
     return '인증이 만료되었습니다. 다시 로그인해주세요.';
   }
 
+  // Rate limiting (SEC-WEB-3)
+  if (error?.status === 429 || message.includes('rate') || message.includes('too many')) {
+    return '요청이 너무 많습니다. 30초 후 다시 시도해주세요.';
+  }
+
   return '처리 중 오류가 발생했습니다. 다시 시도해주세요.';
 }

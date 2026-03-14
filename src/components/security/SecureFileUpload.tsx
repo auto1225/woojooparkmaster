@@ -148,7 +148,7 @@ export function SecureFileUpload({ category, bucket, folder, maxFiles = 1, onUpl
             {f.warnings?.map((w, j) => (
               <p key={j} className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5">{w}</p>
             ))}
-            {f.status === 'done' && <p className="text-[10px] text-green-600">파일 검증 완료 ✓</p>}
+            {f.status === 'done' && <p className="text-[10px] text-primary">파일 검증 완료 ✓</p>}
           </div>
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0" onClick={() => removeFile(f.name)}>
             <Trash2 className="h-3 w-3" />

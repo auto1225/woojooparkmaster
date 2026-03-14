@@ -17,10 +17,10 @@ export function sanitizeRecord<T extends Record<string, any>>(record: T): T {
 
 /** 안전한 INSERT */
 export async function safeInsert(table: string, record: Record<string, any>) {
-  return (supabase.from(table) as any).insert(sanitizeRecord(record));
+  return (supabase as any).from(table).insert(sanitizeRecord(record));
 }
 
 /** 안전한 UPDATE */
 export async function safeUpdate(table: string, record: Record<string, any>, id: string) {
-  return (supabase.from(table) as any).update(sanitizeRecord(record)).eq('id', id);
+  return (supabase as any).from(table).update(sanitizeRecord(record)).eq('id', id);
 }
