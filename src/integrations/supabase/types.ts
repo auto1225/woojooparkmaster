@@ -3904,6 +3904,7 @@ export type Database = {
           is_active: boolean | null
           last_login_at: string | null
           name: string
+          notification_settings: Json | null
           phone: string | null
           role: Database["public"]["Enums"]["role_type"]
           team: Database["public"]["Enums"]["team_type"]
@@ -3919,6 +3920,7 @@ export type Database = {
           is_active?: boolean | null
           last_login_at?: string | null
           name: string
+          notification_settings?: Json | null
           phone?: string | null
           role?: Database["public"]["Enums"]["role_type"]
           team?: Database["public"]["Enums"]["team_type"]
@@ -3934,6 +3936,7 @@ export type Database = {
           is_active?: boolean | null
           last_login_at?: string | null
           name?: string
+          notification_settings?: Json | null
           phone?: string | null
           role?: Database["public"]["Enums"]["role_type"]
           team?: Database["public"]["Enums"]["team_type"]
