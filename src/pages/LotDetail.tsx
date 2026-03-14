@@ -356,6 +356,7 @@ export default function LotDetailPage() {
             {procurementActive && <TabsTrigger value="procurement">입찰/계약</TabsTrigger>}
             {serviceActive && <TabsTrigger value="service">용역사업</TabsTrigger>}
             {complaintActive && <TabsTrigger value="complaint">민원</TabsTrigger>}
+            {realtimeActive && <TabsTrigger value="realtime">실시간</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="info">
