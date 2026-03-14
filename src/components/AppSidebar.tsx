@@ -82,6 +82,21 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { profile } = useAuth();
   const { data: licenses } = useModuleLicenses();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollTopRef = useRef(0);
+
+  const handleScroll = useCallback(() => {
+    if (scrollRef.current) {
+      scrollTopRef.current = scrollRef.current.scrollTop;
+    }
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) {
+      el.scrollTop = scrollTopRef.current;
+    }
+  });
   const [opsOpen, setOpsOpen] = useState(true);
   const [facilityOpen, setFacilityOpen] = useState(true);
   const [revenueOpen, setRevenueOpen] = useState(true);
