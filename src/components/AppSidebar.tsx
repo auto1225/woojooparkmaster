@@ -54,6 +54,7 @@ export function AppSidebar() {
   const { profile } = useAuth();
   const { data: licenses } = useModuleLicenses();
   const [opsOpen, setOpsOpen] = useState(true);
+  const [facilityOpen, setFacilityOpen] = useState(true);
 
   const activeModules = (licenses ?? []).filter((m) => m.is_active && m.module_code !== "CORE" && m.module_code !== "OPS");
   const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
