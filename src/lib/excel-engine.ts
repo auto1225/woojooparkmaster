@@ -538,10 +538,12 @@ export async function createProfessionalExcel(config: CreateExcelConfig): Promis
     cols.forEach((col, idx) => {
       if (col.validation?.type === 'list' && col.validation.values) {
         const cl = getColLetter(idx + 1);
-        ws.dataValidations.add(`${cl}${dataStartRow}:${cl}${dataEndRow}`, {
-          type: 'list', allowBlank: true, formulae: [`"${col.validation.values.join(',')}"`],
-          showErrorMessage: true, errorTitle: '입력 오류', error: `허용값: ${col.validation.values.join(', ')}`,
-        });
+        try {
+          (ws as any).dataValidations?.add?.(`${cl}${dataStartRow}:${cl}${dataEndRow}`, {
+            type: 'list', allowBlank: true, formulae: [`"${col.validation.values.join(',')}"`],
+            showErrorMessage: true, errorTitle: '입력 오류', error: `허용값: ${col.validation.values.join(', ')}`,
+          });
+        } catch { /* skip if not supported */ }
       }
     });
   }
