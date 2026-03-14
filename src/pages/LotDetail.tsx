@@ -193,6 +193,17 @@ export default function LotDetailPage() {
     enabled: !!id && procurementActive,
   });
 
+  const { data: serviceProjects } = useQuery({
+    queryKey: ['lot-service-projects', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('service_projects')
+        .select('id, project_number, title, service_type, contractor_name, start_date, end_date, progress_pct, status')
+        .eq('lot_id', id!).order('created_at', { ascending: false });
+      return data || [];
+    },
+    enabled: !!id && serviceActive,
+  });
+
   const { data: lot, isLoading } = useQuery({
     queryKey: ["lot", id],
     queryFn: async () => {
