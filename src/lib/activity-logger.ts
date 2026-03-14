@@ -27,6 +27,6 @@ export async function logActivity(params: LogParams) {
     target_type: params.targetType,
     target_id: params.targetId,
     target_name: params.targetName,
-    details: params.details as Record<string, unknown>,
+    details: (params.details || null) as any,
   }]);
 }
