@@ -105,7 +105,7 @@ export default function ComplaintNew() {
       if (error) throw error;
 
       if (form.assigned_to) {
-        await supabase.from("notifications").insert({
+        await supabase.from("notifications").insert([{
           user_id: form.assigned_to,
           title: "민원 배정",
           message: `[${complaint_number}] ${form.title}`,
