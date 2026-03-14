@@ -22,7 +22,7 @@ import { DOC_TYPE_LABELS, DOC_CATEGORY_LABELS, REVIEW_STATUS_LABELS } from "@/ty
 export default function PlanningDocuments() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const [selectedProject, setSelectedProject] = useState<string>("");
+  const [selectedProject, setSelectedProject] = useState<string>("__all__");
   const [showUpload, setShowUpload] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
   const updateForm = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
@@ -43,7 +43,7 @@ export default function PlanningDocuments() {
     queryKey: ["planning-docs", selectedProject],
     queryFn: async () => {
       let query = supabase.from("design_documents").select("*").eq("is_current", true);
-      if (selectedProject) query = query.eq("project_id", selectedProject);
+      if (selectedProject && selectedProject !== "__all__") query = query.eq("project_id", selectedProject);
       const { data, error } = await query.order("category").order("doc_type");
       if (error) throw error;
       return data || [];
@@ -95,7 +95,7 @@ export default function PlanningDocuments() {
             <h1 className="text-2xl font-bold tracking-tight">도면 관리</h1>
             <p className="text-sm text-muted-foreground mt-1">설계도면 버전관리 및 검토</p>
           </div>
-          {canEdit && <Button onClick={() => { setForm({ project_id: selectedProject }); setShowUpload(true); }}><Upload className="h-4 w-4 mr-1" />도면 업로드</Button>}
+          {canEdit && <Button onClick={() => { setForm({ project_id: selectedProject === "__all__" ? "" : selectedProject }); setShowUpload(true); }}><Upload className="h-4 w-4 mr-1" />도면 업로드</Button>}
         </div>
 
         {/* Project Select */}
@@ -103,7 +103,7 @@ export default function PlanningDocuments() {
           <Select value={selectedProject} onValueChange={setSelectedProject}>
             <SelectTrigger className="w-[300px]"><SelectValue placeholder="공사 프로젝트 선택" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">전체 프로젝트</SelectItem>
+              <SelectItem value="__all__">전체 프로젝트</SelectItem>
               {(projects || []).map(p => <SelectItem key={p.id} value={p.id}>{p.project_name} ({p.project_number})</SelectItem>)}
             </SelectContent>
           </Select>
