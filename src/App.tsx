@@ -9,6 +9,7 @@ import LoginPage from "./pages/Login";
 import LotsPage from "./pages/Lots";
 import LotNewPage from "./pages/LotNew";
 import LotDetailPage from "./pages/LotDetail";
+import LotEditPage from "./pages/LotEdit";
 import SurveysPage from "./pages/Surveys";
 import SurveyWizardPage from "./pages/SurveyWizard";
 import SurveyReviewPage from "./pages/SurveyReview";
