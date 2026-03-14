@@ -195,16 +195,42 @@ export function MasterDataView({
     setVisibleCols(next);
   };
 
-  const handleExcel = (mode: 'current' | 'full' | 'multi') => {
-    exportMasterExcel({
-      fileName: exportFileName,
-      orgName,
-      title: printTitle || title,
-      columns: mode === 'current' ? visibleColumns : columns,
-      data: processed,
-      mode,
-      sheets: exportSheets,
-    });
+  const handleExcel = async (mode: 'current' | 'full' | 'multi') => {
+    const targetCols = mode === 'current' ? visibleColumns : columns;
+    try {
+      await createProfessionalExcel({
+        fileName: exportFileName,
+        orgName,
+        title: printTitle || title,
+        subtitle: subtitle,
+        sheets: mode === 'multi' && exportSheets
+          ? exportSheets.map(s => ({
+              name: s.name.slice(0, 31),
+              columns: s.columns.map(c => masterColumnToExcelColumn(c)),
+              data: s.data,
+              totalRow: s.columns.some(c => c.subTotal) ? { label: '합 계', labelColIndex: 0 } : undefined,
+              extraCalcRows: s.columns.some(c => c.subTotal) ? [{ label: '평 균', formula: 'AVERAGE' as const, labelColIndex: 0 }] : undefined,
+            }))
+          : [{
+              name: (printTitle || title).slice(0, 31),
+              columns: targetCols.map(c => masterColumnToExcelColumn(c)),
+              data: processed,
+              totalRow: targetCols.some(c => c.subTotal) ? { label: '합 계', labelColIndex: 0 } : undefined,
+              extraCalcRows: targetCols.some(c => c.subTotal) ? [{ label: '평 균', formula: 'AVERAGE' as const, labelColIndex: 0 }] : undefined,
+            }],
+      });
+    } catch {
+      // Fallback to legacy export
+      exportMasterExcel({
+        fileName: exportFileName,
+        orgName,
+        title: printTitle || title,
+        columns: targetCols,
+        data: processed,
+        mode,
+        sheets: exportSheets,
+      });
+    }
   };
 
   const colGroups = useMemo(() => {
