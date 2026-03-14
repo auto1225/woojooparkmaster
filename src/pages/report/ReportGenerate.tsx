@@ -15,6 +15,9 @@ import { toast } from "sonner";
 import { ChevronRight, FileText, Loader2, CheckCircle2, XCircle, Sparkles } from "lucide-react";
 import { REPORT_TYPE_LABELS, REPORT_CATEGORY_LABELS, type ReportTemplate } from "@/types/report";
 import { logActivity } from "@/lib/activity-logger";
+import { useSystemConfig } from "@/hooks/useSystemConfig";
+import { callAI } from "@/lib/ai-service";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function ReportGenerate() {
   const navigate = useNavigate();
