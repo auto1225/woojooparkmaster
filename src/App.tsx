@@ -244,6 +244,7 @@ function AppWithSync() {
     const cleanup = setupOnlineSync();
     return cleanup;
   }, []);
+  useSessionSync(); // SEC-WEB-4: 멀티탭 세션 동기화
   return (
     <>
       <SecurityDiagnosisBanner />
