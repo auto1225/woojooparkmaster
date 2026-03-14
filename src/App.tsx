@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { setupOnlineSync } from "@/lib/offline-survey";
 import { useEffect } from "react";
 import "@/styles/print.css";
+import "@/lib/i18n";
 
 // --- Page imports (unchanged) ---
 import Index from "./pages/Index";
