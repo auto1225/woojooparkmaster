@@ -9,6 +9,8 @@ import { SessionManager } from "@/components/common/SessionManager";
 import { GlobalSearch } from "@/components/common/GlobalSearch";
 import { handleSupabaseError } from "@/lib/api-error-handler";
 import { toast } from "sonner";
+import { setupOnlineSync } from "@/lib/offline-survey";
+import { useEffect } from "react";
 import "@/styles/print.css";
 
 // --- Page imports (unchanged) ---
