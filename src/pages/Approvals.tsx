@@ -171,8 +171,8 @@ export default function Approvals() {
       const items: ApprovalItem[] = [];
 
       if (activeModules.has("SURVEY")) {
-        const { data } = await supabase
-          .from("surveys")
+        const { data } = await (supabase
+          .from("surveys") as any)
           .select("id, parking_lots(lot_name), status, submitted_at")
           .eq("created_by", user.id)
           .in("status", ["submitted", "approved", "rejected"])
