@@ -82,7 +82,7 @@ export default function ResetPassword() {
             {password.length > 0 && (
               <div className="space-y-1.5 p-3 bg-muted/50 rounded-lg">
                 <p className="text-[11px] font-medium text-muted-foreground">비밀번호 정책</p>
-                {validation.checks.map((c, i) => (
+                {checks.map((c, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-[11px]">
                     {c.passed ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-400" />}
                     <span className={c.passed ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}>{c.label}</span>
