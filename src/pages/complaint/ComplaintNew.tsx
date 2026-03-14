@@ -15,7 +15,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { CHANNEL_LABELS, CATEGORY_LABELS, PRIORITY_LABELS, getTeamRecommendation } from "@/types/complaint";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Sparkles } from "lucide-react";
+import { useSystemConfig } from "@/hooks/useSystemConfig";
+import { callAI } from "@/lib/ai-service";
 
 export default function ComplaintNew() {
   const navigate = useNavigate();
