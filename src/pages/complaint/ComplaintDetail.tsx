@@ -19,8 +19,9 @@ import {
   CHANNEL_LABELS, CATEGORY_LABELS, COMPLAINT_STATUS_LABELS, COMPLAINT_STATUS_COLORS,
   PRIORITY_LABELS, PRIORITY_COLORS, COMMENT_TYPE_LABELS, RESOLUTION_TYPE_LABELS, getDDay,
 } from "@/types/complaint";
-import { ArrowLeft, MessageCircle, Lock, Send, Star, UserPlus, Play, Reply, CheckCircle, RotateCcw, ExternalLink } from "lucide-react";
-import { useModuleLicenses } from "@/hooks/useSystemConfig";
+import { ArrowLeft, MessageCircle, Lock, Send, Star, UserPlus, Play, Reply, CheckCircle, RotateCcw, ExternalLink, Sparkles } from "lucide-react";
+import { useModuleLicenses, useSystemConfig } from "@/hooks/useSystemConfig";
+import { callAI } from "@/lib/ai-service";
 
 export default function ComplaintDetail() {
   const { id } = useParams<{ id: string }>();
