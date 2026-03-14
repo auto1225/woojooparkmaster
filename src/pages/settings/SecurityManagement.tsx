@@ -1,398 +1,511 @@
-/** SEC-C-5/7/8: 보안 관리 탭 (Settings.tsx에서 임포트) */
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+/** SEC-5: 보안 관리 대시보드 (admin 전용, 5개 서브탭) */
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle2, XCircle, Shield, AlertTriangle, Phone, Trash2, FileText, Lock } from "lucide-react";
-import { isSecurityDiagnosisDay } from "@/lib/bot-protection";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { isSecurityDiagnosisDay } from "@/lib/bot-protection";
+import { logSecurityAudit } from "@/lib/auth-security";
+import { SECURITY_CONFIG_LABELS, EVENT_TYPE_LABELS, SEVERITY_CONFIG } from "@/types/security";
+import type { SecurityAuditLog, PIIAccessLog, IPWhitelistEntry } from "@/types/security";
+import {
+  Shield, ShieldCheck, ShieldAlert, Activity, Users, Lock, Unlock, Globe,
+  Monitor, Smartphone, Tablet, Eye, Save, Plus, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
+} from "lucide-react";
 
-// ========== 보안진단의 날 배너 ==========
+// ─── Security Diagnosis Banner ───
 export function SecurityDiagnosisBanner() {
-  const [dismissed, setDismissed] = useState(false);
-  if (dismissed || !isSecurityDiagnosisDay()) return null;
-
+  if (!isSecurityDiagnosisDay()) return null;
   return (
-    <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <Shield className="h-4 w-4 text-primary" />
-        <span className="text-sm font-medium">오늘은 사이버보안진단의 날입니다. 보안 자가진단을 실행해주세요.</span>
-      </div>
-      <Button variant="ghost" size="sm" onClick={() => setDismissed(true)}>닫기</Button>
+    <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2 text-center">
+      <span className="text-xs text-amber-700 dark:text-amber-400">
+        🔒 오늘은 <strong>사이버보안 진단의 날</strong>입니다. 보안 설정을 점검해주세요.
+      </span>
     </div>
   );
 }
 
-// ========== 보안 관리 전체 탭 ==========
+function DeviceIcon({ type }: { type: string }) {
+  if (type === 'mobile') return <Smartphone className="h-4 w-4" />;
+  if (type === 'tablet') return <Tablet className="h-4 w-4" />;
+  return <Monitor className="h-4 w-4" />;
+}
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return '방금 전';
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  return `${Math.floor(hr / 24)}일 전`;
+}
+
 export default function SecurityManagement() {
-  return (
-    <div className="space-y-4">
-      <Tabs defaultValue="diagnosis">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="diagnosis">보안진단</TabsTrigger>
-          <TabsTrigger value="encryption">암호화 현황</TabsTrigger>
-          <TabsTrigger value="privacy-purge">개인정보 파기</TabsTrigger>
-          <TabsTrigger value="incident">사고 대응</TabsTrigger>
-          <TabsTrigger value="drp">재해복구</TabsTrigger>
-          <TabsTrigger value="emergency">비상 연락망</TabsTrigger>
-        </TabsList>
+  const { profile } = useAuth();
+  const queryClient = useQueryClient();
 
-        <TabsContent value="diagnosis"><SecurityDiagnosisTab /></TabsContent>
-        <TabsContent value="encryption"><EncryptionTab /></TabsContent>
-        <TabsContent value="privacy-purge"><PrivacyPurgeTab /></TabsContent>
-        <TabsContent value="incident"><IncidentResponseTab /></TabsContent>
-        <TabsContent value="drp"><DRPTab /></TabsContent>
-        <TabsContent value="emergency"><EmergencyContactTab /></TabsContent>
-      </Tabs>
-    </div>
-  );
-}
-
-// ========== 보안 자가진단 체크리스트 ==========
-function SecurityDiagnosisTab() {
-  const [manualChecks, setManualChecks] = useState<Record<string, boolean>>({});
-
-  const { data: autoChecks = [], isLoading } = useQuery({
-    queryKey: ['security-diagnosis-auto'],
+  const { data: secConfigs } = useQuery({
+    queryKey: ['security-configs'],
     queryFn: async () => {
-      const checks: { label: string; ok: boolean; detail?: string }[] = [];
-
-      // 30일 이상 미로그인 계정
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
-      const { count: inactiveCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
-        .lt('last_login_at', thirtyDaysAgo).eq('is_active', true);
-      checks.push({ label: '30일 이상 미로그인 계정', ok: (inactiveCount || 0) === 0, detail: `${inactiveCount || 0}개` });
-
-      // 최근 7일 로그인 실패
-      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-      const { count: failCount } = await supabase.from('activity_logs').select('*', { count: 'exact', head: true })
-        .eq('action', 'login_failed').gte('created_at', sevenDaysAgo);
-      checks.push({ label: '최근 7일 로그인 실패', ok: (failCount || 0) < 10, detail: `${failCount || 0}건` });
-
-      // 최근 7일 보안 경고
-      const { count: secCount } = await supabase.from('activity_logs').select('*', { count: 'exact', head: true })
-        .eq('module', 'security').gte('created_at', sevenDaysAgo);
-      checks.push({ label: '최근 7일 보안 이벤트', ok: (secCount || 0) < 5, detail: `${secCount || 0}건` });
-
-      return checks;
-    },
-  });
-
-  const MANUAL_ITEMS = [
-    '비밀번호 변경 필요 계정 확인 및 조치',
-    '불필요 사용자 계정 비활성화',
-    '사용중인 모듈 라이선스 확인',
-    '백업 정상 실행 확인',
-    '보안 로그 이상 여부 확인',
-    '파일 업로드 폴더 점검',
-    '시스템 업데이트 확인',
-  ];
-
-  return (
-    <div className="space-y-4 mt-4">
-      <Card>
-        <CardHeader><CardTitle className="text-sm">자동 점검 결과</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {isLoading ? <p className="text-sm text-muted-foreground">점검 중...</p> :
-            autoChecks.map((c, i) => (
-              <div key={i} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  {c.ok ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-red-500" />}
-                  <span>{c.label}</span>
-                </div>
-                <Badge variant={c.ok ? "default" : "destructive"} className="text-[10px]">{c.detail}</Badge>
-              </div>
-            ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-sm">수동 점검 항목</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {MANUAL_ITEMS.map(item => (
-            <div key={item} className="flex items-center gap-2">
-              <Checkbox checked={!!manualChecks[item]} onCheckedChange={v => setManualChecks(p => ({ ...p, [item]: !!v }))} />
-              <span className="text-sm">{item}</span>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// ========== 암호화 현황 ==========
-function EncryptionTab() {
-  const data = [
-    { target: '통신 암호화', algo: 'TLS 1.3', keyLen: '-', area: '모든 HTTPS 통신' },
-    { target: '비밀번호 해싱', algo: 'bcrypt', keyLen: 'cost 10', area: 'Auth 기본' },
-    { target: 'DB 저장 암호화', algo: 'AES-256', keyLen: '256bit', area: 'PostgreSQL TDE' },
-    { target: 'JWT 서명', algo: 'HS256', keyLen: '256bit', area: 'Auth JWT' },
-    { target: '파일 전송', algo: 'TLS 1.3', keyLen: '-', area: 'Storage' },
-    { target: '세션 토큰', algo: 'crypto.randomUUID', keyLen: '128bit', area: 'UUID v4' },
-  ];
-
-  return (
-    <Card className="mt-4">
-      <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Lock className="h-4 w-4" />암호화 적용 현황</CardTitle></CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>대상</TableHead><TableHead>알고리즘</TableHead><TableHead>키 길이</TableHead><TableHead>적용 영역</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map(d => (
-              <TableRow key={d.target}>
-                <TableCell className="text-sm font-medium">{d.target}</TableCell>
-                <TableCell className="font-mono text-xs">{d.algo}</TableCell>
-                <TableCell className="text-xs">{d.keyLen}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{d.area}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <p className="text-[10px] text-muted-foreground mt-3">※ 국정원 KCMVP 검증 암호모듈은 기본 제공 범위. 추가 검증 필요 시 별도 도입.</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ========== 개인정보 파기 ==========
-function PrivacyPurgeTab() {
-  const { data: targets } = useQuery({
-    queryKey: ['privacy-purge-targets'],
-    queryFn: async () => {
-      // 민원: 처리완료 3년 경과
-      const threeYearsAgo = new Date(Date.now() - 3 * 365 * 86400000).toISOString();
-      const { count: complaintCount } = await supabase.from('complaints').select('*', { count: 'exact', head: true })
-        .eq('status', 'closed').lt('closed_at', threeYearsAgo).not('complainant_name', 'is', null);
-
-      return { complaints: complaintCount || 0 };
-    },
-  });
-
-  return (
-    <div className="space-y-4 mt-4">
-      <Card>
-        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Trash2 className="h-4 w-4" />파기 대상 현황</CardTitle></CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>대상</TableHead><TableHead>기준</TableHead><TableHead>대상 건수</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell className="text-sm">민원 개인정보</TableCell>
-                <TableCell className="text-xs text-muted-foreground">처리완료 후 3년 경과</TableCell>
-                <TableCell><Badge variant={targets?.complaints ? "destructive" : "default"} className="text-xs">{targets?.complaints || 0}건</Badge></TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-
-          {(targets?.complaints || 0) > 0 && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" className="mt-4">
-                  <Trash2 className="h-3 w-3 mr-1" />파기 실행
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>개인정보 파기</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    파기 대상 개인정보를 복구 불가능하게 삭제합니다. 이 작업은 되돌릴 수 없습니다.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>취소</AlertDialogCancel>
-                  <AlertDialogAction onClick={async () => {
-                    const threeYearsAgo = new Date(Date.now() - 3 * 365 * 86400000).toISOString();
-                    await supabase.from('complaints').update({
-                      complainant_name: null,
-                      complainant_phone: null,
-                      complainant_email: null,
-                      complainant_address: null,
-                    }).eq('status', 'closed').lt('closed_at', threeYearsAgo);
-                    toast.success('개인정보 파기가 완료되었습니다');
-                  }}>파기 실행</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// ========== 침해사고 대응 ==========
-function IncidentResponseTab() {
-  const STEPS = [
-    { num: '①', title: '탐지', desc: '이상징후 감지, 자동알림 확인', color: 'bg-blue-100 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' },
-    { num: '②', title: '보고', desc: '정보보안담당관 보고, 상급기관·KISA 신고', color: 'bg-yellow-100 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800' },
-    { num: '③', title: '초동대응', desc: '피해 확산 방지, 접근 차단, 증거 보전', color: 'bg-orange-100 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800' },
-    { num: '④', title: '분석', desc: '원인 분석, 로그 분석, 영향 범위 파악', color: 'bg-red-100 dark:bg-red-950/30 border-red-200 dark:border-red-800' },
-    { num: '⑤', title: '복구', desc: '시스템 복구, 데이터 복원, 서비스 재개', color: 'bg-green-100 dark:bg-green-950/30 border-green-200 dark:border-green-800' },
-    { num: '⑥', title: '사후관리', desc: '재발 방지, 보고서 작성, 교육/개선', color: 'bg-purple-100 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800' },
-  ];
-
-  return (
-    <div className="space-y-4 mt-4">
-      <Card>
-        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4" />침해사고 대응 절차 (6단계)</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {STEPS.map(s => (
-              <div key={s.num} className={`p-3 rounded-lg border ${s.color}`}>
-                <div className="text-lg font-bold">{s.num} {s.title}</div>
-                <p className="text-[11px] text-muted-foreground mt-1">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-sm">긴급 조치</CardTitle></CardHeader>
-        <CardContent className="flex gap-3">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm">전체 세션 강제 종료</Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>긴급: 전체 세션 종료</AlertDialogTitle>
-                <AlertDialogDescription>모든 사용자의 활성 세션을 즉시 종료합니다. 모든 사용자가 재로그인해야 합니다.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>취소</AlertDialogCancel>
-                <AlertDialogAction onClick={() => toast.success('전체 세션 종료 명령을 전송했습니다')}>실행</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// ========== 재해복구 계획 ==========
-function DRPTab() {
-  const TARGETS = [
-    { item: 'RPO (복구 시점 목표)', target: '24시간', desc: '최대 24시간 전 데이터로 복구' },
-    { item: 'RTO (복구 시간 목표)', target: '4시간', desc: '장애 발생 후 4시간 내 서비스 재개' },
-    { item: '백업 주기', target: '매일 02:00', desc: '일 1회 자동 백업' },
-    { item: '백업 보관', target: '90일', desc: '90일간 보관 후 자동 삭제' },
-  ];
-
-  const SCENARIOS = [
-    { type: 'DB 장애', procedure: '최근 백업에서 복구 (pg_restore)' },
-    { type: '서버 장애', procedure: 'Docker Compose 재시작 + DB 복구' },
-    { type: '랜섬웨어', procedure: '격리 → 클린 OS 재설치 → 백업 복구' },
-    { type: '자연재해', procedure: '이중화 백업(외부)에서 신규 서버에 복구' },
-  ];
-
-  return (
-    <div className="space-y-4 mt-4">
-      <Card>
-        <CardHeader><CardTitle className="text-sm">복구 목표</CardTitle></CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow><TableHead>항목</TableHead><TableHead>목표</TableHead><TableHead>설명</TableHead></TableRow>
-            </TableHeader>
-            <TableBody>
-              {TARGETS.map(t => (
-                <TableRow key={t.item}>
-                  <TableCell className="text-sm font-medium">{t.item}</TableCell>
-                  <TableCell><Badge className="text-xs">{t.target}</Badge></TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{t.desc}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-sm">재해 유형별 복구 절차</CardTitle></CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow><TableHead>유형</TableHead><TableHead>복구 절차</TableHead></TableRow>
-            </TableHeader>
-            <TableBody>
-              {SCENARIOS.map(s => (
-                <TableRow key={s.type}>
-                  <TableCell className="text-sm font-medium">{s.type}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{s.procedure}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// ========== 비상 연락망 ==========
-function EmergencyContactTab() {
-  const { data: configList } = useQuery({
-    queryKey: ['emergency-contacts-config'],
-    queryFn: async () => {
-      const { data } = await supabase.from('system_config').select('config_key, config_value')
-        .in('config_key', ['emergency_contact_security', 'emergency_contact_privacy', 'emergency_contact_system', 'emergency_contact_vendor']);
+      const { data } = await supabase.from('system_config').select('*').like('config_key', 'security_%');
       const map: Record<string, string> = {};
-      data?.forEach(c => { map[c.config_key] = c.config_value; });
+      data?.forEach((r: any) => { map[r.config_key] = r.config_value; });
       return map;
     },
   });
 
-  const cfg = configList || {};
-  const contacts = [
-    { role: '정보보안담당관', value: cfg.emergency_contact_security || '(미설정)', icon: Shield },
-    { role: '개인정보보호책임자', value: cfg.emergency_contact_privacy || '(미설정)', icon: FileText },
-    { role: '시스템 관리자', value: cfg.emergency_contact_system || '(미설정)', icon: Lock },
-    { role: '유지보수 (우주주차)', value: cfg.emergency_contact_vendor || '(미설정)', icon: Phone },
-  ];
+  const { data: recentAlerts } = useQuery({
+    queryKey: ['security-alerts'],
+    queryFn: async () => {
+      const { data } = await (supabase.from('security_audit_logs') as any)
+        .select('*').in('severity', ['warning', 'critical']).order('created_at', { ascending: false }).limit(10);
+      return (data || []) as SecurityAuditLog[];
+    },
+  });
+
+  const { data: todayStats } = useQuery({
+    queryKey: ['security-today-stats'],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const { count: failedLogins } = await (supabase.from('security_audit_logs') as any)
+        .select('*', { count: 'exact', head: true }).eq('event_type', 'auth_login_failed').gte('created_at', today);
+      const { count: activeSessions } = await (supabase.from('active_sessions') as any)
+        .select('*', { count: 'exact', head: true }).eq('is_active', true);
+      const { count: pwExpiring } = await supabase.from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .not('password_expires_at', 'is', null)
+        .lt('password_expires_at', new Date(Date.now() + 30 * 86400000).toISOString());
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+      const { count: inactive } = await supabase.from('profiles')
+        .select('*', { count: 'exact', head: true }).lt('last_login_at', thirtyDaysAgo);
+      return { failedLogins: failedLogins || 0, activeSessions: activeSessions || 0, pwExpiring: pwExpiring || 0, inactive: inactive || 0 };
+    },
+  });
+
+  const securityScore = useMemo(() => {
+    if (!secConfigs) return 0;
+    let s = 0;
+    if (window.location.protocol === 'https:') s += 15;
+    if (parseInt(secConfigs.security_password_min_length || '0') >= 8) s += 15;
+    if (secConfigs.security_pii_masking_enabled === 'true') s += 10;
+    s += 10;
+    if (parseInt(secConfigs.security_session_timeout_minutes || '0') > 0) s += 10;
+    if (parseInt(secConfigs.security_max_login_attempts || '0') > 0) s += 10;
+    if ((todayStats?.inactive || 0) === 0) s += 10;
+    s += 10 + 5;
+    if (secConfigs.security_ip_whitelist_enabled === 'true') s += 5;
+    return Math.min(s, 100);
+  }, [secConfigs, todayStats]);
+
+  const scoreColor = securityScore >= 80 ? 'text-green-600' : securityScore >= 60 ? 'text-yellow-600' : 'text-red-600';
+
+  // Settings
+  const [editedSec, setEditedSec] = useState<Record<string, string>>({});
+  const secVal = (key: string) => editedSec[key] ?? secConfigs?.[key] ?? '';
+
+  const saveSecurityConfig = useMutation({
+    mutationFn: async () => {
+      for (const [key, value] of Object.entries(editedSec)) {
+        const oldValue = secConfigs?.[key];
+        await supabase.from('system_config').update({ config_value: value }).eq('config_key', key);
+        await logSecurityAudit('config_change', 'critical', { key, old_value: oldValue, new_value: value });
+      }
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['security-configs'] }); setEditedSec({}); toast.success('보안 설정 저장됨'); },
+  });
+
+  // Audit logs
+  const [auditFilter, setAuditFilter] = useState({ severity: 'all', eventType: 'all' });
+  const { data: auditLogs } = useQuery({
+    queryKey: ['audit-logs', auditFilter],
+    queryFn: async () => {
+      let q = (supabase.from('security_audit_logs') as any).select('*').order('created_at', { ascending: false }).limit(100);
+      if (auditFilter.severity !== 'all') q = q.eq('severity', auditFilter.severity);
+      if (auditFilter.eventType !== 'all') q = q.eq('event_type', auditFilter.eventType);
+      const { data } = await q;
+      return (data || []) as SecurityAuditLog[];
+    },
+  });
+
+  // PII logs
+  const { data: piiLogs } = useQuery({
+    queryKey: ['pii-logs'],
+    queryFn: async () => {
+      const { data } = await (supabase.from('pii_access_logs') as any).select('*').order('created_at', { ascending: false }).limit(100);
+      return (data || []) as PIIAccessLog[];
+    },
+  });
+
+  // IP + Sessions + Locked
+  const { data: ipList } = useQuery({
+    queryKey: ['ip-whitelist'],
+    queryFn: async () => {
+      const { data } = await (supabase.from('ip_whitelist') as any).select('*').order('created_at', { ascending: false });
+      return (data || []) as IPWhitelistEntry[];
+    },
+  });
+
+  const { data: allSessions } = useQuery({
+    queryKey: ['all-sessions'],
+    queryFn: async () => {
+      const { data } = await (supabase.from('active_sessions') as any).select('*').eq('is_active', true).order('last_activity', { ascending: false });
+      return data || [];
+    },
+  });
+
+  const { data: lockedAccounts } = useQuery({
+    queryKey: ['locked-accounts'],
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('id, name, email, locked_until, login_fail_count')
+        .not('locked_until', 'is', null).gt('locked_until', new Date().toISOString());
+      return data || [];
+    },
+  });
+
+  const [newIp, setNewIp] = useState({ ip: '', range: '', desc: '' });
+  const [showIpDialog, setShowIpDialog] = useState(false);
+  const [logDetailOpen, setLogDetailOpen] = useState<SecurityAuditLog | null>(null);
+
+  const addIp = useMutation({
+    mutationFn: async () => {
+      await (supabase.from('ip_whitelist') as any).insert({ ip_address: newIp.ip, ip_range: newIp.range || null, description: newIp.desc || null, created_by: profile?.id });
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['ip-whitelist'] }); setShowIpDialog(false); setNewIp({ ip: '', range: '', desc: '' }); toast.success('IP 추가됨'); },
+  });
+
+  const unlockAccount = useMutation({
+    mutationFn: async (userId: string) => {
+      await supabase.from('profiles').update({ locked_until: null, login_fail_count: 0 } as any).eq('id', userId);
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locked-accounts'] }); toast.success('잠금 해제됨'); },
+  });
+
+  const terminateSession = useMutation({
+    mutationFn: async (sessionId: string) => {
+      await (supabase.from('active_sessions') as any).update({ is_active: false }).eq('id', sessionId);
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['all-sessions'] }); toast.success('세션 종료됨'); },
+  });
 
   return (
-    <div className="space-y-4 mt-4">
-      <Card>
-        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Phone className="h-4 w-4" />비상 연락망</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {contacts.map(c => (
-            <div key={c.role} className="flex items-center gap-3 p-3 rounded-lg border">
-              <c.icon className="h-5 w-5 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-sm font-medium">{c.role}</p>
-                <p className="text-xs text-muted-foreground">{c.value}</p>
-              </div>
-            </div>
-          ))}
+    <div className="space-y-4">
+      <Tabs defaultValue="dashboard">
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="dashboard"><ShieldCheck className="h-3 w-3 mr-1" />보안 현황</TabsTrigger>
+          <TabsTrigger value="settings"><Shield className="h-3 w-3 mr-1" />보안 설정</TabsTrigger>
+          <TabsTrigger value="audit"><Activity className="h-3 w-3 mr-1" />감사 로그</TabsTrigger>
+          <TabsTrigger value="pii"><Eye className="h-3 w-3 mr-1" />개인정보 접근</TabsTrigger>
+          <TabsTrigger value="access"><Globe className="h-3 w-3 mr-1" />접근 관리</TabsTrigger>
+        </TabsList>
 
-          <div className="border-t pt-3 mt-3">
-            <p className="text-xs font-medium mb-2">외부 기관</p>
-            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-              <div className="p-2 border rounded">한국인터넷진흥원 (KISA): <span className="font-mono font-bold">118</span></div>
-              <div className="p-2 border rounded">국가사이버안보센터: <span className="font-mono font-bold">111</span></div>
+        {/* Dashboard */}
+        <TabsContent value="dashboard" className="mt-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <p className="text-xs text-muted-foreground mb-2">종합 보안 점수</p>
+                <div className={`text-5xl font-bold ${scoreColor}`}>{securityScore}</div>
+                <p className="text-xs text-muted-foreground mt-1">/100</p>
+                <Progress value={securityScore} className="mt-3 h-2" />
+              </CardContent>
+            </Card>
+            <div className="md:col-span-2 grid grid-cols-2 gap-3">
+              {[
+                { label: '오늘 로그인 실패', value: todayStats?.failedLogins || 0, icon: <ShieldAlert className="h-4 w-4" />, warn: (todayStats?.failedLogins || 0) >= 5 },
+                { label: '활성 세션', value: todayStats?.activeSessions || 0, icon: <Users className="h-4 w-4" /> },
+                { label: 'PW 만료 임박', value: todayStats?.pwExpiring || 0, icon: <Lock className="h-4 w-4" />, warn: (todayStats?.pwExpiring || 0) > 0 },
+                { label: '미사용 계정', value: todayStats?.inactive || 0, icon: <AlertTriangle className="h-4 w-4" />, warn: (todayStats?.inactive || 0) > 0 },
+              ].map(s => (
+                <Card key={s.label} className={s.warn ? 'border-destructive/50' : ''}>
+                  <CardContent className="pt-4 pb-3">
+                    <div className="flex items-center gap-2 text-muted-foreground">{s.icon}<span className="text-xs">{s.label}</span></div>
+                    <div className={`text-2xl font-bold mt-1 ${s.warn ? 'text-destructive' : ''}`}>{s.value}</div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-sm">최근 보안 이벤트</CardTitle></CardHeader>
+            <CardContent>
+              {(!recentAlerts || recentAlerts.length === 0)
+                ? <p className="text-xs text-muted-foreground text-center py-4">최근 경고 이벤트가 없습니다.</p>
+                : <div className="space-y-2">{recentAlerts.map(ev => (
+                    <div key={ev.id} className={`flex items-center justify-between p-2 rounded text-xs border ${ev.severity === 'critical' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800' : 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800'}`}>
+                      <div className="flex items-center gap-2">
+                        <Badge className={SEVERITY_CONFIG[ev.severity]?.color || ''} variant="secondary">{SEVERITY_CONFIG[ev.severity]?.label}</Badge>
+                        <span>{EVENT_TYPE_LABELS[ev.event_type] || ev.event_type}</span>
+                        {ev.user_name && <span className="text-muted-foreground">({ev.user_name})</span>}
+                      </div>
+                      <span className="text-muted-foreground">{timeAgo(ev.created_at)}</span>
+                    </div>
+                  ))}</div>}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Settings */}
+        <TabsContent value="settings" className="mt-4 space-y-4">
+          {[
+            { title: '인증 설정', keys: ['security_password_min_length', 'security_password_require_upper', 'security_password_require_lower', 'security_password_require_number', 'security_password_require_special', 'security_password_expiry_days', 'security_max_login_attempts', 'security_lockout_minutes'] },
+            { title: '세션 설정', keys: ['security_session_timeout_minutes', 'security_max_concurrent_sessions'] },
+            { title: '접근 제어', keys: ['security_ip_whitelist_enabled', 'security_2fa_enabled'] },
+            { title: '개인정보 보호', keys: ['security_pii_masking_enabled', 'security_export_requires_approval', 'security_data_encryption_enabled'] },
+            { title: '감사', keys: ['security_audit_retention_days'] },
+          ].map(group => (
+            <Card key={group.title}>
+              <CardHeader><CardTitle className="text-sm">{group.title}</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {group.keys.map(key => {
+                  const isBool = secVal(key) === 'true' || secVal(key) === 'false';
+                  const isReadOnly = key === 'security_data_encryption_enabled';
+                  return (
+                    <div key={key} className="flex items-center justify-between">
+                      <Label className="text-xs">{SECURITY_CONFIG_LABELS[key] || key}</Label>
+                      {isBool ? (
+                        <Switch checked={secVal(key) === 'true'} disabled={isReadOnly}
+                          onCheckedChange={v => setEditedSec({ ...editedSec, [key]: v ? 'true' : 'false' })} />
+                      ) : (
+                        <Input type="number" className="w-24 h-8 text-xs" value={secVal(key)} disabled={isReadOnly}
+                          onChange={e => setEditedSec({ ...editedSec, [key]: e.target.value })} />
+                      )}
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          ))}
+          {Object.keys(editedSec).length > 0 && (
+            <div className="flex justify-end">
+              <Button onClick={() => saveSecurityConfig.mutate()} disabled={saveSecurityConfig.isPending}>
+                <Save className="h-4 w-4 mr-1" />보안 설정 저장
+              </Button>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Audit Logs */}
+        <TabsContent value="audit" className="mt-4 space-y-4">
+          <div className="flex gap-3 flex-wrap">
+            <Select value={auditFilter.severity} onValueChange={v => setAuditFilter(f => ({ ...f, severity: v }))}>
+              <SelectTrigger className="w-32 h-8"><SelectValue placeholder="심각도" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체</SelectItem>
+                <SelectItem value="info">정보</SelectItem>
+                <SelectItem value="warning">경고</SelectItem>
+                <SelectItem value="critical">위험</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={auditFilter.eventType} onValueChange={v => setAuditFilter(f => ({ ...f, eventType: v }))}>
+              <SelectTrigger className="w-40 h-8"><SelectValue placeholder="이벤트" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체</SelectItem>
+                {Object.entries(EVENT_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['audit-logs'] })}>
+              <RefreshCw className="h-3 w-3 mr-1" />새로고침
+            </Button>
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">시간</TableHead>
+                    <TableHead className="text-xs">심각도</TableHead>
+                    <TableHead className="text-xs">이벤트</TableHead>
+                    <TableHead className="text-xs">사용자</TableHead>
+                    <TableHead className="text-xs">결과</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {auditLogs?.map(log => (
+                    <TableRow key={log.id} className={`cursor-pointer ${log.severity === 'critical' ? 'bg-red-50/50 dark:bg-red-950/10' : log.severity === 'warning' ? 'bg-yellow-50/50 dark:bg-yellow-950/10' : ''}`}
+                      onClick={() => setLogDetailOpen(log)}>
+                      <TableCell className="text-[11px]">{new Date(log.created_at).toLocaleString('ko-KR')}</TableCell>
+                      <TableCell><Badge className={SEVERITY_CONFIG[log.severity]?.color || ''} variant="secondary">{SEVERITY_CONFIG[log.severity]?.label}</Badge></TableCell>
+                      <TableCell className="text-xs">{EVENT_TYPE_LABELS[log.event_type] || log.event_type}</TableCell>
+                      <TableCell className="text-xs">{log.user_name || '-'}</TableCell>
+                      <TableCell>{log.success ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <XCircle className="h-3 w-3 text-red-500" />}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          <Dialog open={!!logDetailOpen} onOpenChange={() => setLogDetailOpen(null)}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader><DialogTitle className="text-sm">감사 로그 상세</DialogTitle></DialogHeader>
+              {logDetailOpen && (
+                <div className="space-y-3 text-xs">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><span className="text-muted-foreground">이벤트:</span> {EVENT_TYPE_LABELS[logDetailOpen.event_type] || logDetailOpen.event_type}</div>
+                    <div><span className="text-muted-foreground">심각도:</span> {SEVERITY_CONFIG[logDetailOpen.severity]?.label}</div>
+                    <div><span className="text-muted-foreground">사용자:</span> {logDetailOpen.user_name || '-'}</div>
+                    <div><span className="text-muted-foreground">IP:</span> {logDetailOpen.ip_address || '-'}</div>
+                    <div><span className="text-muted-foreground">경로:</span> {logDetailOpen.request_path || '-'}</div>
+                    <div><span className="text-muted-foreground">시간:</span> {new Date(logDetailOpen.created_at).toLocaleString('ko-KR')}</div>
+                  </div>
+                  {logDetailOpen.action_detail && (
+                    <div><p className="text-muted-foreground mb-1">상세:</p><pre className="bg-muted p-2 rounded text-[10px] overflow-auto max-h-40">{JSON.stringify(logDetailOpen.action_detail, null, 2)}</pre></div>
+                  )}
+                  {logDetailOpen.before_value && (
+                    <div><p className="text-muted-foreground mb-1">변경 전:</p><pre className="bg-muted p-2 rounded text-[10px] overflow-auto max-h-32">{JSON.stringify(logDetailOpen.before_value, null, 2)}</pre></div>
+                  )}
+                  {logDetailOpen.after_value && (
+                    <div><p className="text-muted-foreground mb-1">변경 후:</p><pre className="bg-muted p-2 rounded text-[10px] overflow-auto max-h-32">{JSON.stringify(logDetailOpen.after_value, null, 2)}</pre></div>
+                  )}
+                  {logDetailOpen.failure_reason && <div><span className="text-muted-foreground">실패 사유:</span> <span className="text-destructive">{logDetailOpen.failure_reason}</span></div>}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+
+        {/* PII Access */}
+        <TabsContent value="pii" className="mt-4">
+          <Card>
+            <CardHeader><CardTitle className="text-sm">개인정보 접근 이력</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">시간</TableHead>
+                    <TableHead className="text-xs">사용자</TableHead>
+                    <TableHead className="text-xs">접근유형</TableHead>
+                    <TableHead className="text-xs">대상 테이블</TableHead>
+                    <TableHead className="text-xs">대상 필드</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {piiLogs?.map(log => (
+                    <TableRow key={log.id}>
+                      <TableCell className="text-[11px]">{new Date(log.created_at).toLocaleString('ko-KR')}</TableCell>
+                      <TableCell className="text-xs">{log.user_name || '-'}</TableCell>
+                      <TableCell><Badge variant="secondary" className="text-[10px]">{log.access_type === 'unmask' ? '마스킹해제' : log.access_type}</Badge></TableCell>
+                      <TableCell className="text-xs font-mono">{log.target_table}</TableCell>
+                      <TableCell className="text-xs font-mono">{log.target_field}</TableCell>
+                    </TableRow>
+                  ))}
+                  {(!piiLogs || piiLogs.length === 0) && (
+                    <TableRow><TableCell colSpan={5} className="text-center text-xs text-muted-foreground py-8">접근 이력이 없습니다.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Access Management */}
+        <TabsContent value="access" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-sm">IP 화이트리스트</CardTitle>
+              <Button size="sm" variant="outline" onClick={() => setShowIpDialog(true)}><Plus className="h-3 w-3 mr-1" />IP 추가</Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">IP</TableHead>
+                    <TableHead className="text-xs">범위</TableHead>
+                    <TableHead className="text-xs">설명</TableHead>
+                    <TableHead className="text-xs">상태</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ipList?.map(ip => (
+                    <TableRow key={ip.id}>
+                      <TableCell className="text-xs font-mono">{ip.ip_address}</TableCell>
+                      <TableCell className="text-xs">{ip.ip_range || '-'}</TableCell>
+                      <TableCell className="text-xs">{ip.description || '-'}</TableCell>
+                      <TableCell><Badge variant={ip.is_active ? 'default' : 'secondary'} className="text-[10px]">{ip.is_active ? '활성' : '비활성'}</Badge></TableCell>
+                    </TableRow>
+                  ))}
+                  {(!ipList || ipList.length === 0) && (
+                    <TableRow><TableCell colSpan={4} className="text-center text-xs text-muted-foreground py-6">등록된 IP가 없습니다.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-sm">활성 세션</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">기기</TableHead>
+                    <TableHead className="text-xs">IP</TableHead>
+                    <TableHead className="text-xs">마지막 활동</TableHead>
+                    <TableHead className="text-xs">관리</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allSessions?.map((s: any) => (
+                    <TableRow key={s.id}>
+                      <TableCell><DeviceIcon type={s.device_info?.type || 'desktop'} /></TableCell>
+                      <TableCell className="text-xs font-mono">{s.ip_address || '-'}</TableCell>
+                      <TableCell className="text-[11px]">{timeAgo(s.last_activity)}</TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="ghost" className="h-6 text-[10px] text-destructive"
+                          onClick={() => terminateSession.mutate(s.id)}>종료</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-sm">잠긴 계정</CardTitle></CardHeader>
+            <CardContent>
+              {lockedAccounts && lockedAccounts.length > 0 ? (
+                <div className="space-y-2">
+                  {lockedAccounts.map((a: any) => (
+                    <div key={a.id} className="flex items-center justify-between p-2 rounded border text-xs">
+                      <span className="font-medium">{a.name || a.email} — 실패 {a.login_fail_count}회</span>
+                      <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => unlockAccount.mutate(a.id)}>
+                        <Unlock className="h-3 w-3 mr-1" />해제
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-xs text-muted-foreground text-center py-4">잠긴 계정이 없습니다.</p>}
+            </CardContent>
+          </Card>
+
+          <Dialog open={showIpDialog} onOpenChange={setShowIpDialog}>
+            <DialogContent>
+              <DialogHeader><DialogTitle className="text-sm">IP 추가</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-1"><Label className="text-xs">IP 주소</Label><Input placeholder="192.168.1.1" value={newIp.ip} onChange={e => setNewIp({ ...newIp, ip: e.target.value })} /></div>
+                <div className="space-y-1"><Label className="text-xs">CIDR 범위</Label><Input placeholder="/24" value={newIp.range} onChange={e => setNewIp({ ...newIp, range: e.target.value })} /></div>
+                <div className="space-y-1"><Label className="text-xs">설명</Label><Input placeholder="내부망" value={newIp.desc} onChange={e => setNewIp({ ...newIp, desc: e.target.value })} /></div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowIpDialog(false)}>취소</Button>
+                <Button onClick={() => addIp.mutate()} disabled={!newIp.ip}>추가</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

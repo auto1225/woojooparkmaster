@@ -2,10 +2,9 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { securePostLogin } from "@/lib/csrf-protection";
-import { logSecurityEvent } from "@/lib/security-logger";
+import { secureLogin } from "@/lib/auth-security";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +19,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [lockMessage, setLockMessage] = useState("");
   const [lockCountdown, setLockCountdown] = useState(0);
+  const [failMessage, setFailMessage] = useState("");
   const { signIn } = useAuth();
   const { data: config } = useSystemConfig();
   const navigate = useNavigate();
@@ -41,48 +41,31 @@ export default function LoginPage() {
     e.preventDefault();
     if (lockCountdown > 0) return;
     setLoading(true);
+    setFailMessage("");
 
-    const { data: profile } = await supabase
-      .from("profiles").select("login_fail_count, locked_until")
-      .eq("email", email).maybeSingle();
+    const result = await secureLogin(email, password, signIn);
 
-    if (profile?.locked_until) {
-      const lockedUntil = new Date(profile.locked_until);
-      if (lockedUntil > new Date()) {
-        const remaining = Math.ceil((lockedUntil.getTime() - Date.now()) / 1000);
-        setLockCountdown(remaining);
-        setLockMessage(`로그인 시도 횟수를 초과했습니다. ${Math.ceil(remaining / 60)}분 후 다시 시도해주세요.`);
-        setLoading(false);
-        return;
+    if (!result.success) {
+      if (result.locked) {
+        const seconds = (result.remainingMinutes || 5) * 60;
+        setLockCountdown(seconds);
+        setLockMessage(result.error || "계정이 잠겼습니다.");
+      } else {
+        setFailMessage(result.error || "로그인 실패");
       }
+      setLoading(false);
+      return;
     }
 
-    const { error } = await signIn(email, password);
-    setLoading(false);
+    // Success
+    await securePostLogin();
 
-    if (error) {
-      if (profile) {
-        const newCount = (profile.login_fail_count || 0) + 1;
-        const updates: any = { login_fail_count: newCount };
-        if (newCount >= 5) {
-          updates.locked_until = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-          setLockCountdown(300);
-          setLockMessage("로그인 시도 횟수를 초과했습니다. 5분 후 다시 시도해주세요.");
-        }
-        await supabase.from("profiles").update(updates).eq("email", email);
-      }
-      await supabase.from("activity_logs").insert({ action: "login_failed", module: "auth", target_name: email });
-      toast({ title: "로그인 실패", description: "이메일 또는 비밀번호가 올바르지 않습니다.", variant: "destructive" });
+    if (result.mustChangePassword) {
+      navigate("/change-password?reason=expired");
     } else {
-      // SEC-C-1: 세션 고정 방어 — 로그인 후 세션 갱신 + CSRF 토큰 생성
-      await securePostLogin();
-      await supabase.from("profiles").update({
-        login_fail_count: 0, locked_until: null, last_login_at: new Date().toISOString(),
-      } as any).eq("email", email);
-      await supabase.from("activity_logs").insert({ action: "login_success", module: "auth", target_name: email });
-      await logSecurityEvent('login_success', 'info', { email });
       navigate("/");
     }
+    setLoading(false);
   };
 
   const orgName = config?.org_name || "";
@@ -93,7 +76,6 @@ export default function LoginPage() {
         background: "linear-gradient(135deg, hsl(221 83% 53% / 0.08) 0%, hsl(var(--background)) 50%, hsl(221 83% 53% / 0.04) 100%)",
       }}
     >
-      {/* Subtle grid overlay */}
       <div className="absolute inset-0 opacity-[0.03]"
         style={{
           backgroundImage: "radial-gradient(circle, hsl(var(--foreground)) 1px, transparent 1px)",
@@ -134,6 +116,11 @@ export default function LoginPage() {
                     {Math.floor(lockCountdown / 60)}:{(lockCountdown % 60).toString().padStart(2, '0')}
                   </div>
                 )}
+              </div>
+            )}
+            {failMessage && !lockMessage && (
+              <div className="rounded-lg bg-destructive/10 text-destructive text-xs p-3 text-center border border-destructive/20">
+                {failMessage}
               </div>
             )}
             <div className="space-y-2">

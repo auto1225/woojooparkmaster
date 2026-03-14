@@ -93,8 +93,10 @@ import DeliveryChecklist from "./pages/admin/DeliveryChecklist";
 import SecurityReview from "./pages/admin/SecurityReview";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import ChangePassword from "./pages/ChangePassword";
 import PrivacyPage from "./pages/Privacy";
 import ForbiddenPage from "./pages/Forbidden";
+import SecurityReport from "./pages/settings/SecurityReport";
 import NotFound from "./pages/NotFound";
 import { HelpPanel } from "./components/help/HelpPanel";
 import { OnboardingGuide } from "./components/help/OnboardingGuide";
@@ -143,6 +145,7 @@ const AppRoutes = () => (
     <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
     <Route path="/forgot-password" element={<ForgotPassword />} />
     <Route path="/reset-password" element={<ResetPassword />} />
+    <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
     <Route path="/privacy" element={<PrivacyPage />} />
     <Route path="/403" element={<ForbiddenPage />} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
@@ -221,6 +224,7 @@ const AppRoutes = () => (
     <Route path="/help" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
     <Route path="/admin/delivery-checklist" element={<ProtectedRoute><DeliveryChecklist /></ProtectedRoute>} />
     <Route path="/admin/security-review" element={<ProtectedRoute><SecurityReview /></ProtectedRoute>} />
+    <Route path="/settings/security/report" element={<ProtectedRoute><SecurityReport /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_sessions: {
+        Row: {
+          device_info: Json | null
+          expires_at: string
+          id: string
+          ip_address: string | null
+          is_active: boolean | null
+          last_activity: string | null
+          session_token: string
+          started_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          device_info?: Json | null
+          expires_at: string
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          last_activity?: string | null
+          session_token: string
+          started_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          device_info?: Json | null
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          last_activity?: string | null
+          session_token?: string
+          started_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "active_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "active_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_logs: {
         Row: {
           action: string
@@ -2977,6 +3031,51 @@ export type Database = {
           },
         ]
       }
+      ip_whitelist: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          ip_address: string
+          ip_range: string | null
+          is_active: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          ip_address: string
+          ip_range?: string | null
+          is_active?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          ip_address?: string
+          ip_range?: string | null
+          is_active?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ip_whitelist_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ip_whitelist_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lot_realtime_status: {
         Row: {
           available_disabled: number | null
@@ -4165,6 +4264,60 @@ export type Database = {
           },
         ]
       }
+      pii_access_logs: {
+        Row: {
+          access_type: string
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          reason: string | null
+          target_field: string
+          target_id: string
+          target_table: string
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          access_type: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          reason?: string | null
+          target_field: string
+          target_id: string
+          target_table: string
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          access_type?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          reason?: string | null
+          target_field?: string
+          target_id?: string
+          target_table?: string
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pii_access_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pii_access_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pii_purge_logs: {
         Row: {
           executed_at: string | null
@@ -4212,6 +4365,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          allowed_ips: string[] | null
           avatar_url: string | null
           created_at: string | null
           department: string | null
@@ -4222,17 +4376,22 @@ export type Database = {
           last_login_at: string | null
           locked_until: string | null
           login_fail_count: number | null
+          must_change_password: boolean | null
           name: string
           notification_settings: Json | null
           onboarding_completed: boolean | null
           password_changed_at: string | null
+          password_expires_at: string | null
           phone: string | null
           role: Database["public"]["Enums"]["role_type"]
+          security_settings: Json | null
           team: Database["public"]["Enums"]["team_type"]
           theme_preference: string | null
+          two_factor_enabled: boolean | null
           updated_at: string | null
         }
         Insert: {
+          allowed_ips?: string[] | null
           avatar_url?: string | null
           created_at?: string | null
           department?: string | null
@@ -4243,17 +4402,22 @@ export type Database = {
           last_login_at?: string | null
           locked_until?: string | null
           login_fail_count?: number | null
+          must_change_password?: boolean | null
           name: string
           notification_settings?: Json | null
           onboarding_completed?: boolean | null
           password_changed_at?: string | null
+          password_expires_at?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["role_type"]
+          security_settings?: Json | null
           team?: Database["public"]["Enums"]["team_type"]
           theme_preference?: string | null
+          two_factor_enabled?: boolean | null
           updated_at?: string | null
         }
         Update: {
+          allowed_ips?: string[] | null
           avatar_url?: string | null
           created_at?: string | null
           department?: string | null
@@ -4264,14 +4428,18 @@ export type Database = {
           last_login_at?: string | null
           locked_until?: string | null
           login_fail_count?: number | null
+          must_change_password?: boolean | null
           name?: string
           notification_settings?: Json | null
           onboarding_completed?: boolean | null
           password_changed_at?: string | null
+          password_expires_at?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["role_type"]
+          security_settings?: Json | null
           team?: Database["public"]["Enums"]["team_type"]
           theme_preference?: string | null
+          two_factor_enabled?: boolean | null
           updated_at?: string | null
         }
         Relationships: []
@@ -5036,6 +5204,90 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "realtime_map_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      security_audit_logs: {
+        Row: {
+          action_detail: Json | null
+          after_value: Json | null
+          before_value: Json | null
+          created_at: string | null
+          event_type: string
+          failure_reason: string | null
+          id: string
+          ip_address: string | null
+          request_path: string | null
+          resource_id: string | null
+          resource_name: string | null
+          resource_type: string | null
+          session_id: string | null
+          severity: string
+          success: boolean | null
+          user_agent: string | null
+          user_id: string | null
+          user_name: string | null
+          user_role: string | null
+          user_team: string | null
+        }
+        Insert: {
+          action_detail?: Json | null
+          after_value?: Json | null
+          before_value?: Json | null
+          created_at?: string | null
+          event_type: string
+          failure_reason?: string | null
+          id?: string
+          ip_address?: string | null
+          request_path?: string | null
+          resource_id?: string | null
+          resource_name?: string | null
+          resource_type?: string | null
+          session_id?: string | null
+          severity?: string
+          success?: boolean | null
+          user_agent?: string | null
+          user_id?: string | null
+          user_name?: string | null
+          user_role?: string | null
+          user_team?: string | null
+        }
+        Update: {
+          action_detail?: Json | null
+          after_value?: Json | null
+          before_value?: Json | null
+          created_at?: string | null
+          event_type?: string
+          failure_reason?: string | null
+          id?: string
+          ip_address?: string | null
+          request_path?: string | null
+          resource_id?: string | null
+          resource_name?: string | null
+          resource_type?: string | null
+          session_id?: string | null
+          severity?: string
+          success?: boolean | null
+          user_agent?: string | null
+          user_id?: string | null
+          user_name?: string | null
+          user_role?: string | null
+          user_team?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "security_audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
