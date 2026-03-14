@@ -56,6 +56,14 @@ const procurementSubMenu = [
   { title: "서류 관리", url: "/procurement/documents", icon: FolderOpen },
 ];
 
+const serviceSubMenu = [
+  { title: "용역 현황", url: "/service", icon: Briefcase, end: true },
+  { title: "사업 관리", url: "/service/projects", icon: FileText },
+  { title: "검수 관리", url: "/service/inspections", icon: ClipboardList },
+  { title: "대가지급", url: "/service/payments", icon: Banknote },
+  { title: "이슈 관리", url: "/service/issues", icon: AlertTriangle },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
