@@ -56,7 +56,7 @@ export default function ComplaintNew() {
       }
       return [];
     },
-        }]);
+  });
 
   useEffect(() => {
     if (form.category) {
