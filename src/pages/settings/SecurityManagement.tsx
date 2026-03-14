@@ -22,7 +22,7 @@ import type { SecurityAuditLog, PIIAccessLog, IPWhitelistEntry } from "@/types/s
 import {
   Shield, ShieldCheck, ShieldAlert, Activity, Users, Lock, Unlock, Globe,
   Monitor, Smartphone, Tablet, Eye, Save, Plus, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
-  Package, Network, Server, Database, FileShield,
+  Package, Network, Server, Database, File,
 } from "lucide-react";
 
 // ─── Security Diagnosis Banner ───
