@@ -254,6 +254,29 @@ export function AppSidebar() {
                 )}
 
                 {procurementActive && collapsed && renderLink({ title: "입찰관리", url: "/procurement", icon: Gavel })}
+
+                {serviceActive && !collapsed && (
+                  <Collapsible open={serviceOpen} onOpenChange={setServiceOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <Briefcase className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">용역사업관리</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${serviceOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {serviceSubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {serviceActive && collapsed && renderLink({ title: "용역사업관리", url: "/service", icon: Briefcase })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
