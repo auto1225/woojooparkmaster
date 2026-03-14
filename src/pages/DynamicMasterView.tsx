@@ -97,7 +97,7 @@ function MultiTabMaster({ config, navigate }: { config: any; navigate: any }) {
 }
 
 function TabContent({ tab, navigate }: { tab: any; navigate: any }) {
-  const { data = [], isLoading } = useQuery({
+  const { data = [], isLoading } = useQuery<Record<string, any>[]>({
     queryKey: [tab.queryKey],
     queryFn: tab.queryFn,
   });
