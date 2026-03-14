@@ -462,6 +462,43 @@ export default function LotDetailPage() {
               </Card>
             </TabsContent>
           )}
+          {complaintActive && (
+            <TabsContent value="complaint">
+              <Card>
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm">최근 민원</CardTitle>
+                  <Button size="sm" variant="outline" onClick={() => navigate(`/complaints/new?lot=${id}`)}>민원 접수</Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>민원번호</TableHead>
+                        <TableHead>유형</TableHead>
+                        <TableHead>제목</TableHead>
+                        <TableHead>접수일</TableHead>
+                        <TableHead>상태</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lotComplaints?.map(c => (
+                        <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/complaints/${c.id}`)}>
+                          <TableCell className="text-xs font-mono">{c.complaint_number}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-[10px]">{CATEGORY_LABELS[c.category] || c.category}</Badge></TableCell>
+                          <TableCell className="text-sm truncate max-w-[200px]">{c.title}</TableCell>
+                          <TableCell className="text-xs">{c.received_at?.slice(0, 10)}</TableCell>
+                          <TableCell><Badge className={`text-[10px] ${COMPLAINT_STATUS_COLORS[c.status]}`}>{COMPLAINT_STATUS_LABELS[c.status] || c.status}</Badge></TableCell>
+                        </TableRow>
+                      ))}
+                      {!lotComplaints?.length && (
+                        <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-6">민원 없음</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </DashboardLayout>
