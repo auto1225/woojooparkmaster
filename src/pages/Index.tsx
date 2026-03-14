@@ -7,6 +7,8 @@ import { Building2, Car, LayoutGrid, Activity } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LOT_TYPE_LABELS, LOT_STATUS_LABELS } from "@/types/database";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { KakaoMap, type MapMarker } from "@/components/common/KakaoMap";
+import { useNavigate } from "react-router-dom";
 import type { LotType, LotStatus } from "@/types/database";
 
 const COLORS = ["hsl(211,65%,45%)", "hsl(152,55%,38%)", "hsl(38,92%,50%)", "hsl(280,60%,50%)", "hsl(0,72%,51%)"];
@@ -30,13 +32,14 @@ function KpiCard({ title, value, sub, icon: Icon, color }: { title: string; valu
 
 export default function Index() {
   const { data: config } = useSystemConfig();
+  const navigate = useNavigate();
 
   const { data: lots, isLoading } = useQuery({
     queryKey: ["dashboard-lots"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("parking_lots")
-        .select("id, lot_type, total_spaces, status");
+        .select("id, name, lot_type, total_spaces, status, address_road, latitude, longitude");
       if (error) throw error;
       return data;
     },
@@ -101,17 +104,20 @@ export default function Index() {
               <CardTitle className="text-[11px] font-mono uppercase tracking-wide text-muted-foreground">주차장 위치 지도</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80 bg-muted rounded-md flex items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  <p className="text-sm font-medium">지도 영역</p>
-                  <p className="text-xs mt-1">Kakao Maps 연동 예정</p>
-                  {config && (
-                    <p className="text-[10px] font-mono mt-2">
-                      {config.map_center_lat}, {config.map_center_lng}
-                    </p>
-                  )}
-                </div>
-              </div>
+              <KakaoMap
+                height="320px"
+                enableCluster
+                markers={
+                  lots?.filter((l) => l.latitude && l.longitude && l.status === "active").map((l) => ({
+                    id: l.id,
+                    lat: Number(l.latitude),
+                    lng: Number(l.longitude),
+                    name: l.name,
+                    color: l.status === "active" ? "blue" as const : l.status === "construction" ? "orange" as const : "gray" as const,
+                    onClick: (id: string) => navigate(`/lots/${id}`),
+                  })) || []
+                }
+              />
             </CardContent>
           </Card>
 

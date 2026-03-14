@@ -12,6 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const coreMenuItems = [
   { title: "대시보드", url: "/", icon: LayoutDashboard, end: true },
+  { title: "결재함", url: "/approvals", icon: ClipboardCheck },
   { title: "주차장 관리", url: "/lots", icon: Car },
 ];
 

@@ -2,13 +2,14 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
-import { Bell, LogOut } from "lucide-react";
+import { Bell, LogOut, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MobileBottomNav } from "@/components/common/MobileBottomNav";
 
 const ROUTE_TITLES: Record<string, string> = {
   "/": "대시보드",
@@ -80,7 +81,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 </span>
               )}
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1.5">
+              <Button variant="ghost" size="icon" className="relative" onClick={() => navigate("/approvals")} title="결재함">
+                <ClipboardCheck className="h-4 w-4" />
+              </Button>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
@@ -98,6 +102,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     {unreadNotifs && unreadNotifs.length > 0 && (
                       <Button variant="ghost" size="sm" className="text-[10px] h-6" onClick={markAllRead}>모두 읽음</Button>
                     )}
+                    <Link to="/notifications" className="text-[10px] text-primary hover:underline">전체 보기</Link>
                   </div>
                   <div className="max-h-60 overflow-auto">
                     {(!unreadNotifs || unreadNotifs.length === 0) ? (
@@ -123,9 +128,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </Button>
             </div>
           </header>
-          <main className="flex-1 p-4 sm:p-6 overflow-auto bg-background">
+          <main className="flex-1 p-4 sm:p-6 overflow-auto bg-background pb-20 md:pb-6">
             {children}
           </main>
+          <MobileBottomNav />
         </div>
       </div>
     </SidebarProvider>

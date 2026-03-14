@@ -9,6 +9,8 @@ import { SessionManager } from "@/components/common/SessionManager";
 import { GlobalSearch } from "@/components/common/GlobalSearch";
 import { handleSupabaseError } from "@/lib/api-error-handler";
 import { toast } from "sonner";
+import { setupOnlineSync } from "@/lib/offline-survey";
+import { useEffect } from "react";
 import "@/styles/print.css";
 
 // --- Page imports (unchanged) ---
@@ -78,6 +80,8 @@ import ReportHistory from "./pages/report/ReportHistory";
 import ReportSchedules from "./pages/report/ReportSchedules";
 import DashboardBuilder from "./pages/report/DashboardBuilder";
 import SurveyPrint from "./pages/SurveyPrint";
+import ApprovalsPage from "./pages/Approvals";
+import NotificationsPage from "./pages/Notifications";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -184,10 +188,20 @@ const AppRoutes = () => (
     <Route path="/reports/history" element={<ProtectedRoute><ReportHistory /></ProtectedRoute>} />
     <Route path="/reports/schedules" element={<ProtectedRoute><ReportSchedules /></ProtectedRoute>} />
     <Route path="/reports/dashboard-builder" element={<ProtectedRoute><DashboardBuilder /></ProtectedRoute>} />
+    <Route path="/approvals" element={<ProtectedRoute><ApprovalsPage /></ProtectedRoute>} />
+    <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
+
+function AppWithSync() {
+  useEffect(() => {
+    const cleanup = setupOnlineSync();
+    return cleanup;
+  }, []);
+  return <AppRoutes />;
+}
 
 const App = () => (
   <ErrorBoundary>
@@ -199,7 +213,7 @@ const App = () => (
           <AuthProvider>
             <SessionManager />
             <GlobalSearch />
-            <AppRoutes />
+            <AppWithSync />
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
