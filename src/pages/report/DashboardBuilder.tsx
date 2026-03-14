@@ -128,9 +128,15 @@ export default function DashboardBuilder() {
     },
   });
 
+  const COL_SPAN_MAP: Record<number, string> = {
+    1: "col-span-1", 2: "col-span-2", 3: "col-span-3", 4: "col-span-4",
+    5: "col-span-5", 6: "col-span-6", 7: "col-span-7", 8: "col-span-8",
+    9: "col-span-9", 10: "col-span-10", 11: "col-span-11", 12: "col-span-12",
+  };
+
   // Simple widget renderer
   const renderWidget = (w: DashboardWidget) => {
-    const colSpan = `col-span-${Math.min(w.width, 12)}`;
+    const colSpan = COL_SPAN_MAP[Math.min(w.width, 12)] || "col-span-4";
     
     if (w.widget_type === "kpi_card") {
       return (
