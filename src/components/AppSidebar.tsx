@@ -97,7 +97,7 @@ export function AppSidebar() {
           <SidebarGroupContent><SidebarMenu>{coreMenuItems.map(renderLink)}</SidebarMenu></SidebarGroupContent>
         </SidebarGroup>
 
-        {(simpleModules.length > 0 || opsActive) && (
+        {(simpleModules.length > 0 || opsActive || facilityActive) && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.1em] text-sidebar-foreground/40 px-2">모듈</SidebarGroupLabel>
             <SidebarGroupContent>
