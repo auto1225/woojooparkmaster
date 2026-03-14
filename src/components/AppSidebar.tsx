@@ -124,7 +124,8 @@ export function AppSidebar() {
   const [procurementOpen, setProcurementOpen] = useState(true);
   const [serviceOpen, setServiceOpen] = useState(true);
   const [complaintOpen, setComplaintOpen] = useState(true);
-  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT"].includes(m.module_code));
+  const [planningOpen, setPlanningOpen] = useState(true);
+  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT", "PLANNING"].includes(m.module_code));
   const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
   const facilityActive = (licenses ?? []).some((m) => m.module_code === "FACILITY" && m.is_active);
   const revenueActive = (licenses ?? []).some((m) => m.module_code === "REVENUE" && m.is_active);
