@@ -189,6 +189,7 @@ const AppRoutes = () => (
     <Route path="/realtime/gateways" element={<ProtectedRoute><RealtimeGateways /></ProtectedRoute>} />
     <Route path="/realtime/displays" element={<ProtectedRoute><RealtimeDisplays /></ProtectedRoute>} />
     <Route path="/realtime/api" element={<ProtectedRoute><RealtimeApi /></ProtectedRoute>} />
+    <Route path="/realtime/monitor" element={<ProtectedRoute><RealtimeMonitor /></ProtectedRoute>} />
     <Route path="/reports" element={<ProtectedRoute><ReportCenter /></ProtectedRoute>} />
     <Route path="/reports/generate" element={<ProtectedRoute><ReportGenerate /></ProtectedRoute>} />
     <Route path="/reports/history" element={<ProtectedRoute><ReportHistory /></ProtectedRoute>} />
