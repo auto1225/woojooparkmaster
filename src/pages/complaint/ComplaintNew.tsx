@@ -34,7 +34,7 @@ export default function ComplaintNew() {
     title: "", content: "", location_detail: "", incident_date: "", incident_time: "",
     vehicle_number: "", complainant_name: "", complainant_phone: "", complainant_email: "",
     complainant_address: "", is_anonymous: false, lot_id: "", assigned_team: "", assigned_to: "",
-    saeol_ref: "",
+    saeol_ref: "", privacy_agreed: false,
   });
 
   const { data: lots } = useQuery({
