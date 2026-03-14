@@ -17,8 +17,6 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContai
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { callAI } from "@/lib/ai-service";
 import { logActivity } from "@/lib/activity-logger";
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
-
 type AggUnit = 'daily' | 'weekly' | 'monthly' | 'quarterly';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
