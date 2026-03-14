@@ -141,6 +141,10 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 const AppRoutes = () => (
   <Routes>
     <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+    <Route path="/forgot-password" element={<ForgotPassword />} />
+    <Route path="/reset-password" element={<ResetPassword />} />
+    <Route path="/privacy" element={<PrivacyPage />} />
+    <Route path="/403" element={<ForbiddenPage />} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/lots" element={<ProtectedRoute><LotsPage /></ProtectedRoute>} />
     <Route path="/lots/new" element={<ProtectedRoute><LotNewPage /></ProtectedRoute>} />
