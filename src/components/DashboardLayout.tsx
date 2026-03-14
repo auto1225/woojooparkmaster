@@ -82,6 +82,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               )}
             </div>
             <div className="ml-auto flex items-center gap-1.5">
+              <Button variant="ghost" size="icon" className="relative" onClick={() => navigate("/approvals")} title="결재함">
+                <ClipboardCheck className="h-4 w-4" />
+              </Button>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
