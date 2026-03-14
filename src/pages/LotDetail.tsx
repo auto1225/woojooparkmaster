@@ -206,6 +206,17 @@ export default function LotDetailPage() {
     enabled: !!id && serviceActive,
   });
 
+  const { data: lotComplaints } = useQuery({
+    queryKey: ['lot-complaints', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('complaints')
+        .select('id, complaint_number, category, title, received_at, status, priority, is_overdue')
+        .eq('lot_id', id!).order('received_at', { ascending: false }).limit(20);
+      return data || [];
+    },
+    enabled: !!id && complaintActive,
+  });
+
   const { data: lot, isLoading } = useQuery({
     queryKey: ["lot", id],
     queryFn: async () => {
