@@ -48,6 +48,10 @@ import ServiceProjectDetail from "./pages/service/ServiceProjectDetail";
 import ServiceInspections from "./pages/service/ServiceInspections";
 import ServicePayments from "./pages/service/ServicePayments";
 import ServiceIssues from "./pages/service/ServiceIssues";
+import ComplaintDashboard from "./pages/complaint/ComplaintDashboard";
+import ComplaintNew from "./pages/complaint/ComplaintNew";
+import ComplaintDetail from "./pages/complaint/ComplaintDetail";
+import ComplaintStats from "./pages/complaint/ComplaintStats";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
