@@ -59,6 +59,13 @@ export type Database = {
             foreignKeyName: "activity_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "activity_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -108,6 +115,13 @@ export type Database = {
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
           {
             foreignKeyName: "attachments_uploaded_by_fkey"
             columns: ["uploaded_by"]
@@ -256,6 +270,13 @@ export type Database = {
             foreignKeyName: "bid_contracts_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "bid_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -334,6 +355,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bid_contracts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "bid_documents_uploaded_by_fkey"
@@ -421,6 +449,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bid_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_evaluations_evaluator_id_fkey"
+            columns: ["evaluator_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "bid_evaluations_evaluator_id_fkey"
@@ -573,8 +608,22 @@ export type Database = {
             foreignKeyName: "bid_projects_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "bid_projects_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "bid_projects_created_by_fkey"
@@ -699,6 +748,13 @@ export type Database = {
             foreignKeyName: "bid_submissions_invalidated_by_fkey"
             columns: ["invalidated_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "bid_submissions_invalidated_by_fkey"
+            columns: ["invalidated_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -797,8 +853,22 @@ export type Database = {
             foreignKeyName: "budget_executions_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "budget_executions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_executions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "budget_executions_created_by_fkey"
@@ -820,6 +890,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "parking_lots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_executions_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "budget_executions_requested_by_fkey"
@@ -963,6 +1040,13 @@ export type Database = {
             foreignKeyName: "budget_items_responsible_person_fkey"
             columns: ["responsible_person"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "budget_items_responsible_person_fkey"
+            columns: ["responsible_person"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1037,6 +1121,13 @@ export type Database = {
             foreignKeyName: "budget_plans_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "budget_plans_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1044,8 +1135,22 @@ export type Database = {
             foreignKeyName: "budget_plans_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "budget_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_plans_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "budget_plans_submitted_by_fkey"
@@ -1125,8 +1230,22 @@ export type Database = {
             foreignKeyName: "budget_transfers_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "budget_transfers_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_transfers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "budget_transfers_created_by_fkey"
@@ -1141,6 +1260,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "budget_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_transfers_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "budget_transfers_requested_by_fkey"
@@ -1196,6 +1322,280 @@ export type Database = {
           sort_order?: number | null
         }
         Relationships: []
+      }
+      complaint_comments: {
+        Row: {
+          attachment_path: string | null
+          author_id: string
+          author_name: string | null
+          comment_type: string | null
+          complaint_id: string
+          content: string
+          created_at: string | null
+          id: string
+          is_system: boolean | null
+          status_from: string | null
+          status_to: string | null
+        }
+        Insert: {
+          attachment_path?: string | null
+          author_id: string
+          author_name?: string | null
+          comment_type?: string | null
+          complaint_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+          is_system?: boolean | null
+          status_from?: string | null
+          status_to?: string | null
+        }
+        Update: {
+          attachment_path?: string | null
+          author_id?: string
+          author_name?: string | null
+          comment_type?: string | null
+          complaint_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_system?: boolean | null
+          status_from?: string | null
+          status_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "complaint_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "complaint_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "complaint_comments_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "complaints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      complaints: {
+        Row: {
+          assigned_at: string | null
+          assigned_team: Database["public"]["Enums"]["team_type"] | null
+          assigned_to: string | null
+          attachment_paths: Json | null
+          category: string
+          channel: string
+          closed_at: string | null
+          closed_by: string | null
+          complainant_address: string | null
+          complainant_email: string | null
+          complainant_name: string | null
+          complainant_phone: string | null
+          complaint_number: string
+          content: string
+          created_at: string | null
+          created_by: string | null
+          due_date: string | null
+          due_days: number | null
+          external_ref: string | null
+          id: string
+          incident_date: string | null
+          incident_time: string | null
+          is_anonymous: boolean | null
+          is_overdue: boolean | null
+          is_repeat: boolean | null
+          location_detail: string | null
+          lot_id: string | null
+          notes: string | null
+          priority: string | null
+          received_at: string | null
+          related_complaint_id: string | null
+          repeat_count: number | null
+          resolution_type: string | null
+          responded_at: string | null
+          response: string | null
+          response_channel: string | null
+          response_type: string | null
+          saeol_ref: string | null
+          saeol_status: string | null
+          satisfaction_date: string | null
+          satisfaction_feedback: string | null
+          satisfaction_score: number | null
+          status: string
+          status_changed_at: string | null
+          sub_category: string | null
+          title: string
+          updated_at: string | null
+          vehicle_number: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_team?: Database["public"]["Enums"]["team_type"] | null
+          assigned_to?: string | null
+          attachment_paths?: Json | null
+          category: string
+          channel: string
+          closed_at?: string | null
+          closed_by?: string | null
+          complainant_address?: string | null
+          complainant_email?: string | null
+          complainant_name?: string | null
+          complainant_phone?: string | null
+          complaint_number: string
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          due_date?: string | null
+          due_days?: number | null
+          external_ref?: string | null
+          id?: string
+          incident_date?: string | null
+          incident_time?: string | null
+          is_anonymous?: boolean | null
+          is_overdue?: boolean | null
+          is_repeat?: boolean | null
+          location_detail?: string | null
+          lot_id?: string | null
+          notes?: string | null
+          priority?: string | null
+          received_at?: string | null
+          related_complaint_id?: string | null
+          repeat_count?: number | null
+          resolution_type?: string | null
+          responded_at?: string | null
+          response?: string | null
+          response_channel?: string | null
+          response_type?: string | null
+          saeol_ref?: string | null
+          saeol_status?: string | null
+          satisfaction_date?: string | null
+          satisfaction_feedback?: string | null
+          satisfaction_score?: number | null
+          status?: string
+          status_changed_at?: string | null
+          sub_category?: string | null
+          title: string
+          updated_at?: string | null
+          vehicle_number?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_team?: Database["public"]["Enums"]["team_type"] | null
+          assigned_to?: string | null
+          attachment_paths?: Json | null
+          category?: string
+          channel?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          complainant_address?: string | null
+          complainant_email?: string | null
+          complainant_name?: string | null
+          complainant_phone?: string | null
+          complaint_number?: string
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          due_date?: string | null
+          due_days?: number | null
+          external_ref?: string | null
+          id?: string
+          incident_date?: string | null
+          incident_time?: string | null
+          is_anonymous?: boolean | null
+          is_overdue?: boolean | null
+          is_repeat?: boolean | null
+          location_detail?: string | null
+          lot_id?: string | null
+          notes?: string | null
+          priority?: string | null
+          received_at?: string | null
+          related_complaint_id?: string | null
+          repeat_count?: number | null
+          resolution_type?: string | null
+          responded_at?: string | null
+          response?: string | null
+          response_channel?: string | null
+          response_type?: string | null
+          saeol_ref?: string | null
+          saeol_status?: string | null
+          satisfaction_date?: string | null
+          satisfaction_feedback?: string | null
+          satisfaction_score?: number | null
+          status?: string
+          status_changed_at?: string | null
+          sub_category?: string | null
+          title?: string
+          updated_at?: string | null
+          vehicle_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "complaints_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "complaints_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "complaints_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "complaints_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "complaints_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "complaints_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "complaints_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "complaints_related_complaint_id_fkey"
+            columns: ["related_complaint_id"]
+            isOneToOne: false
+            referencedRelation: "complaints"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       enforcement_records: {
         Row: {
@@ -1280,6 +1680,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "parking_lots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enforcement_records_officer_id_fkey"
+            columns: ["officer_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "enforcement_records_officer_id_fkey"
@@ -1412,6 +1819,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "parking_lots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "equipment_registered_by_fkey"
@@ -1562,8 +1976,22 @@ export type Database = {
             foreignKeyName: "fee_policies_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "fee_policies_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_policies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "fee_policies_created_by_fkey"
@@ -1625,6 +2053,13 @@ export type Database = {
           start_time?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "free_hours_settings_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
           {
             foreignKeyName: "free_hours_settings_approved_by_fkey"
             columns: ["approved_by"]
@@ -1764,8 +2199,22 @@ export type Database = {
             foreignKeyName: "maintenance_logs_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "maintenance_logs_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_logs_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "maintenance_logs_closed_by_fkey"
@@ -1787,6 +2236,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "parking_lots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_logs_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "maintenance_logs_reported_by_fkey"
@@ -1876,8 +2332,22 @@ export type Database = {
             foreignKeyName: "maintenance_schedules_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "maintenance_schedules_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "maintenance_schedules_created_by_fkey"
@@ -2025,6 +2495,13 @@ export type Database = {
             foreignKeyName: "monthly_passes_issued_by_fkey"
             columns: ["issued_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "monthly_passes_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2082,6 +2559,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
           {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
@@ -2228,6 +2712,13 @@ export type Database = {
             foreignKeyName: "outsourcing_contracts_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "outsourcing_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2359,6 +2850,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "parking_lots_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
           {
             foreignKeyName: "parking_lots_created_by_fkey"
             columns: ["created_by"]
@@ -2553,6 +3051,13 @@ export type Database = {
             foreignKeyName: "revenue_daily_input_by_fkey"
             columns: ["input_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "revenue_daily_input_by_fkey"
+            columns: ["input_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2562,6 +3067,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "parking_lots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_daily_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "revenue_daily_verified_by_fkey"
@@ -2689,6 +3201,13 @@ export type Database = {
             foreignKeyName: "revenue_reconciliation_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "revenue_reconciliation_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2698,6 +3217,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "parking_lots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_reconciliation_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "revenue_reconciliation_resolved_by_fkey"
@@ -2807,6 +3333,13 @@ export type Database = {
             foreignKeyName: "safety_inspections_correction_verified_by_fkey"
             columns: ["correction_verified_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "safety_inspections_correction_verified_by_fkey"
+            columns: ["correction_verified_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2814,8 +3347,22 @@ export type Database = {
             foreignKeyName: "safety_inspections_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "safety_inspections_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "safety_inspections_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "safety_inspections_inspector_id_fkey"
@@ -2936,6 +3483,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "service_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_deliverables_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "service_deliverables_reviewed_by_fkey"
@@ -3066,6 +3620,13 @@ export type Database = {
             foreignKeyName: "service_inspections_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "service_inspections_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -3073,8 +3634,22 @@ export type Database = {
             foreignKeyName: "service_inspections_correction_verified_by_fkey"
             columns: ["correction_verified_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "service_inspections_correction_verified_by_fkey"
+            columns: ["correction_verified_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_inspections_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "service_inspections_inspector_id_fkey"
@@ -3103,6 +3678,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "service_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_inspections_sub_inspector_id_fkey"
+            columns: ["sub_inspector_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "service_inspections_sub_inspector_id_fkey"
@@ -3209,8 +3791,22 @@ export type Database = {
             foreignKeyName: "service_issues_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "service_issues_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_issues_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "service_issues_assigned_to_fkey"
@@ -3237,8 +3833,22 @@ export type Database = {
             foreignKeyName: "service_issues_reported_by_fkey"
             columns: ["reported_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "service_issues_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_issues_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "service_issues_resolved_by_fkey"
@@ -3441,8 +4051,22 @@ export type Database = {
             foreignKeyName: "service_payments_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "service_payments_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_payments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "service_payments_created_by_fkey"
@@ -3651,8 +4275,22 @@ export type Database = {
             foreignKeyName: "service_projects_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "service_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_projects_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "service_projects_inspector_id_fkey"
@@ -3672,8 +4310,22 @@ export type Database = {
             foreignKeyName: "service_projects_sub_supervisor_id_fkey"
             columns: ["sub_supervisor_id"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "service_projects_sub_supervisor_id_fkey"
+            columns: ["sub_supervisor_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_projects_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "service_projects_supervisor_id_fkey"
@@ -4199,6 +4851,13 @@ export type Database = {
             foreignKeyName: "surveys_approver_id_fkey"
             columns: ["approver_id"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "surveys_approver_id_fkey"
+            columns: ["approver_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -4213,8 +4872,22 @@ export type Database = {
             foreignKeyName: "surveys_reviewer_id_fkey"
             columns: ["reviewer_id"]
             isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "surveys_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "surveys_surveyor_id_fkey"
+            columns: ["surveyor_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "surveys_surveyor_id_fkey"
@@ -4289,6 +4962,54 @@ export type Database = {
           total_executed_expenditure: number | null
           total_planned_expenditure: number | null
           total_planned_revenue: number | null
+        }
+        Relationships: []
+      }
+      complaint_hotspot: {
+        Row: {
+          last_30_days: number | null
+          last_90_days: number | null
+          lot_code: string | null
+          lot_id: string | null
+          lot_name: string | null
+          repeat_count: number | null
+          top_category: string | null
+          total_complaints: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "complaints_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      complaint_staff_performance: {
+        Row: {
+          assigned_count: number | null
+          avg_resolution_days: number | null
+          avg_satisfaction: number | null
+          closed_count: number | null
+          open_count: number | null
+          overdue_count: number | null
+          staff_id: string | null
+          staff_name: string | null
+          team: Database["public"]["Enums"]["team_type"] | null
+        }
+        Relationships: []
+      }
+      complaint_stats_monthly: {
+        Row: {
+          avg_resolution_days: number | null
+          avg_satisfaction: number | null
+          category: string | null
+          closed_count: number | null
+          month: string | null
+          open_count: number | null
+          overdue_count: number | null
+          total_count: number | null
         }
         Relationships: []
       }

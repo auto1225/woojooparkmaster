@@ -48,6 +48,10 @@ import ServiceProjectDetail from "./pages/service/ServiceProjectDetail";
 import ServiceInspections from "./pages/service/ServiceInspections";
 import ServicePayments from "./pages/service/ServicePayments";
 import ServiceIssues from "./pages/service/ServiceIssues";
+import ComplaintDashboard from "./pages/complaint/ComplaintDashboard";
+import ComplaintNew from "./pages/complaint/ComplaintNew";
+import ComplaintDetail from "./pages/complaint/ComplaintDetail";
+import ComplaintStats from "./pages/complaint/ComplaintStats";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -119,6 +123,10 @@ const AppRoutes = () => (
     <Route path="/service/inspections" element={<ProtectedRoute><ServiceInspections /></ProtectedRoute>} />
     <Route path="/service/payments" element={<ProtectedRoute><ServicePayments /></ProtectedRoute>} />
     <Route path="/service/issues" element={<ProtectedRoute><ServiceIssues /></ProtectedRoute>} />
+    <Route path="/complaints" element={<ProtectedRoute><ComplaintDashboard /></ProtectedRoute>} />
+    <Route path="/complaints/new" element={<ProtectedRoute><ComplaintNew /></ProtectedRoute>} />
+    <Route path="/complaints/stats" element={<ProtectedRoute><ComplaintStats /></ProtectedRoute>} />
+    <Route path="/complaints/:id" element={<ProtectedRoute><ComplaintDetail /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

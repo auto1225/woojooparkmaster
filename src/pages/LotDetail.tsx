@@ -20,6 +20,7 @@ import type { LotType, LotStatus, OperatorType, SurfaceType, PowerStatus } from 
 import { EXECUTION_TYPE_LABELS, BUDGET_STATUS_LABELS } from "@/types/budget";
 import { formatManWon } from "@/types/revenue";
 import { BID_STATUS_LABELS, BID_STATUS_COLORS } from "@/types/procurement";
+import { CATEGORY_LABELS, COMPLAINT_STATUS_LABELS, COMPLAINT_STATUS_COLORS } from "@/types/complaint";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS, SERVICE_TYPE_LABELS, formatServiceAmount } from "@/types/service";
 import { ArrowLeft, Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -182,6 +183,7 @@ export default function LotDetailPage() {
   const budgetActive = (licenses ?? []).some(m => m.module_code === 'BUDGET' && m.is_active);
   const procurementActive = (licenses ?? []).some(m => m.module_code === 'PROCUREMENT' && m.is_active);
   const serviceActive = (licenses ?? []).some(m => m.module_code === 'SERVICE' && m.is_active);
+  const complaintActive = (licenses ?? []).some(m => m.module_code === 'COMPLAINT' && m.is_active);
 
   const { data: bidProjects } = useQuery({
     queryKey: ['lot-bid-projects', id],
@@ -202,6 +204,17 @@ export default function LotDetailPage() {
       return data || [];
     },
     enabled: !!id && serviceActive,
+  });
+
+  const { data: lotComplaints } = useQuery({
+    queryKey: ['lot-complaints', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('complaints')
+        .select('id, complaint_number, category, title, received_at, status, priority, is_overdue')
+        .eq('lot_id', id!).order('received_at', { ascending: false }).limit(20);
+      return data || [];
+    },
+    enabled: !!id && complaintActive,
   });
 
   const { data: lot, isLoading } = useQuery({
@@ -304,6 +317,7 @@ export default function LotDetailPage() {
             {budgetActive && <TabsTrigger value="budget">예산현황</TabsTrigger>}
             {procurementActive && <TabsTrigger value="procurement">입찰/계약</TabsTrigger>}
             {serviceActive && <TabsTrigger value="service">용역사업</TabsTrigger>}
+            {complaintActive && <TabsTrigger value="complaint">민원</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="info">
@@ -441,6 +455,43 @@ export default function LotDetailPage() {
                       ))}
                       {!serviceProjects?.length && (
                         <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground text-sm py-6">관련 용역사업 없음</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+          {complaintActive && (
+            <TabsContent value="complaint">
+              <Card>
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm">최근 민원</CardTitle>
+                  <Button size="sm" variant="outline" onClick={() => navigate(`/complaints/new?lot=${id}`)}>민원 접수</Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>민원번호</TableHead>
+                        <TableHead>유형</TableHead>
+                        <TableHead>제목</TableHead>
+                        <TableHead>접수일</TableHead>
+                        <TableHead>상태</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lotComplaints?.map(c => (
+                        <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/complaints/${c.id}`)}>
+                          <TableCell className="text-xs font-mono">{c.complaint_number}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-[10px]">{CATEGORY_LABELS[c.category] || c.category}</Badge></TableCell>
+                          <TableCell className="text-sm truncate max-w-[200px]">{c.title}</TableCell>
+                          <TableCell className="text-xs">{c.received_at?.slice(0, 10)}</TableCell>
+                          <TableCell><Badge className={`text-[10px] ${COMPLAINT_STATUS_COLORS[c.status]}`}>{COMPLAINT_STATUS_LABELS[c.status] || c.status}</Badge></TableCell>
+                        </TableRow>
+                      ))}
+                      {!lotComplaints?.length && (
+                        <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-6">민원 없음</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>

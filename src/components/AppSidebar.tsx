@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useLayoutEffect } from "react";
-import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -64,6 +64,12 @@ const serviceSubMenu = [
   { title: "이슈 관리", url: "/service/issues", icon: AlertTriangle },
 ];
 
+const complaintSubMenu = [
+  { title: "민원 현황", url: "/complaints", icon: Megaphone, end: true },
+  { title: "민원 접수", url: "/complaints/new", icon: Plus },
+  { title: "민원 통계", url: "/complaints/stats", icon: BarChart2 },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
@@ -71,7 +77,6 @@ const simpleModuleMap: Record<string, { title: string; url: string; icon: any }>
   BUDGET: { title: "예산관리", url: "/budget", icon: BarChart3 },
   PROCUREMENT: { title: "입찰관리", url: "/procurement", icon: FileText },
   SERVICE: { title: "용역사업관리", url: "/service", icon: Users },
-  COMPLAINT: { title: "민원관리", url: "/complaint", icon: Megaphone },
   PLANNING: { title: "신설기획", url: "/planning", icon: MapPin },
   REALTIME: { title: "실시간 정보", url: "/realtime", icon: PieChart },
   REPORT: { title: "보고서/통계", url: "/report", icon: BarChart3 },
@@ -110,13 +115,15 @@ export function AppSidebar() {
   const [budgetOpen, setBudgetOpen] = useState(true);
   const [procurementOpen, setProcurementOpen] = useState(true);
   const [serviceOpen, setServiceOpen] = useState(true);
-  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE"].includes(m.module_code));
+  const [complaintOpen, setComplaintOpen] = useState(true);
+  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT"].includes(m.module_code));
   const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
   const facilityActive = (licenses ?? []).some((m) => m.module_code === "FACILITY" && m.is_active);
   const revenueActive = (licenses ?? []).some((m) => m.module_code === "REVENUE" && m.is_active);
   const budgetActive = (licenses ?? []).some((m) => m.module_code === "BUDGET" && m.is_active);
   const procurementActive = (licenses ?? []).some((m) => m.module_code === "PROCUREMENT" && m.is_active);
   const serviceActive = (licenses ?? []).some((m) => m.module_code === "SERVICE" && m.is_active);
+  const complaintActive = (licenses ?? []).some((m) => m.module_code === "COMPLAINT" && m.is_active);
   const simpleModules = activeModules.map((m) => simpleModuleMap[m.module_code]).filter(Boolean);
   const isAdmin = profile?.role === "admin";
 
@@ -299,6 +306,29 @@ export function AppSidebar() {
                 )}
 
                 {serviceActive && collapsed && renderLink({ title: "용역사업관리", url: "/service", icon: Briefcase })}
+
+                {complaintActive && !collapsed && (
+                  <Collapsible open={complaintOpen} onOpenChange={setComplaintOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <Megaphone className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">민원관리</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${complaintOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {complaintSubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {complaintActive && collapsed && renderLink({ title: "민원관리", url: "/complaints", icon: Megaphone })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
