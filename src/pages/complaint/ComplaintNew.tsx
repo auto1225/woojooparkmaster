@@ -42,7 +42,7 @@ export default function ComplaintNew() {
     queryKey: ["staff-for-assignment", form.assigned_team],
     queryFn: async () => {
       let q = supabase.from("profiles").select("id, name, team").eq("is_active", true);
-      if (form.assigned_team) q = q.eq("team", form.assigned_team);
+      if (form.assigned_team) q = q.eq("team", form.assigned_team as "operations" | "facilities" | "admin" | "planning");
       const { data } = await q.order("name");
       // Get open complaint counts
       if (data?.length) {
