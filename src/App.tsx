@@ -35,6 +35,12 @@ import BudgetDashboard from "./pages/budget/BudgetDashboard";
 import BudgetPlans from "./pages/budget/BudgetPlans";
 import BudgetExecutions from "./pages/budget/BudgetExecutions";
 import BudgetTransfers from "./pages/budget/BudgetTransfers";
+import ProcurementDashboard from "./pages/procurement/ProcurementDashboard";
+import ProcurementProjects from "./pages/procurement/ProcurementProjects";
+import ProcurementProjectNew from "./pages/procurement/ProcurementProjectNew";
+import ProcurementProjectDetail from "./pages/procurement/ProcurementProjectDetail";
+import ProcurementContracts from "./pages/procurement/ProcurementContracts";
+import ProcurementDocuments from "./pages/procurement/ProcurementDocuments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
