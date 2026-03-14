@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet } from "lucide-react";
+import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -42,6 +42,13 @@ const revenueSubMenu = [
   { title: "수입 분석", url: "/revenue/analysis", icon: LineChart },
 ];
 
+const budgetSubMenu = [
+  { title: "예산 현황", url: "/budget", icon: Wallet, end: true },
+  { title: "예산 편성", url: "/budget/plans", icon: BookOpen },
+  { title: "예산 집행", url: "/budget/executions", icon: CircleDollarSign },
+  { title: "예산 전용/이체", url: "/budget/transfers", icon: ArrowRightLeft },
+];
+
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
   SURVEY: { title: "현황조사", url: "/surveys", icon: ClipboardCheck },
   FACILITY: { title: "시설관리", url: "/facility", icon: Wrench },
@@ -63,10 +70,12 @@ export function AppSidebar() {
   const [opsOpen, setOpsOpen] = useState(true);
   const [facilityOpen, setFacilityOpen] = useState(true);
   const [revenueOpen, setRevenueOpen] = useState(true);
-  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE"].includes(m.module_code));
+  const [budgetOpen, setBudgetOpen] = useState(true);
+  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET"].includes(m.module_code));
   const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
   const facilityActive = (licenses ?? []).some((m) => m.module_code === "FACILITY" && m.is_active);
   const revenueActive = (licenses ?? []).some((m) => m.module_code === "REVENUE" && m.is_active);
+  const budgetActive = (licenses ?? []).some((m) => m.module_code === "BUDGET" && m.is_active);
   const simpleModules = activeModules.map((m) => simpleModuleMap[m.module_code]).filter(Boolean);
   const isAdmin = profile?.role === "admin";
 
@@ -180,6 +189,29 @@ export function AppSidebar() {
                 )}
 
                 {revenueActive && collapsed && renderLink({ title: "수입관리", url: "/revenue", icon: Banknote })}
+
+                {budgetActive && !collapsed && (
+                  <Collapsible open={budgetOpen} onOpenChange={setBudgetOpen}>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md w-full justify-between">
+                          <div className="flex items-center">
+                            <Wallet className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="text-sm">예산관리</span>
+                          </div>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${budgetOpen ? "rotate-180" : ""}`} />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2 mt-1">
+                          {budgetSubMenu.map(renderLink)}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {budgetActive && collapsed && renderLink({ title: "예산관리", url: "/budget", icon: Wallet })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
