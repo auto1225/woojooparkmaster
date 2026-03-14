@@ -117,6 +117,460 @@ export type Database = {
           },
         ]
       }
+      budget_executions: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          bank_account: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string
+          document_date: string | null
+          document_number: string | null
+          execution_date: string
+          execution_number: string
+          execution_type: string
+          id: string
+          item_id: string
+          lot_id: string | null
+          notes: string | null
+          payment_method: string | null
+          receipt_path: string | null
+          reference_id: string | null
+          reference_module: string | null
+          reference_number: string | null
+          reject_reason: string | null
+          requested_by: string | null
+          status: string
+          updated_at: string | null
+          vendor_business_number: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          document_date?: string | null
+          document_number?: string | null
+          execution_date: string
+          execution_number: string
+          execution_type: string
+          id?: string
+          item_id: string
+          lot_id?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          receipt_path?: string | null
+          reference_id?: string | null
+          reference_module?: string | null
+          reference_number?: string | null
+          reject_reason?: string | null
+          requested_by?: string | null
+          status?: string
+          updated_at?: string | null
+          vendor_business_number?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          document_date?: string | null
+          document_number?: string | null
+          execution_date?: string
+          execution_number?: string
+          execution_type?: string
+          id?: string
+          item_id?: string
+          lot_id?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          receipt_path?: string | null
+          reference_id?: string | null
+          reference_module?: string | null
+          reference_number?: string | null
+          reject_reason?: string | null
+          requested_by?: string | null
+          status?: string
+          updated_at?: string | null
+          vendor_business_number?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_executions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_executions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_executions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "budget_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_executions_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_executions_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_items: {
+        Row: {
+          allocated_amount: number | null
+          budget_type: string
+          category_l1: string
+          category_l2: string | null
+          category_l3: string | null
+          category_l4: string | null
+          created_at: string | null
+          depth: number | null
+          description: string | null
+          executed_amount: number | null
+          execution_rate: number | null
+          frequency: string | null
+          id: string
+          is_mandatory: boolean | null
+          is_recurring: boolean | null
+          is_summary: boolean | null
+          item_code: string
+          item_name: string
+          lot_id: string | null
+          notes: string | null
+          parent_item_id: string | null
+          plan_id: string
+          planned_amount: number | null
+          previous_year_amount: number | null
+          remaining_amount: number | null
+          requested_amount: number | null
+          responsible_person: string | null
+          responsible_team: Database["public"]["Enums"]["team_type"] | null
+          returned_amount: number | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          allocated_amount?: number | null
+          budget_type: string
+          category_l1: string
+          category_l2?: string | null
+          category_l3?: string | null
+          category_l4?: string | null
+          created_at?: string | null
+          depth?: number | null
+          description?: string | null
+          executed_amount?: number | null
+          execution_rate?: number | null
+          frequency?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          is_recurring?: boolean | null
+          is_summary?: boolean | null
+          item_code: string
+          item_name: string
+          lot_id?: string | null
+          notes?: string | null
+          parent_item_id?: string | null
+          plan_id: string
+          planned_amount?: number | null
+          previous_year_amount?: number | null
+          remaining_amount?: number | null
+          requested_amount?: number | null
+          responsible_person?: string | null
+          responsible_team?: Database["public"]["Enums"]["team_type"] | null
+          returned_amount?: number | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          allocated_amount?: number | null
+          budget_type?: string
+          category_l1?: string
+          category_l2?: string | null
+          category_l3?: string | null
+          category_l4?: string | null
+          created_at?: string | null
+          depth?: number | null
+          description?: string | null
+          executed_amount?: number | null
+          execution_rate?: number | null
+          frequency?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          is_recurring?: boolean | null
+          is_summary?: boolean | null
+          item_code?: string
+          item_name?: string
+          lot_id?: string | null
+          notes?: string | null
+          parent_item_id?: string | null
+          plan_id?: string
+          planned_amount?: number | null
+          previous_year_amount?: number | null
+          remaining_amount?: number | null
+          requested_amount?: number | null
+          responsible_person?: string | null
+          responsible_team?: Database["public"]["Enums"]["team_type"] | null
+          returned_amount?: number | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_items_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_items_parent_item_id_fkey"
+            columns: ["parent_item_id"]
+            isOneToOne: false
+            referencedRelation: "budget_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_items_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "budget_plan_summary"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "budget_items_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "budget_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_items_responsible_person_fkey"
+            columns: ["responsible_person"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_plans: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          balance: number | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          fiscal_year: number
+          id: string
+          notes: string | null
+          plan_number: number | null
+          plan_type: string
+          reject_reason: string | null
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          title: string
+          total_expenditure: number | null
+          total_revenue: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          balance?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          fiscal_year: number
+          id?: string
+          notes?: string | null
+          plan_number?: number | null
+          plan_type?: string
+          reject_reason?: string | null
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          title: string
+          total_expenditure?: number | null
+          total_revenue?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          balance?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          fiscal_year?: number
+          id?: string
+          notes?: string | null
+          plan_number?: number | null
+          plan_type?: string
+          reject_reason?: string | null
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          title?: string
+          total_expenditure?: number | null
+          total_revenue?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_plans_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_plans_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_transfers: {
+        Row: {
+          amount: number
+          approval_number: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          created_by: string | null
+          fiscal_year: number
+          from_item_id: string
+          id: string
+          legal_basis: string | null
+          notes: string | null
+          reason: string
+          reject_reason: string | null
+          requested_by: string | null
+          status: string
+          to_item_id: string
+          transfer_number: string
+          transfer_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          approval_number?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          fiscal_year: number
+          from_item_id: string
+          id?: string
+          legal_basis?: string | null
+          notes?: string | null
+          reason: string
+          reject_reason?: string | null
+          requested_by?: string | null
+          status?: string
+          to_item_id: string
+          transfer_number: string
+          transfer_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          approval_number?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          fiscal_year?: number
+          from_item_id?: string
+          id?: string
+          legal_basis?: string | null
+          notes?: string | null
+          reason?: string
+          reject_reason?: string | null
+          requested_by?: string | null
+          status?: string
+          to_item_id?: string
+          transfer_number?: string
+          transfer_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_transfers_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_transfers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_transfers_from_item_id_fkey"
+            columns: ["from_item_id"]
+            isOneToOne: false
+            referencedRelation: "budget_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_transfers_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_transfers_to_item_id_fkey"
+            columns: ["to_item_id"]
+            isOneToOne: false
+            referencedRelation: "budget_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       code_master: {
         Row: {
           code: string
@@ -2359,6 +2813,47 @@ export type Database = {
       }
     }
     Views: {
+      budget_execution_monthly: {
+        Row: {
+          budget_type: string | null
+          execution_count: number | null
+          month: string | null
+          plan_id: string | null
+          total_amount: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_items_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "budget_plan_summary"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "budget_items_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "budget_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_plan_summary: {
+        Row: {
+          fiscal_year: number | null
+          overall_execution_rate: number | null
+          plan_id: string | null
+          plan_type: string | null
+          status: string | null
+          title: string | null
+          total_allocated_expenditure: number | null
+          total_allocated_revenue: number | null
+          total_executed_expenditure: number | null
+          total_planned_expenditure: number | null
+          total_planned_revenue: number | null
+        }
+        Relationships: []
+      }
       revenue_monthly: {
         Row: {
           card_total: number | null
