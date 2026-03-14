@@ -23,6 +23,11 @@ export default function ComplaintNew() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [aiClassifying, setAiClassifying] = useState(false);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiKeywords, setAiKeywords] = useState<string[]>([]);
+  const { data: config } = useSystemConfig();
+  const aiEnabled = config?.ai_enabled === 'true';
 
   const [form, setForm] = useState({
     channel: "phone", category: "", sub_category: "", priority: "normal",
