@@ -27,6 +27,10 @@ import FacilityMaintenance from "./pages/facility/FacilityMaintenance";
 import FacilitySchedule from "./pages/facility/FacilitySchedule";
 import FacilitySafety from "./pages/facility/FacilitySafety";
 import FacilityMarkings from "./pages/facility/FacilityMarkings";
+import RevenueDashboard from "./pages/revenue/RevenueDashboard";
+import RevenueDaily from "./pages/revenue/RevenueDaily";
+import RevenueReconcile from "./pages/revenue/RevenueReconcile";
+import RevenueAnalysis from "./pages/revenue/RevenueAnalysis";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
