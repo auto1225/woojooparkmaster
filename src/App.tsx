@@ -88,7 +88,11 @@ import NotificationsPage from "./pages/Notifications";
 import ProfilePage from "./pages/Profile";
 import ActivityAnalyticsPage from "./pages/settings/ActivityAnalytics";
 import SettingsPage from "./pages/Settings";
+import HelpPage from "./pages/Help";
+import DeliveryChecklist from "./pages/admin/DeliveryChecklist";
 import NotFound from "./pages/NotFound";
+import { HelpPanel } from "./components/help/HelpPanel";
+import { OnboardingGuide } from "./components/help/OnboardingGuide";
 
 const queryClient = new QueryClient({
   defaultOptions: {
