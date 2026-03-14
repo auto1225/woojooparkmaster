@@ -86,7 +86,7 @@ export default function ComplaintDetail() {
   const updateStatus = async (newStatus: string, extra: Record<string, any> = {}) => {
     const { error } = await supabase.from("complaints").update({ status: newStatus, ...extra }).eq("id", id!);
     if (error) { toast({ title: "상태 변경 실패", variant: "destructive" }); return; }
-    await logActivity({ module: "COMPLAINT", action: `상태변경→${newStatus}`, target_type: "complaint", target_id: id!, target_name: complaint?.complaint_number });
+    await logActivity({ module: "COMPLAINT", action: `상태변경→${newStatus}`, targetType: "complaint", targetId: id!, targetName: complaint?.complaint_number });
     queryClient.invalidateQueries({ queryKey: ["complaint", id] });
     queryClient.invalidateQueries({ queryKey: ["complaint-comments", id] });
     toast({ title: "상태가 변경되었습니다" });
