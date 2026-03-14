@@ -117,6 +117,593 @@ export type Database = {
           },
         ]
       }
+      bid_contracts: {
+        Row: {
+          advance_bond_amount: number | null
+          advance_payment_amount: number | null
+          advance_payment_rate: number | null
+          bid_project_id: string
+          contract_amount: number
+          contract_date: string
+          contract_end: string
+          contract_number: string
+          contract_start: string
+          contractor_address: string | null
+          contractor_business_number: string | null
+          contractor_email: string | null
+          contractor_name: string
+          contractor_phone: string | null
+          contractor_representative: string | null
+          created_at: string | null
+          created_by: string | null
+          defect_bond_amount: number | null
+          defect_bond_rate: number | null
+          id: string
+          payment_terms: Json | null
+          penalty_rate: number | null
+          performance_bond_amount: number | null
+          performance_bond_company: string | null
+          performance_bond_end: string | null
+          performance_bond_number: string | null
+          performance_bond_rate: number | null
+          service_project_id: string | null
+          signed_at: string | null
+          special_conditions: string | null
+          status: string | null
+          submission_id: string
+          termination_date: string | null
+          termination_reason: string | null
+          total_amount: number
+          updated_at: string | null
+          vat_amount: number | null
+          warranty_end: string | null
+          warranty_months: number | null
+          work_days: number | null
+        }
+        Insert: {
+          advance_bond_amount?: number | null
+          advance_payment_amount?: number | null
+          advance_payment_rate?: number | null
+          bid_project_id: string
+          contract_amount: number
+          contract_date: string
+          contract_end: string
+          contract_number: string
+          contract_start: string
+          contractor_address?: string | null
+          contractor_business_number?: string | null
+          contractor_email?: string | null
+          contractor_name: string
+          contractor_phone?: string | null
+          contractor_representative?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          defect_bond_amount?: number | null
+          defect_bond_rate?: number | null
+          id?: string
+          payment_terms?: Json | null
+          penalty_rate?: number | null
+          performance_bond_amount?: number | null
+          performance_bond_company?: string | null
+          performance_bond_end?: string | null
+          performance_bond_number?: string | null
+          performance_bond_rate?: number | null
+          service_project_id?: string | null
+          signed_at?: string | null
+          special_conditions?: string | null
+          status?: string | null
+          submission_id: string
+          termination_date?: string | null
+          termination_reason?: string | null
+          total_amount: number
+          updated_at?: string | null
+          vat_amount?: number | null
+          warranty_end?: string | null
+          warranty_months?: number | null
+          work_days?: number | null
+        }
+        Update: {
+          advance_bond_amount?: number | null
+          advance_payment_amount?: number | null
+          advance_payment_rate?: number | null
+          bid_project_id?: string
+          contract_amount?: number
+          contract_date?: string
+          contract_end?: string
+          contract_number?: string
+          contract_start?: string
+          contractor_address?: string | null
+          contractor_business_number?: string | null
+          contractor_email?: string | null
+          contractor_name?: string
+          contractor_phone?: string | null
+          contractor_representative?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          defect_bond_amount?: number | null
+          defect_bond_rate?: number | null
+          id?: string
+          payment_terms?: Json | null
+          penalty_rate?: number | null
+          performance_bond_amount?: number | null
+          performance_bond_company?: string | null
+          performance_bond_end?: string | null
+          performance_bond_number?: string | null
+          performance_bond_rate?: number | null
+          service_project_id?: string | null
+          signed_at?: string | null
+          special_conditions?: string | null
+          status?: string | null
+          submission_id?: string
+          termination_date?: string | null
+          termination_reason?: string | null
+          total_amount?: number
+          updated_at?: string | null
+          vat_amount?: number | null
+          warranty_end?: string | null
+          warranty_months?: number | null
+          work_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_contracts_bid_project_id_fkey"
+            columns: ["bid_project_id"]
+            isOneToOne: false
+            referencedRelation: "bid_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_contracts_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "bid_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bid_documents: {
+        Row: {
+          bid_project_id: string
+          contract_id: string | null
+          created_at: string | null
+          description: string | null
+          doc_category: string
+          doc_type: string
+          file_format: string | null
+          file_path: string
+          file_size: number | null
+          id: string
+          is_current: boolean | null
+          is_public: boolean | null
+          title: string
+          uploaded_by: string | null
+          version: string | null
+        }
+        Insert: {
+          bid_project_id: string
+          contract_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          doc_category?: string
+          doc_type: string
+          file_format?: string | null
+          file_path: string
+          file_size?: number | null
+          id?: string
+          is_current?: boolean | null
+          is_public?: boolean | null
+          title: string
+          uploaded_by?: string | null
+          version?: string | null
+        }
+        Update: {
+          bid_project_id?: string
+          contract_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          doc_category?: string
+          doc_type?: string
+          file_format?: string | null
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          is_current?: boolean | null
+          is_public?: boolean | null
+          title?: string
+          uploaded_by?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_documents_bid_project_id_fkey"
+            columns: ["bid_project_id"]
+            isOneToOne: false
+            referencedRelation: "bid_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_documents_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "bid_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bid_evaluations: {
+        Row: {
+          bid_project_id: string
+          business_score: number | null
+          comments: string | null
+          created_at: string | null
+          disqualification_reason: string | null
+          evaluation_date: string | null
+          evaluation_detail: Json | null
+          evaluator_id: string | null
+          evaluator_name: string | null
+          evaluator_org: string | null
+          id: string
+          is_qualified: boolean | null
+          performance_score: number | null
+          price_score: number | null
+          rank: number | null
+          strengths: string | null
+          submission_id: string
+          technical_score: number | null
+          total_score: number | null
+          updated_at: string | null
+          weaknesses: string | null
+        }
+        Insert: {
+          bid_project_id: string
+          business_score?: number | null
+          comments?: string | null
+          created_at?: string | null
+          disqualification_reason?: string | null
+          evaluation_date?: string | null
+          evaluation_detail?: Json | null
+          evaluator_id?: string | null
+          evaluator_name?: string | null
+          evaluator_org?: string | null
+          id?: string
+          is_qualified?: boolean | null
+          performance_score?: number | null
+          price_score?: number | null
+          rank?: number | null
+          strengths?: string | null
+          submission_id: string
+          technical_score?: number | null
+          total_score?: number | null
+          updated_at?: string | null
+          weaknesses?: string | null
+        }
+        Update: {
+          bid_project_id?: string
+          business_score?: number | null
+          comments?: string | null
+          created_at?: string | null
+          disqualification_reason?: string | null
+          evaluation_date?: string | null
+          evaluation_detail?: Json | null
+          evaluator_id?: string | null
+          evaluator_name?: string | null
+          evaluator_org?: string | null
+          id?: string
+          is_qualified?: boolean | null
+          performance_score?: number | null
+          price_score?: number | null
+          rank?: number | null
+          strengths?: string | null
+          submission_id?: string
+          technical_score?: number | null
+          total_score?: number | null
+          updated_at?: string | null
+          weaknesses?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_evaluations_bid_project_id_fkey"
+            columns: ["bid_project_id"]
+            isOneToOne: false
+            referencedRelation: "bid_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_evaluations_evaluator_id_fkey"
+            columns: ["evaluator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_evaluations_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "bid_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bid_projects: {
+        Row: {
+          announce_date: string | null
+          assigned_to: string | null
+          bid_deadline: string | null
+          bid_number: string
+          bid_open_date: string | null
+          bid_open_location: string | null
+          bid_start_date: string | null
+          bid_type: string
+          budget_available_amount: number | null
+          budget_item_id: string | null
+          cancel_reason: string | null
+          category: string | null
+          contract_amount: number | null
+          contract_type: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          design_amount: number | null
+          estimated_amount: number | null
+          evaluation_criteria: Json | null
+          evaluation_method: string | null
+          id: string
+          location: string | null
+          lot_id: string | null
+          lowest_price_rate: number | null
+          nara_ref: string | null
+          nara_url: string | null
+          previous_bid_id: string | null
+          qualification: string | null
+          qualification_criteria: Json | null
+          rebid_count: number | null
+          savings_rate: number | null
+          scope_of_work: string | null
+          status: string
+          successful_bidder: string | null
+          title: string
+          updated_at: string | null
+          vat_included: boolean | null
+          work_end_date: string | null
+          work_period_days: number | null
+          work_start_date: string | null
+        }
+        Insert: {
+          announce_date?: string | null
+          assigned_to?: string | null
+          bid_deadline?: string | null
+          bid_number: string
+          bid_open_date?: string | null
+          bid_open_location?: string | null
+          bid_start_date?: string | null
+          bid_type: string
+          budget_available_amount?: number | null
+          budget_item_id?: string | null
+          cancel_reason?: string | null
+          category?: string | null
+          contract_amount?: number | null
+          contract_type: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          design_amount?: number | null
+          estimated_amount?: number | null
+          evaluation_criteria?: Json | null
+          evaluation_method?: string | null
+          id?: string
+          location?: string | null
+          lot_id?: string | null
+          lowest_price_rate?: number | null
+          nara_ref?: string | null
+          nara_url?: string | null
+          previous_bid_id?: string | null
+          qualification?: string | null
+          qualification_criteria?: Json | null
+          rebid_count?: number | null
+          savings_rate?: number | null
+          scope_of_work?: string | null
+          status?: string
+          successful_bidder?: string | null
+          title: string
+          updated_at?: string | null
+          vat_included?: boolean | null
+          work_end_date?: string | null
+          work_period_days?: number | null
+          work_start_date?: string | null
+        }
+        Update: {
+          announce_date?: string | null
+          assigned_to?: string | null
+          bid_deadline?: string | null
+          bid_number?: string
+          bid_open_date?: string | null
+          bid_open_location?: string | null
+          bid_start_date?: string | null
+          bid_type?: string
+          budget_available_amount?: number | null
+          budget_item_id?: string | null
+          cancel_reason?: string | null
+          category?: string | null
+          contract_amount?: number | null
+          contract_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          design_amount?: number | null
+          estimated_amount?: number | null
+          evaluation_criteria?: Json | null
+          evaluation_method?: string | null
+          id?: string
+          location?: string | null
+          lot_id?: string | null
+          lowest_price_rate?: number | null
+          nara_ref?: string | null
+          nara_url?: string | null
+          previous_bid_id?: string | null
+          qualification?: string | null
+          qualification_criteria?: Json | null
+          rebid_count?: number | null
+          savings_rate?: number | null
+          scope_of_work?: string | null
+          status?: string
+          successful_bidder?: string | null
+          title?: string
+          updated_at?: string | null
+          vat_included?: boolean | null
+          work_end_date?: string | null
+          work_period_days?: number | null
+          work_start_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_projects_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_projects_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_projects_previous_bid_id_fkey"
+            columns: ["previous_bid_id"]
+            isOneToOne: false
+            referencedRelation: "bid_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bid_submissions: {
+        Row: {
+          annual_revenue: number | null
+          bid_amount: number | null
+          bid_project_id: string
+          bid_rate: number | null
+          business_number: string | null
+          company_address: string | null
+          company_name: string
+          contact_email: string | null
+          contact_fax: string | null
+          contact_person: string | null
+          contact_phone: string | null
+          created_at: string | null
+          documents: Json | null
+          employee_count: number | null
+          established_date: string | null
+          id: string
+          invalid_reason: string | null
+          invalidated_at: string | null
+          invalidated_by: string | null
+          is_valid: boolean | null
+          main_business: string | null
+          notes: string | null
+          past_performance: Json | null
+          representative: string | null
+          submission_number: string
+          submitted_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          annual_revenue?: number | null
+          bid_amount?: number | null
+          bid_project_id: string
+          bid_rate?: number | null
+          business_number?: string | null
+          company_address?: string | null
+          company_name: string
+          contact_email?: string | null
+          contact_fax?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          documents?: Json | null
+          employee_count?: number | null
+          established_date?: string | null
+          id?: string
+          invalid_reason?: string | null
+          invalidated_at?: string | null
+          invalidated_by?: string | null
+          is_valid?: boolean | null
+          main_business?: string | null
+          notes?: string | null
+          past_performance?: Json | null
+          representative?: string | null
+          submission_number: string
+          submitted_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          annual_revenue?: number | null
+          bid_amount?: number | null
+          bid_project_id?: string
+          bid_rate?: number | null
+          business_number?: string | null
+          company_address?: string | null
+          company_name?: string
+          contact_email?: string | null
+          contact_fax?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          documents?: Json | null
+          employee_count?: number | null
+          established_date?: string | null
+          id?: string
+          invalid_reason?: string | null
+          invalidated_at?: string | null
+          invalidated_by?: string | null
+          is_valid?: boolean | null
+          main_business?: string | null
+          notes?: string | null
+          past_performance?: Json | null
+          representative?: string | null
+          submission_number?: string
+          submitted_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_submissions_bid_project_id_fkey"
+            columns: ["bid_project_id"]
+            isOneToOne: false
+            referencedRelation: "bid_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_submissions_invalidated_by_fkey"
+            columns: ["invalidated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budget_executions: {
         Row: {
           amount: number
