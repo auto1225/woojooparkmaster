@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,8 @@ export default function LoginPage() {
   const { signIn } = useAuth();
   const { data: config } = useSystemConfig();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isExpired = searchParams.get("expired") === "1";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +52,11 @@ export default function LoginPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {isExpired && (
+              <div className="rounded-md bg-destructive/10 text-destructive text-xs p-3 text-center">
+                세션이 만료되었습니다. 다시 로그인해주세요.
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-xs">이메일</Label>
               <Input id="email" type="email" placeholder="admin@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />

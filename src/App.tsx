@@ -4,6 +4,14 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
+import { SessionManager } from "@/components/common/SessionManager";
+import { GlobalSearch } from "@/components/common/GlobalSearch";
+import { handleSupabaseError } from "@/lib/api-error-handler";
+import { toast } from "sonner";
+import "@/styles/print.css";
+
+// --- Page imports (unchanged) ---
 import Index from "./pages/Index";
 import LoginPage from "./pages/Login";
 import LotsPage from "./pages/Lots";
@@ -69,10 +77,23 @@ import ReportGenerate from "./pages/report/ReportGenerate";
 import ReportHistory from "./pages/report/ReportHistory";
 import ReportSchedules from "./pages/report/ReportSchedules";
 import DashboardBuilder from "./pages/report/DashboardBuilder";
+import SurveyPrint from "./pages/SurveyPrint";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+    },
+    mutations: {
+      onError: (error: any) => {
+        toast.error(handleSupabaseError(error));
+      },
+    },
+  },
+});
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -106,6 +127,7 @@ const AppRoutes = () => (
     <Route path="/surveys/progress" element={<ProtectedRoute><SurveyProgressPage /></ProtectedRoute>} />
     <Route path="/surveys/:id" element={<ProtectedRoute><SurveyWizardPage /></ProtectedRoute>} />
     <Route path="/surveys/:id/review" element={<ProtectedRoute><SurveyReviewPage /></ProtectedRoute>} />
+    <Route path="/surveys/:id/print" element={<ProtectedRoute><SurveyPrint /></ProtectedRoute>} />
     <Route path="/ops" element={<ProtectedRoute><OpsDashboardPage /></ProtectedRoute>} />
     <Route path="/ops/staff" element={<ProtectedRoute><OpsStaffPage /></ProtectedRoute>} />
     <Route path="/ops/contracts" element={<ProtectedRoute><OpsContractsPage /></ProtectedRoute>} />
@@ -168,17 +190,21 @@ const AppRoutes = () => (
 );
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <SessionManager />
+            <GlobalSearch />
+            <AppRoutes />
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

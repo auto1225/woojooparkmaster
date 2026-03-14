@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -23,6 +23,9 @@ import { BID_STATUS_LABELS, BID_STATUS_COLORS } from "@/types/procurement";
 import { CATEGORY_LABELS, COMPLAINT_STATUS_LABELS, COMPLAINT_STATUS_COLORS } from "@/types/complaint";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS, SERVICE_TYPE_LABELS, formatServiceAmount } from "@/types/service";
 import { CONGESTION_LABELS, CONGESTION_COLORS, CONGESTION_BG } from "@/types/realtime";
+import { PrintButton } from "@/components/common/PrintButton";
+import { PrintHeader } from "@/components/common/PrintHeader";
+import { Input } from "@/components/ui/input";
 import { ArrowLeft, Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
@@ -268,6 +271,41 @@ export default function LotDetailPage() {
   const canEdit = profile && ["admin", "manager", "editor"].includes(profile.role);
   const canDelete = profile?.role === "admin";
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [relatedCounts, setRelatedCounts] = useState<Record<string, number>>({});
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [checkingRelated, setCheckingRelated] = useState(false);
+
+  const checkRelatedData = async () => {
+    if (!lot) return;
+    setCheckingRelated(true);
+    const counts: Record<string, number> = {};
+    
+    const { count: surveyCount } = await supabase.from("surveys").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
+    if (surveyCount) counts["현황조사"] = surveyCount;
+
+    if ((licenses ?? []).some((m: any) => m.module_code === "OPS" && m.is_active)) {
+      const { count: staffCount } = await supabase.from("operations_staff").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
+      if (staffCount) counts["관리인력"] = staffCount;
+    }
+    if ((licenses ?? []).some((m: any) => m.module_code === "FACILITY" && m.is_active)) {
+      const { count: equipCount } = await supabase.from("equipment").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
+      if (equipCount) counts["시설장비"] = equipCount;
+    }
+    if ((licenses ?? []).some((m: any) => m.module_code === "REVENUE" && m.is_active)) {
+      const { count: revCount } = await supabase.from("revenue_daily").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
+      if (revCount) counts["수입기록"] = revCount;
+    }
+    if (complaintActive) {
+      const { count: compCount } = await supabase.from("complaints").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
+      if (compCount) counts["민원"] = compCount;
+    }
+
+    setRelatedCounts(counts);
+    setCheckingRelated(false);
+    setDeleteOpen(true);
+  };
+
   const handleDelete = async () => {
     if (!lot) return;
     const { error } = await supabase.from("parking_lots").delete().eq("id", lot.id);
@@ -280,6 +318,9 @@ export default function LotDetailPage() {
       navigate("/lots");
     }
   };
+
+  const hasRelated = Object.keys(relatedCounts).length > 0;
+  const canConfirmDelete = hasRelated ? deleteConfirmName === lot?.name : true;
 
   if (isLoading) {
     return (
@@ -322,32 +363,71 @@ export default function LotDetailPage() {
             <p className="text-sm text-muted-foreground mt-1">{lot.address_jibun || lot.address_road || "주소 미등록"}</p>
           </div>
           <div className="flex gap-2 shrink-0">
+            <PrintButton />
             {canEdit && (
               <Button variant="outline" size="sm" onClick={() => navigate(`/lots/${lot.id}/edit`)}>
                 <Pencil className="h-3.5 w-3.5 mr-1" /> 수정
               </Button>
             )}
             {canDelete && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-                    <Trash2 className="h-3.5 w-3.5 mr-1" /> 삭제
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>주차장 삭제</AlertDialogTitle>
-                    <AlertDialogDescription>정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>취소</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">삭제</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <>
+                <Button
+                  variant="outline" size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={checkRelatedData}
+                  disabled={checkingRelated}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> 삭제
+                </Button>
+                <AlertDialog open={deleteOpen} onOpenChange={(o) => { setDeleteOpen(o); if (!o) setDeleteConfirmName(""); }}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>주차장 삭제</AlertDialogTitle>
+                      <AlertDialogDescription asChild>
+                        <div className="space-y-3">
+                          {hasRelated ? (
+                            <>
+                              <p>이 주차장에 다음 데이터가 연결되어 있습니다:</p>
+                              <ul className="list-disc list-inside text-sm space-y-1">
+                                {Object.entries(relatedCounts).map(([label, count]) => (
+                                  <li key={label}>{label}: <strong>{count}건</strong></li>
+                                ))}
+                              </ul>
+                              <p className="text-destructive font-medium">삭제하면 연결된 모든 데이터가 함께 삭제됩니다.</p>
+                              <div className="space-y-1.5">
+                                <p className="text-xs">삭제하려면 주차장명 "<strong>{lot.name}</strong>"을 입력하세요:</p>
+                                <Input
+                                  value={deleteConfirmName}
+                                  onChange={(e) => setDeleteConfirmName(e.target.value)}
+                                  placeholder={lot.name}
+                                  className="text-sm"
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <p>정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+                          )}
+                        </div>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>취소</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDelete}
+                        disabled={!canConfirmDelete}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        삭제
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
             )}
           </div>
         </div>
+
+        <PrintHeader />
 
         <Tabs defaultValue="info">
           <TabsList>
