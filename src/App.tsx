@@ -11,6 +11,7 @@ import { handleSupabaseError } from "@/lib/api-error-handler";
 import { toast } from "sonner";
 import { setupOnlineSync } from "@/lib/offline-survey";
 import { useEffect } from "react";
+import { useSessionSync } from "@/hooks/useSessionSync";
 import "@/styles/print.css";
 import "@/lib/i18n";
 
@@ -102,14 +103,23 @@ import { HelpPanel } from "./components/help/HelpPanel";
 import { OnboardingGuide } from "./components/help/OnboardingGuide";
 import { SecurityDiagnosisBanner } from "./pages/settings/SecurityManagement";
 import { initProductionErrorFilter } from "./lib/error-sanitizer";
+import { runSecurityChecks } from "./lib/security-check";
+import { initTokenSecurity } from "./lib/token-security";
 
 // SEC-C-2: 프로덕션 에러 필터링 초기화
 initProductionErrorFilter();
+// SEC-WEB-5: 프론트엔드 보안 체크
+runSecurityChecks();
+// SEC-WEB-4: 토큰 보안 초기화
+initTokenSecurity();
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 2,
+      retry: (failureCount, error: any) => {
+        if (error?.status === 429) return false; // SEC-WEB-3: 429는 재시도 안 함
+        return failureCount < 2;
+      },
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
     },
     mutations: {
@@ -234,6 +244,7 @@ function AppWithSync() {
     const cleanup = setupOnlineSync();
     return cleanup;
   }, []);
+  useSessionSync(); // SEC-WEB-4: 멀티탭 세션 동기화
   return (
     <>
       <SecurityDiagnosisBanner />
