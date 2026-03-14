@@ -112,7 +112,7 @@ export default function Index() {
                     id: l.id,
                     lat: Number(l.latitude),
                     lng: Number(l.longitude),
-                    name: l.lot_name,
+                    name: l.name,
                     color: l.status === "active" ? "blue" as const : l.status === "construction" ? "orange" as const : "gray" as const,
                     onClick: (id: string) => navigate(`/lots/${id}`),
                   })) || []
