@@ -196,6 +196,62 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="ai" className="mt-4">
+            <Card>
+              <CardHeader><CardTitle className="text-sm">AI 기능 설정</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">AI 기능 활성화</p>
+                    <p className="text-xs text-muted-foreground">민원 자동분류, 보고서 총평, 수입 분석 등 AI 기능을 사용합니다</p>
+                  </div>
+                  <Switch
+                    checked={configValue(AI_TOGGLE_KEY) === 'true'}
+                    onCheckedChange={(v) => setEditedConfig({ ...editedConfig, [AI_TOGGLE_KEY]: v ? 'true' : 'false' })}
+                  />
+                </div>
+                {Object.keys(editedConfig).length > 0 && (
+                  <div className="flex justify-end">
+                    <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                      <Save className="h-4 w-4 mr-1" />저장
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="messages" className="mt-4">
+            <Card>
+              <CardHeader><CardTitle className="text-sm">메시지 발송 설정</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                {MSG_TOGGLES.map(t => (
+                  <div key={t.key} className="flex items-center justify-between">
+                    <Label className="text-sm">{t.label}</Label>
+                    <Switch
+                      checked={configValue(t.key) === 'true'}
+                      onCheckedChange={(v) => setEditedConfig({ ...editedConfig, [t.key]: v ? 'true' : 'false' })}
+                    />
+                  </div>
+                ))}
+                {Object.keys(editedConfig).length > 0 && (
+                  <div className="flex justify-end">
+                    <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                      <Save className="h-4 w-4 mr-1" />저장
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <div className="mt-4">
+              <MessageManagement />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="approval" className="mt-4">
+            <ApprovalLineManagement />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
