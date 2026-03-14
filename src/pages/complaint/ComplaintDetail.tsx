@@ -29,6 +29,8 @@ export default function ComplaintDetail() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const { data: licenses } = useModuleLicenses();
+  const { data: config } = useSystemConfig();
+  const aiEnabled = config?.ai_enabled === 'true';
   const opsActive = (licenses ?? []).some(m => m.module_code === "OPS" && m.is_active);
 
   const [commentText, setCommentText] = useState("");
