@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { useNavigate } from "react-router-dom";
 import { KpiCard } from "@/components/KpiCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Car, ParkingCircle, CircleCheck, XCircle, Search, ChevronDown, ChevronUp, Wifi, WifiOff } from "lucide-react";
+import { Car, ParkingCircle, CircleCheck, XCircle, Search, ChevronDown, ChevronUp, Wifi, WifiOff, Monitor } from "lucide-react";
 import { CONGESTION_LABELS, CONGESTION_COLORS, CONGESTION_BG } from "@/types/realtime";
 
 type CongestionLevel = 'empty' | 'normal' | 'crowded' | 'full';
@@ -17,6 +18,7 @@ type CongestionLevel = 'empty' | 'normal' | 'crowded' | 'full';
 const CONGESTION_ORDER: Record<string, number> = { full: 0, crowded: 1, normal: 2, empty: 3 };
 
 export default function RealtimeDashboard() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
@@ -98,6 +100,10 @@ export default function RealtimeDashboard() {
             <p className="text-sm text-muted-foreground">전체 주차장 실시간 점유 모니터링</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate('/realtime/monitor')}>
+              <Monitor className="h-3.5 w-3.5 mr-1" />관제 모니터
+            </Button>
+
             {connected ? (
               <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 gap-1">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> 실시간 연결됨

@@ -6,13 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Download } from "lucide-react";
+import { Download, Sparkles, TrendingUp, TrendingDown, Minus, ChevronDown } from "lucide-react";
 import { formatWon, formatManWon } from "@/types/revenue";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
-
+import { useSystemConfig } from "@/hooks/useSystemConfig";
+import { callAI } from "@/lib/ai-service";
+import { logActivity } from "@/lib/activity-logger";
 type AggUnit = 'daily' | 'weekly' | 'monthly' | 'quarterly';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
@@ -24,6 +28,11 @@ export default function RevenueAnalysis() {
   const [dateEnd, setDateEnd] = useState(now.toISOString().split('T')[0]);
   const [aggUnit, setAggUnit] = useState<AggUnit>('monthly');
   const [showPrevYear, setShowPrevYear] = useState(false);
+  const [aiInsight, setAiInsight] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [insightOpen, setInsightOpen] = useState(true);
+  const { data: config } = useSystemConfig();
+  const aiEnabled = config?.ai_enabled === 'true';
 
   const { data: lots } = useQuery({
     queryKey: ['lots-all'],
@@ -166,6 +175,80 @@ export default function RevenueAnalysis() {
             </CardContent>
           </Card>
         </div>
+
+        {/* AI Insight Section */}
+        {aiEnabled && (
+          <Card className={aiInsight ? 'border-blue-300 dark:border-blue-700' : ''}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-blue-500" />AI 인사이트
+                  {aiInsight && <Badge variant="outline" className="text-[10px] text-blue-600">AI 분석</Badge>}
+                </CardTitle>
+                <Button size="sm" variant={aiInsight ? 'outline' : 'default'} disabled={aiLoading}
+                  onClick={async () => {
+                    setAiLoading(true);
+                    try {
+                      const result = await callAI({
+                        task: 'analyze_revenue',
+                        input: {
+                          period: { start: dateStart, end: dateEnd },
+                          monthly_totals: trendData.slice(-6),
+                          by_payment_method: { cash: grandTotal.cash, card: grandTotal.card, mobile: grandTotal.mobile },
+                          top_lots: lotComparison.slice(0, 5).map(l => ({ name: l.name, total: l.total })),
+                          bottom_lots: lotComparison.slice(-3).map(l => ({ name: l.name, total: l.total })),
+                        },
+                      });
+                      setAiInsight(result);
+                      await logActivity({ module: 'ai', action: 'analyze_revenue' });
+                    } catch (e: any) {
+                      setAiInsight(null);
+                    } finally { setAiLoading(false); }
+                  }}>
+                  <Sparkles className="h-3.5 w-3.5 mr-1" />{aiLoading ? '분석 중...' : aiInsight ? '재분석' : 'AI 분석 실행'}
+                </Button>
+              </div>
+            </CardHeader>
+            {aiInsight && (
+              <Collapsible open={insightOpen} onOpenChange={setInsightOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground">
+                    <ChevronDown className={`h-3 w-3 mr-1 transition-transform ${insightOpen ? 'rotate-180' : ''}`} />
+                    {insightOpen ? '접기' : '펼치기'}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">추세:</span>
+                      {aiInsight.trend === 'increasing' ? <><TrendingUp className="h-4 w-4 text-emerald-500" /><span className="text-emerald-600 text-sm">증가세</span></> :
+                       aiInsight.trend === 'decreasing' ? <><TrendingDown className="h-4 w-4 text-red-500" /><span className="text-red-600 text-sm">감소세</span></> :
+                       <><Minus className="h-4 w-4 text-muted-foreground" /><span className="text-sm">안정</span></>}
+                    </div>
+                    {aiInsight.summary && <p className="text-sm text-muted-foreground">{aiInsight.summary}</p>}
+                    {aiInsight.anomalies?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium mb-1">이상치</p>
+                        {aiInsight.anomalies.map((a: any, i: number) => (
+                          <p key={i} className="text-xs text-muted-foreground">• {a.date}: {a.reason}</p>
+                        ))}
+                      </div>
+                    )}
+                    {aiInsight.recommendations?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium mb-1">제언</p>
+                        {aiInsight.recommendations.map((r: string, i: number) => (
+                          <p key={i} className="text-xs text-muted-foreground">• {r}</p>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-muted-foreground italic">※ AI가 생성한 분석입니다. 참고용으로 활용하세요.</p>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </Card>
+        )}
 
         {/* Summary table */}
         <Card>

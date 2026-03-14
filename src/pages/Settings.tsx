@@ -13,7 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Settings, Shield, Package, Save } from "lucide-react";
+import { Settings, Shield, Package, Save, MessageSquare, GitBranch, Sparkles } from "lucide-react";
+import MessageManagement from "@/pages/settings/MessageManagement";
+import ApprovalLineManagement from "@/pages/settings/ApprovalLineManagement";
 
 export default function SettingsPage() {
   const { profile } = useAuth();
@@ -80,6 +82,13 @@ export default function SettingsPage() {
     { key: "map_center_lat", label: "지도 중심 위도" },
     { key: "map_center_lng", label: "지도 중심 경도" },
     { key: "map_zoom", label: "지도 줌 레벨" },
+    { key: "kakao_map_appkey", label: "카카오 맵 API 키" },
+  ];
+
+  const AI_TOGGLE_KEY = "ai_enabled";
+  const MSG_TOGGLES = [
+    { key: "alimtalk_enabled", label: "카카오 알림톡" },
+    { key: "sms_enabled", label: "SMS 발송" },
   ];
 
   const MODULE_LABELS: Record<string, string> = {
@@ -109,6 +118,9 @@ export default function SettingsPage() {
           <TabsList>
             <TabsTrigger value="general">기본 설정</TabsTrigger>
             <TabsTrigger value="modules">모듈 관리</TabsTrigger>
+            <TabsTrigger value="ai"><Sparkles className="h-3 w-3 mr-1" />AI 설정</TabsTrigger>
+            <TabsTrigger value="messages"><MessageSquare className="h-3 w-3 mr-1" />메시지</TabsTrigger>
+            <TabsTrigger value="approval"><GitBranch className="h-3 w-3 mr-1" />결재선</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" className="mt-4">
@@ -183,6 +195,62 @@ export default function SettingsPage() {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="ai" className="mt-4">
+            <Card>
+              <CardHeader><CardTitle className="text-sm">AI 기능 설정</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">AI 기능 활성화</p>
+                    <p className="text-xs text-muted-foreground">민원 자동분류, 보고서 총평, 수입 분석 등 AI 기능을 사용합니다</p>
+                  </div>
+                  <Switch
+                    checked={configValue(AI_TOGGLE_KEY) === 'true'}
+                    onCheckedChange={(v) => setEditedConfig({ ...editedConfig, [AI_TOGGLE_KEY]: v ? 'true' : 'false' })}
+                  />
+                </div>
+                {Object.keys(editedConfig).length > 0 && (
+                  <div className="flex justify-end">
+                    <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                      <Save className="h-4 w-4 mr-1" />저장
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="messages" className="mt-4">
+            <Card>
+              <CardHeader><CardTitle className="text-sm">메시지 발송 설정</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                {MSG_TOGGLES.map(t => (
+                  <div key={t.key} className="flex items-center justify-between">
+                    <Label className="text-sm">{t.label}</Label>
+                    <Switch
+                      checked={configValue(t.key) === 'true'}
+                      onCheckedChange={(v) => setEditedConfig({ ...editedConfig, [t.key]: v ? 'true' : 'false' })}
+                    />
+                  </div>
+                ))}
+                {Object.keys(editedConfig).length > 0 && (
+                  <div className="flex justify-end">
+                    <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                      <Save className="h-4 w-4 mr-1" />저장
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <div className="mt-4">
+              <MessageManagement />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="approval" className="mt-4">
+            <ApprovalLineManagement />
           </TabsContent>
         </Tabs>
       </div>

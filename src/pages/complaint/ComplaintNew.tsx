@@ -15,12 +15,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { CHANNEL_LABELS, CATEGORY_LABELS, PRIORITY_LABELS, getTeamRecommendation } from "@/types/complaint";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Sparkles } from "lucide-react";
+import { useSystemConfig } from "@/hooks/useSystemConfig";
+import { callAI } from "@/lib/ai-service";
 
 export default function ComplaintNew() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [aiClassifying, setAiClassifying] = useState(false);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiKeywords, setAiKeywords] = useState<string[]>([]);
+  const { data: config } = useSystemConfig();
+  const aiEnabled = config?.ai_enabled === 'true';
 
   const [form, setForm] = useState({
     channel: "phone", category: "", sub_category: "", priority: "normal",
@@ -228,6 +235,38 @@ export default function ComplaintNew() {
                 <div>
                   <Label className="text-xs">내용 *</Label>
                   <Textarea value={form.content} onChange={e => update("content", e.target.value)} rows={5} className="text-sm" />
+                  {aiEnabled && form.content.length > 10 && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <Button type="button" variant="outline" size="sm" className="text-xs gap-1" disabled={aiClassifying}
+                        onClick={async () => {
+                          setAiClassifying(true);
+                          try {
+                            const result = await callAI({ task: 'classify_complaint', input: { title: form.title, content: form.content } });
+                            if (result.category) update("category", result.category);
+                            if (result.sub_category) update("sub_category", result.sub_category);
+                            if (result.priority) update("priority", result.priority);
+                            if (result.assigned_team) update("assigned_team", result.assigned_team);
+                            if (result.summary) setAiSummary(result.summary);
+                            if (result.keywords) setAiKeywords(result.keywords);
+                            await logActivity({ module: 'ai', action: 'classify_complaint', details: { title: form.title } });
+                            toast({ title: "AI 분류 완료" });
+                          } catch (e: any) {
+                            toast({ title: "AI 분류 실패", description: e.message, variant: "destructive" });
+                          } finally { setAiClassifying(false); }
+                        }}>
+                        <Sparkles className="h-3 w-3" />{aiClassifying ? "분류 중..." : "AI 분류"}
+                      </Button>
+                      <span className="text-[10px] text-muted-foreground">AI가 민원을 분석하여 유형과 우선순위를 추천합니다</span>
+                    </div>
+                  )}
+                  {aiSummary && (
+                    <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">AI 요약: {aiSummary}</p>
+                      {aiKeywords.length > 0 && (
+                        <div className="flex gap-1 mt-1">{aiKeywords.map(k => <Badge key={k} variant="secondary" className="text-[9px]">{k}</Badge>)}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

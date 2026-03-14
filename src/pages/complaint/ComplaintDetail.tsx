@@ -19,8 +19,9 @@ import {
   CHANNEL_LABELS, CATEGORY_LABELS, COMPLAINT_STATUS_LABELS, COMPLAINT_STATUS_COLORS,
   PRIORITY_LABELS, PRIORITY_COLORS, COMMENT_TYPE_LABELS, RESOLUTION_TYPE_LABELS, getDDay,
 } from "@/types/complaint";
-import { ArrowLeft, MessageCircle, Lock, Send, Star, UserPlus, Play, Reply, CheckCircle, RotateCcw, ExternalLink } from "lucide-react";
-import { useModuleLicenses } from "@/hooks/useSystemConfig";
+import { ArrowLeft, MessageCircle, Lock, Send, Star, UserPlus, Play, Reply, CheckCircle, RotateCcw, ExternalLink, Sparkles } from "lucide-react";
+import { useModuleLicenses, useSystemConfig } from "@/hooks/useSystemConfig";
+import { callAI } from "@/lib/ai-service";
 
 export default function ComplaintDetail() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +29,8 @@ export default function ComplaintDetail() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const { data: licenses } = useModuleLicenses();
+  const { data: config } = useSystemConfig();
+  const aiEnabled = config?.ai_enabled === 'true';
   const opsActive = (licenses ?? []).some(m => m.module_code === "OPS" && m.is_active);
 
   const [commentText, setCommentText] = useState("");
@@ -42,6 +45,7 @@ export default function ComplaintDetail() {
   const [satDialog, setSatDialog] = useState(false);
   const [satScore, setSatScore] = useState(3);
   const [satFeedback, setSatFeedback] = useState("");
+  const [aiDrafting, setAiDrafting] = useState(false);
 
   const { data: complaint, isLoading } = useQuery({
     queryKey: ["complaint", id],
@@ -217,6 +221,30 @@ export default function ComplaintDetail() {
                     <Button size="sm" onClick={addComment} disabled={!commentText.trim()}>
                       <Send className="h-3.5 w-3.5 mr-1" />등록
                     </Button>
+                    {aiEnabled && commentType === 'external' && (
+                      <div className="flex items-center gap-1">
+                        <Button type="button" variant="outline" size="sm" className="text-xs gap-1" disabled={aiDrafting}
+                          onClick={async () => {
+                            setAiDrafting(true);
+                            try {
+                              const result = await callAI({
+                                task: 'draft_response',
+                                input: { title: complaint.title, content: complaint.content, category: complaint.category },
+                                context: `주차장: ${(complaint as any).parking_lots?.name || '미지정'}\n유형: ${CATEGORY_LABELS[complaint.category]}\n민원인: ${complaint.complainant_name || '익명'}`,
+                              });
+                              const draft = result.result || JSON.stringify(result);
+                              setCommentText(draft);
+                              await logActivity({ module: 'ai', action: 'draft_response', details: { complaint_id: id } });
+                              toast({ title: "AI 답변 초안이 생성되었습니다" });
+                            } catch (e: any) {
+                              toast({ title: "AI 답변 생성 실패", description: e.message, variant: "destructive" });
+                            } finally { setAiDrafting(false); }
+                          }}>
+                          <Sparkles className="h-3 w-3" />{aiDrafting ? "생성 중..." : "AI 답변"}
+                        </Button>
+                        <span className="text-[9px] text-muted-foreground hidden md:inline">검토 후 발송하세요</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

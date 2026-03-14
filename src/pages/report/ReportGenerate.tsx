@@ -12,9 +12,12 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ChevronRight, FileText, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { ChevronRight, FileText, Loader2, CheckCircle2, XCircle, Sparkles } from "lucide-react";
 import { REPORT_TYPE_LABELS, REPORT_CATEGORY_LABELS, type ReportTemplate } from "@/types/report";
 import { logActivity } from "@/lib/activity-logger";
+import { useSystemConfig } from "@/hooks/useSystemConfig";
+import { callAI } from "@/lib/ai-service";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function ReportGenerate() {
   const navigate = useNavigate();
@@ -29,6 +32,10 @@ export default function ReportGenerate() {
   const [title, setTitle] = useState("");
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{ status: string; id?: string; error?: string } | null>(null);
+  const [aiSummary, setAiSummary] = useState("");
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const { data: config } = useSystemConfig();
+  const aiEnabled = config?.ai_enabled === 'true';
 
   const activeModules = new Set(
     (licenses ?? []).filter((m) => m.is_active).map((m) => m.module_code)
@@ -264,6 +271,37 @@ export default function ReportGenerate() {
                 <span className="text-muted-foreground">형식</span>
                 <span>{outputFormat === "pdf+xlsx" ? "PDF + 엑셀" : "PDF"}</span>
               </div>
+
+              {/* AI Summary */}
+              {aiEnabled && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">총평</Label>
+                    <Button type="button" variant="outline" size="sm" className="text-xs gap-1" disabled={aiSummaryLoading}
+                      onClick={async () => {
+                        setAiSummaryLoading(true);
+                        try {
+                          const result = await callAI({
+                            task: 'summarize_report',
+                            input: { template: selectedTemplate?.name, params },
+                            context: `기관: ${config?.org_name || ''}\n보고서: ${title}\n기간: ${params.date || params.month || params.period_start || ''}~${params.period_end || ''}`,
+                          });
+                          setAiSummary(result.result || JSON.stringify(result));
+                          await logActivity({ module: 'ai', action: 'summarize_report' });
+                        } catch (e: any) { /* ignore */ }
+                        finally { setAiSummaryLoading(false); }
+                      }}>
+                      <Sparkles className="h-3 w-3" />{aiSummaryLoading ? '생성 중...' : 'AI 총평 생성'}
+                    </Button>
+                  </div>
+                  {aiSummary && (
+                    <>
+                      <Textarea value={aiSummary} onChange={e => setAiSummary(e.target.value)} rows={6} className="text-sm" />
+                      <p className="text-[10px] text-muted-foreground italic">※ AI가 생성한 초안입니다. 검토 후 사용하세요.</p>
+                    </>
+                  )}
+                </div>
+              )}
 
               {result && (
                 <div className={`p-4 rounded-lg flex items-center gap-3 ${result.status === "completed" ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>

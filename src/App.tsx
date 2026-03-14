@@ -75,12 +75,14 @@ import RealtimeSensors from "./pages/realtime/RealtimeSensors";
 import RealtimeGateways from "./pages/realtime/RealtimeGateways";
 import RealtimeDisplays from "./pages/realtime/RealtimeDisplays";
 import RealtimeApi from "./pages/realtime/RealtimeApi";
+import RealtimeMonitor from "./pages/realtime/RealtimeMonitor";
 import ReportCenter from "./pages/report/ReportCenter";
 import ReportGenerate from "./pages/report/ReportGenerate";
 import ReportHistory from "./pages/report/ReportHistory";
 import ReportSchedules from "./pages/report/ReportSchedules";
 import DashboardBuilder from "./pages/report/DashboardBuilder";
 import SurveyPrint from "./pages/SurveyPrint";
+import ParkingLayout from "./pages/facility/ParkingLayout";
 import ApprovalsPage from "./pages/Approvals";
 import NotificationsPage from "./pages/Notifications";
 import ProfilePage from "./pages/Profile";
@@ -149,6 +151,7 @@ const AppRoutes = () => (
     <Route path="/facility/schedule" element={<ProtectedRoute><FacilitySchedule /></ProtectedRoute>} />
     <Route path="/facility/safety" element={<ProtectedRoute><FacilitySafety /></ProtectedRoute>} />
     <Route path="/facility/markings" element={<ProtectedRoute><FacilityMarkings /></ProtectedRoute>} />
+    <Route path="/facility/layout/:lotId" element={<ProtectedRoute><ParkingLayout /></ProtectedRoute>} />
     <Route path="/revenue" element={<ProtectedRoute><RevenueDashboard /></ProtectedRoute>} />
     <Route path="/revenue/daily" element={<ProtectedRoute><RevenueDaily /></ProtectedRoute>} />
     <Route path="/revenue/reconcile" element={<ProtectedRoute><RevenueReconcile /></ProtectedRoute>} />
@@ -186,6 +189,7 @@ const AppRoutes = () => (
     <Route path="/realtime/gateways" element={<ProtectedRoute><RealtimeGateways /></ProtectedRoute>} />
     <Route path="/realtime/displays" element={<ProtectedRoute><RealtimeDisplays /></ProtectedRoute>} />
     <Route path="/realtime/api" element={<ProtectedRoute><RealtimeApi /></ProtectedRoute>} />
+    <Route path="/realtime/monitor" element={<ProtectedRoute><RealtimeMonitor /></ProtectedRoute>} />
     <Route path="/reports" element={<ProtectedRoute><ReportCenter /></ProtectedRoute>} />
     <Route path="/reports/generate" element={<ProtectedRoute><ReportGenerate /></ProtectedRoute>} />
     <Route path="/reports/history" element={<ProtectedRoute><ReportHistory /></ProtectedRoute>} />
