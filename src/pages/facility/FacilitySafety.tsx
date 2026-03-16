@@ -238,6 +238,7 @@ export default function FacilitySafety() {
                   </>
                 )}
 
+                <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
                 <Button className="w-full" disabled={!form.lot_id || createMutation.isPending} onClick={() => createMutation.mutate()}>
                   {createMutation.isPending ? "등록 중..." : "점검 결과 저장"}
                 </Button>
