@@ -835,7 +835,37 @@ async function runSeed(supabase: any, userId: string) {
     status: pick(["active", "active", "planning"]),
     notes: "[DEMO] 데모 건설사업",
   }));
-  await batchInsert(supabase, "construction_projects", constRows);
+  const { data: insertedConstProjects } = await supabase.from("construction_projects").insert(constRows).select("id, project_name");
+
+  // Design documents (for construction projects)
+  if (insertedConstProjects && insertedConstProjects.length > 0) {
+    const designDocRows: any[] = [];
+    let ddNum = 0;
+    for (const proj of insertedConstProjects) {
+      const docTypes = [
+        { title: "기본설계도", doc_type: "basic_design", category: "design" },
+        { title: "실시설계도", doc_type: "detailed_design", category: "design" },
+        { title: "구조계산서", doc_type: "structural_calc", category: "engineering" },
+        { title: "전기설비도", doc_type: "electrical", category: "engineering" },
+      ];
+      for (const doc of docTypes) {
+        ddNum++;
+        designDocRows.push({
+          doc_number: `DD-DEMO-${String(ddNum).padStart(4, "0")}`,
+          project_id: proj.id,
+          title: `${proj.project_name} ${doc.title}`,
+          doc_type: doc.doc_type,
+          category: doc.category,
+          version: "1.0",
+          file_path: `/demo/design/${doc.doc_type}.pdf`,
+          status: pick(["approved", "approved", "reviewing", "draft"]),
+          is_current: true,
+          notes: "[DEMO] 데모 설계문서",
+        });
+      }
+    }
+    await batchInsert(supabase, "design_documents", designDocRows);
+  }
 
   // ══════════════════════════════════════════
   //  9. 실시간 – sensor_devices, gateway_devices, lot_realtime_status, display_boards
