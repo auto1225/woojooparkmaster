@@ -656,7 +656,8 @@ async function runSeed(supabase: any, userId: string) {
     fiscal_year: currentYear, plan_type: "original",
     title: `${currentYear}년도 본예산`, status: "executed",
     total_revenue: 1200000000, total_expenditure: 800000000,
-    balance: 400000000, notes: "[DEMO] 데모 예산",
+    // balance is a generated column (total_revenue - total_expenditure)
+    notes: "[DEMO] 데모 예산",
   }).select("id").single();
 
   if (budgetPlanData) {
