@@ -98,14 +98,14 @@ export default function FacilitySafety() {
     mutationFn: async () => {
       const now = new Date();
       const number = `SI-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, "0")}`;
-      const { error } = await supabase.from("safety_inspections").insert({
+      const payload: any = {
         inspection_number: number,
         lot_id: form.lot_id,
         inspection_type: form.inspection_type,
         inspection_date: form.inspection_date,
         inspector_name: form.inspector_name || null,
         inspector_org: form.inspector_org || null,
-        checklist_results: checklist as unknown as ChecklistItem[],
+        checklist_results: checklist,
         total_items: checklist.length,
         pass_items: passCount,
         fail_items: failCount,
@@ -117,8 +117,9 @@ export default function FacilitySafety() {
         follow_up_required: failCount > 0,
         status: "completed",
         created_by: user?.id,
-      });
+      };
 
+      const { error } = await supabase.from("safety_inspections").insert(payload);
       if (error) throw error;
     },
     onSuccess: () => {
