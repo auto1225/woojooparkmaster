@@ -1164,9 +1164,10 @@ async function runSeed(supabase: any, userId: string) {
         reported_cash: repCash, reported_card: repCard, reported_mobile: repMobile, reported_other: 0,
         reported_total: repCash + repCard + repMobile,
         diff_amount: (repCash + repCard + repMobile) - (sysCash + sysCard + sysMobile),
+        diff_analysis: "[DEMO] 시스템 매출과 정산 보고서 비교 데이터",
         status: m === 1 ? "pending" : pick(["confirmed", "adjusted"]),
         company_name: pick(["(주)제주파킹", "(주)그린주차", "스마트주차관리"]),
-        notes: "[DEMO] 데모 정산",
+        created_by: userId,
       });
     }
     return rows;
