@@ -632,7 +632,7 @@ async function runSeed(supabase: any, userId: string) {
         mobile_amount: Math.floor(dailyBase * 0.25 * factor * (0.8 + Math.random() * 0.4)),
         monthly_pass_amount: Math.floor(dailyBase * 0.18 * factor * (0.8 + Math.random() * 0.3)),
         other_amount: Math.floor(dailyBase * 0.05 * factor * (0.7 + Math.random() * 0.3)),
-        total_amount: Math.floor(dailyBase * factor * (0.8 + Math.random() * 0.4)),
+        // total_amount is a generated column (auto-calculated)
         total_vehicles: Math.floor(Math.max(lot.total_spaces, 30) * factor * (0.5 + Math.random() * 1.5)),
         peak_hour_vehicles: Math.floor(Math.max(lot.total_spaces, 30) * factor * (0.08 + Math.random() * 0.08)),
         peak_hour: `${rnd(8, 19)}:00`,
