@@ -740,8 +740,8 @@ async function runSeed(supabase: any, userId: string) {
     announce_date: daysAgo(rnd(30, 180)),
     bid_deadline: daysAgo(rnd(1, 29)),
     description: `[DEMO] 데모 입찰 사업 ${i + 1}`,
+    scope_of_work: `[DEMO] ${pick(["CCTV 교체", "관제시스템 구축", "노면표시 보수", "무인정산기 설치", "안전시설 보강"])} 과업`,
     evaluation_method: pick(["lowest_price", "qualification", "technical", "negotiation"]),
-    notes: "[DEMO] 데모 입찰",
   }));
 
   const { data: insertedBids } = await supabase.from("bid_projects").insert(bidProjectRows).select("id, estimated_amount");
@@ -1807,7 +1807,7 @@ async function runCleanup(supabase: any) {
   await supabase.from("service_projects").delete().like("notes", "[DEMO]%");
 
   // Procurement
-  const { data: demoBids } = await supabase.from("bid_projects").select("id").like("notes", "[DEMO]%");
+  const { data: demoBids } = await supabase.from("bid_projects").select("id").like("description", "[DEMO]%");
   if (demoBids && demoBids.length > 0) {
     const bidIds = demoBids.map((b: any) => b.id);
     await supabase.from("bid_documents").delete().in("bid_project_id", bidIds);
@@ -1818,7 +1818,7 @@ async function runCleanup(supabase: any) {
     }
     await supabase.from("bid_submissions").delete().in("bid_project_id", bidIds);
   }
-  await supabase.from("bid_projects").delete().like("notes", "[DEMO]%");
+  await supabase.from("bid_projects").delete().like("description", "[DEMO]%");
 
   // Budget
   await supabase.from("budget_transfers").delete().like("notes", "[DEMO]%");
