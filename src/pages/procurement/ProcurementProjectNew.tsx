@@ -77,6 +77,7 @@ export default function ProcurementProjectNew() {
       bid_deadline: form.bid_deadline ? new Date(form.bid_deadline).toISOString() : null,
       bid_open_date: form.bid_open_date || null, bid_open_location: form.bid_open_location || null,
       assigned_to: form.assigned_to || null, created_by: profile?.id,
+      author_name: (form as any).author_name || profile?.name || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success('입찰 사업 등록 완료');
