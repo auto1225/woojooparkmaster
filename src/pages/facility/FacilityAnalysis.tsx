@@ -136,12 +136,12 @@ export default function FacilityAnalysis() {
             { key: 'ratio', label: '경과율(%)', format: 'number' as const },
           ],
           data: equipment.map((e: any) => {
-            const installed = e.installed_date ? new Date(e.installed_date) : null;
+            const installed = e.install_date ? new Date(e.install_date) : null;
             const years = installed ? ((now.getTime() - installed.getTime()) / (365.25 * 86400000)).toFixed(1) : '-';
             const ratio = (installed && e.useful_life_years) ? Math.round(((now.getTime() - installed.getTime()) / (365.25 * 86400000 * e.useful_life_years)) * 100) : '-';
             return {
-              name: e.equipment_name, type: e.equipment_type, lot: e.parking_lots?.name || '-',
-              status: STATUS_LABELS[e.status] || e.status, installed: e.installed_date, years, ratio,
+              name: e.name, type: e.equipment_type, lot: e.parking_lots?.name || '-',
+              status: STATUS_LABELS[e.status] || e.status, installed: e.install_date, years, ratio,
             };
           }),
           autoFilter: true, freezePane: { row: 1, col: 0 },
