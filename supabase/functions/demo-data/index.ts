@@ -356,8 +356,56 @@ async function runSeed(supabase: any, userId: string) {
   });
   await batchInsert(supabase, "complaints", compRows);
 
-  // ══════════════════════════════════════════
-  //  4. 수입관리 – revenue_daily (top 20 × 90 days)
+  // Complaint comments (2~3 per complaint)
+  const { data: insertedComplaints } = await supabase.from("complaints").select("id, title, status, complaint_number").like("notes", "[DEMO]%");
+  if (insertedComplaints && insertedComplaints.length > 0) {
+    const commentRows: any[] = [];
+    for (const comp of insertedComplaints) {
+      // Initial receipt comment
+      commentRows.push({
+        complaint_id: comp.id,
+        author_id: userId,
+        author_name: "관리자",
+        content: `${comp.complaint_number} 민원이 접수되었습니다. 담당부서에서 확인 후 처리하겠습니다.`,
+        comment_type: "internal",
+        is_system: true,
+        created_at: new Date(Date.now() - rnd(60, 180) * 86400000).toISOString(),
+      });
+      // Processing comment
+      if (["responded", "closed"].includes(comp.status)) {
+        commentRows.push({
+          complaint_id: comp.id,
+          author_id: userId,
+          author_name: "관리자",
+          content: pick([
+            "현장 확인 완료하였습니다. 시설팀에 보수 요청하였습니다.",
+            "해당 건에 대해 조치 완료하였습니다.",
+            "관련 부서와 협의하여 처리 중입니다.",
+            "민원인에게 전화 회신 완료하였습니다.",
+          ]),
+          comment_type: "internal",
+          created_at: new Date(Date.now() - rnd(30, 59) * 86400000).toISOString(),
+        });
+      }
+      // Response comment
+      if (comp.status === "closed") {
+        commentRows.push({
+          complaint_id: comp.id,
+          author_id: userId,
+          author_name: "관리자",
+          content: pick([
+            "조치 완료되어 민원 종결합니다.",
+            "시설 보수 완료 후 민원인 확인 받았습니다.",
+            "요금 관련 안내 완료하여 종결합니다.",
+          ]),
+          comment_type: "external",
+          created_at: new Date(Date.now() - rnd(1, 29) * 86400000).toISOString(),
+        });
+      }
+    }
+    await batchInsert(supabase, "complaint_comments", commentRows);
+  }
+
   // ══════════════════════════════════════════
   const revLots = bigLots.slice(0, 20);
   for (const lot of revLots) {
@@ -501,10 +549,102 @@ async function runSeed(supabase: any, userId: string) {
       }
     }
     await batchInsert(supabase, "bid_submissions", subRows);
+    // Bid evaluations (for each submission)
+    const { data: insertedSubs } = await supabase.from("bid_submissions").select("id, bid_project_id, bid_amount, company_name").like("notes", "[DEMO]%");
+    if (insertedSubs && insertedSubs.length > 0) {
+      const evalRows: any[] = [];
+      for (const sub of insertedSubs) {
+        const techScore = rnd(60, 95);
+        const priceScore = rnd(70, 100);
+        const totalScore = Math.round(techScore * 0.6 + priceScore * 0.4);
+        evalRows.push({
+          bid_project_id: sub.bid_project_id,
+          submission_id: sub.id,
+          technical_score: techScore,
+          price_score: priceScore,
+          business_score: rnd(60, 90),
+          total_score: totalScore,
+          rank: null,
+          is_qualified: totalScore >= 70,
+          evaluation_date: daysAgo(rnd(5, 30)),
+          evaluator_name: pick(staffNames.slice(0, 5)),
+          strengths: pick(["기술력 우수", "실적 다수", "가격 경쟁력", "인력 구성 우수"]),
+          weaknesses: pick(["납기 일정 촉박", "유사실적 부족", "인력 교체 우려", "가격 다소 높음"]),
+          comments: "[DEMO] 데모 평가",
+        });
+      }
+      await batchInsert(supabase, "bid_evaluations", evalRows);
+
+      // Bid contracts (1 per bid project - winner)
+      const bidProjectMap: Record<string, any[]> = {};
+      for (const sub of insertedSubs) {
+        if (!bidProjectMap[sub.bid_project_id]) bidProjectMap[sub.bid_project_id] = [];
+        bidProjectMap[sub.bid_project_id].push(sub);
+      }
+      const bContractRows: any[] = [];
+      for (const [bidProjId, subs] of Object.entries(bidProjectMap)) {
+        const winner = subs[0];
+        bContractRows.push({
+          bid_project_id: bidProjId,
+          submission_id: winner.id,
+          contract_number: `BC-DEMO-${String(bContractRows.length + 1).padStart(4, "0")}`,
+          contract_date: daysAgo(rnd(10, 60)),
+          contract_amount: winner.bid_amount || rnd(50000000, 200000000),
+          vat_amount: Math.floor((winner.bid_amount || 100000000) * 0.1),
+          total_amount: Math.floor((winner.bid_amount || 100000000) * 1.1),
+          contractor_name: winner.company_name,
+          contractor_representative: pick(staffNames),
+          contractor_business_number: `${rnd(100, 999)}-${rnd(10, 99)}-${rnd(10000, 99999)}`,
+          contract_start: daysAgo(rnd(1, 30)),
+          contract_end: daysFromNow(rnd(90, 365)),
+          performance_bond_rate: 10,
+          performance_bond_amount: Math.floor((winner.bid_amount || 100000000) * 0.1),
+          status: pick(["signed", "signed", "in_progress"]),
+          special_conditions: "[DEMO] 데모 계약 특약사항",
+        });
+      }
+      await batchInsert(supabase, "bid_contracts", bContractRows);
+    }
+
+    // Bid documents (3 per project)
+    const bidDocRows: any[] = [];
+    for (const bid of insertedBids) {
+      const docs = [
+        { title: "입찰공고문", doc_type: "announcement", doc_category: "bid" },
+        { title: "설계서", doc_type: "specification", doc_category: "bid" },
+        { title: "과업지시서", doc_type: "scope_of_work", doc_category: "bid" },
+      ];
+      for (const doc of docs) {
+        bidDocRows.push({
+          bid_project_id: bid.id,
+          ...doc,
+          file_path: `/demo/${doc.doc_type}.pdf`,
+          is_public: true,
+          is_current: true,
+          version: "1.0",
+        });
+      }
+    }
+    await batchInsert(supabase, "bid_documents", bidDocRows);
   }
 
+  // Free hours settings (for top lots)
+  const freeHoursRows = topLots.slice(0, 8).flatMap((lot: any) => [
+    {
+      lot_id: lot.id, day_type: "weekday", free_minutes: 30,
+      start_time: "00:00", end_time: "23:59", is_active: true,
+      notes: "[DEMO] 데모 무료시간",
+    },
+    {
+      lot_id: lot.id, day_type: "weekend", free_minutes: 60,
+      start_time: "00:00", end_time: "23:59", is_active: true,
+      notes: "[DEMO] 데모 무료시간",
+    },
+  ]);
+  await batchInsert(supabase, "free_hours_settings", freeHoursRows);
+
   // ══════════════════════════════════════════
-  //  7. 용역사업관리 – service_projects, milestones
+  //  7. 용역사업관리 – service_projects, milestones, issues, inspections, payments, deliverables
   // ══════════════════════════════════════════
   const svcProjectRows = [
     { title: "주차관제시스템 유지보수 용역", service_type: "maintenance", service_category: "facility", contract_amount: 120000000, total_amount: 132000000, contractor_name: "(주)스마트파킹", status: "in_progress", progress_pct: 65 },
@@ -522,9 +662,10 @@ async function runSeed(supabase: any, userId: string) {
     notes: "[DEMO] 데모 용역사업",
   }));
 
-  const { data: insertedSvcProjects } = await supabase.from("service_projects").insert(svcProjectRows).select("id, title, total_amount");
+  const { data: insertedSvcProjects } = await supabase.from("service_projects").insert(svcProjectRows).select("id, title, total_amount, contract_amount");
 
   if (insertedSvcProjects && insertedSvcProjects.length > 0) {
+    // Milestones
     const milestoneRows: any[] = [];
     for (const proj of insertedSvcProjects) {
       const milestones = [
@@ -538,6 +679,123 @@ async function runSeed(supabase: any, userId: string) {
       }
     }
     await batchInsert(supabase, "service_milestones", milestoneRows);
+
+    // Service Issues (3~5 per project)
+    const issueTypes = ["scope_change", "schedule_delay", "quality_issue", "budget_overrun", "contract_dispute", "safety_incident"];
+    const severities = ["low", "medium", "high", "critical"];
+    const issueRows: any[] = [];
+    let issueNum = 0;
+    for (const proj of insertedSvcProjects) {
+      const count = rnd(2, 4);
+      for (let i = 0; i < count; i++) {
+        issueNum++;
+        const severity = pick(severities);
+        issueRows.push({
+          issue_number: `ISS-DEMO-${String(issueNum).padStart(4, "0")}`,
+          project_id: proj.id,
+          issue_type: pick(issueTypes),
+          severity,
+          title: pick([
+            "공정 지연으로 인한 일정 조정 필요",
+            "자재 가격 상승에 따른 설계변경",
+            "시공 품질 미달 시정 요청",
+            "안전관리 계획 미이행",
+            "하도급 업체 교체 요청",
+            "기성금 청구 내역 불일치",
+            "현장 근로자 안전교육 미실시",
+            "설계도면과 현장 불일치",
+          ]),
+          description: `[DEMO] ${proj.title} 관련 이슈입니다. 조치가 필요합니다.`,
+          status: pick(["open", "open", "in_progress", "in_progress", "resolved", "closed"]),
+          impact_amount: severity === "critical" ? rnd(10000000, 50000000) : severity === "high" ? rnd(1000000, 10000000) : rnd(0, 1000000),
+          impact_days: severity === "critical" ? rnd(10, 30) : severity === "high" ? rnd(3, 10) : rnd(0, 3),
+          reported_at: new Date(Date.now() - rnd(1, 120) * 86400000).toISOString(),
+          notes: "[DEMO] 데모 이슈",
+        });
+      }
+    }
+    await batchInsert(supabase, "service_issues", issueRows);
+
+    // Service Inspections (2 per project)
+    const inspectionRows: any[] = [];
+    let inspNum = 0;
+    for (const proj of insertedSvcProjects) {
+      for (let seq = 1; seq <= 2; seq++) {
+        inspNum++;
+        const targetAmt = Math.floor((proj.contract_amount || 0) * (seq === 1 ? 0.3 : 0.7));
+        inspectionRows.push({
+          inspection_number: `SINSP-DEMO-${String(inspNum).padStart(4, "0")}`,
+          project_id: proj.id,
+          inspection_seq: seq,
+          inspection_type: seq === 1 ? "interim" : "final",
+          inspection_date: seq === 1 ? daysAgo(rnd(30, 90)) : daysFromNow(rnd(10, 60)),
+          title: `${proj.title} ${seq === 1 ? "중간검사" : "최종검사"}`,
+          target_amount: targetAmt,
+          approved_amount: seq === 1 ? Math.floor(targetAmt * 0.95) : null,
+          result: seq === 1 ? pick(["pass", "conditional_pass"]) : null,
+          result_note: seq === 1 ? "[DEMO] 일부 보완 사항 있으나 전반적으로 양호" : null,
+          status: seq === 1 ? "completed" : "pending",
+          inspector_id: userId,
+          inspector_name: "관리자",
+          total_items: 10,
+          pass_items: seq === 1 ? rnd(7, 10) : null,
+          fail_items: seq === 1 ? rnd(0, 3) : null,
+          notes: "[DEMO] 데모 검사",
+        });
+      }
+    }
+    await batchInsert(supabase, "service_inspections", inspectionRows);
+
+    // Service Payments (2 per project)
+    const paymentRows: any[] = [];
+    let payNum = 0;
+    for (const proj of insertedSvcProjects) {
+      for (let seq = 1; seq <= 2; seq++) {
+        payNum++;
+        const grossAmt = Math.floor((proj.total_amount || 0) * (seq === 1 ? 0.3 : 0.4));
+        paymentRows.push({
+          payment_number: `SPAY-DEMO-${String(payNum).padStart(4, "0")}`,
+          project_id: proj.id,
+          payment_seq: seq,
+          payment_type: seq === 1 ? "interim" : "completion",
+          request_date: seq === 1 ? daysAgo(rnd(30, 60)) : daysAgo(rnd(1, 29)),
+          title: `${proj.title} ${seq === 1 ? "기성금" : "준공금"}`,
+          gross_amount: grossAmt,
+          net_amount: Math.floor(grossAmt * 0.97),
+          status: seq === 1 ? "paid" : pick(["requested", "reviewing", "approved"]),
+          paid_amount: seq === 1 ? Math.floor(grossAmt * 0.97) : null,
+          paid_date: seq === 1 ? daysAgo(rnd(10, 30)) : null,
+          payment_method: "transfer",
+          bank_name: pick(["국민은행", "신한은행", "농협"]),
+          bank_account: `${rnd(100, 999)}-${rnd(10, 99)}-${rnd(100000, 999999)}`,
+          notes: "[DEMO] 데모 대금",
+        });
+      }
+    }
+    await batchInsert(supabase, "service_payments", paymentRows);
+
+    // Service Deliverables (3 per project)
+    const deliverableRows: any[] = [];
+    let delNum = 0;
+    for (const proj of insertedSvcProjects) {
+      const deliverables = [
+        { title: "착수보고서", deliverable_type: "report", sort_order: 1, status: "accepted" },
+        { title: "중간보고서", deliverable_type: "report", sort_order: 2, status: pick(["submitted", "reviewing", "accepted"]) },
+        { title: "최종보고서", deliverable_type: "report", sort_order: 3, status: "pending" },
+      ];
+      for (const del of deliverables) {
+        delNum++;
+        deliverableRows.push({
+          deliverable_number: `DEL-DEMO-${String(delNum).padStart(4, "0")}`,
+          project_id: proj.id,
+          ...del,
+          required_copies: rnd(3, 10),
+          format_required: "PDF + 한글",
+          notes: "[DEMO] 데모 산출물",
+        });
+      }
+    }
+    await batchInsert(supabase, "service_deliverables", deliverableRows);
   }
 
   // ══════════════════════════════════════════
@@ -577,7 +835,37 @@ async function runSeed(supabase: any, userId: string) {
     status: pick(["active", "active", "planning"]),
     notes: "[DEMO] 데모 건설사업",
   }));
-  await batchInsert(supabase, "construction_projects", constRows);
+  const { data: insertedConstProjects } = await supabase.from("construction_projects").insert(constRows).select("id, project_name");
+
+  // Design documents (for construction projects)
+  if (insertedConstProjects && insertedConstProjects.length > 0) {
+    const designDocRows: any[] = [];
+    let ddNum = 0;
+    for (const proj of insertedConstProjects) {
+      const docTypes = [
+        { title: "기본설계도", doc_type: "basic_design", category: "design" },
+        { title: "실시설계도", doc_type: "detailed_design", category: "design" },
+        { title: "구조계산서", doc_type: "structural_calc", category: "engineering" },
+        { title: "전기설비도", doc_type: "electrical", category: "engineering" },
+      ];
+      for (const doc of docTypes) {
+        ddNum++;
+        designDocRows.push({
+          doc_number: `DD-DEMO-${String(ddNum).padStart(4, "0")}`,
+          project_id: proj.id,
+          title: `${proj.project_name} ${doc.title}`,
+          doc_type: doc.doc_type,
+          category: doc.category,
+          version: "1.0",
+          file_path: `/demo/design/${doc.doc_type}.pdf`,
+          status: pick(["approved", "approved", "reviewing", "draft"]),
+          is_current: true,
+          notes: "[DEMO] 데모 설계문서",
+        });
+      }
+    }
+    await batchInsert(supabase, "design_documents", designDocRows);
+  }
 
   // ══════════════════════════════════════════
   //  9. 실시간 – sensor_devices, gateway_devices, lot_realtime_status, display_boards
@@ -714,29 +1002,32 @@ async function runCleanup(supabase: any) {
   await supabase.from("gateway_devices").delete().like("notes", "[DEMO]%");
   // lot_realtime_status doesn't have notes, clean by checking demo display boards were deleted
 
-  // Planning
+  // Planning - design docs first, then construction projects
+  const { data: demoConstProjects } = await supabase.from("construction_projects").select("id").like("notes", "[DEMO]%");
+  if (demoConstProjects && demoConstProjects.length > 0) {
+    await supabase.from("design_documents").delete().in("project_id", demoConstProjects.map((p: any) => p.id));
+  }
   await supabase.from("construction_projects").delete().like("notes", "[DEMO]%");
   await supabase.from("site_candidates").delete().like("notes", "[DEMO]%");
 
-  // Service - milestones first (FK), then projects
+  // Service - all child tables first, then projects
   const { data: demoSvcProjects } = await supabase.from("service_projects").select("id").like("notes", "[DEMO]%");
   if (demoSvcProjects && demoSvcProjects.length > 0) {
     const svcIds = demoSvcProjects.map((p: any) => p.id);
-    await supabase.from("service_milestones").delete().in("project_id", svcIds);
-    await supabase.from("service_inspections").delete().in("project_id", svcIds);
-    await supabase.from("service_payments").delete().in("project_id", svcIds);
-    await supabase.from("service_deliverables").delete().in("project_id", svcIds);
     await supabase.from("service_issues").delete().in("project_id", svcIds);
+    await supabase.from("service_payments").delete().in("project_id", svcIds);
+    await supabase.from("service_inspections").delete().in("project_id", svcIds);
+    await supabase.from("service_deliverables").delete().in("project_id", svcIds);
+    await supabase.from("service_milestones").delete().in("project_id", svcIds);
   }
   await supabase.from("service_projects").delete().like("notes", "[DEMO]%");
 
-  // Procurement - submissions first, then projects
+  // Procurement - evaluations, contracts, documents, submissions, then projects
   const { data: demoBids } = await supabase.from("bid_projects").select("id").like("notes", "[DEMO]%");
   if (demoBids && demoBids.length > 0) {
     const bidIds = demoBids.map((b: any) => b.id);
-    await supabase.from("bid_evaluations").delete().in("bid_project_id", bidIds);
     await supabase.from("bid_documents").delete().in("bid_project_id", bidIds);
-    // Get submission ids for contract cleanup
+    await supabase.from("bid_evaluations").delete().in("bid_project_id", bidIds);
     const { data: demoSubs } = await supabase.from("bid_submissions").select("id").in("bid_project_id", bidIds);
     if (demoSubs && demoSubs.length > 0) {
       await supabase.from("bid_contracts").delete().in("submission_id", demoSubs.map((s: any) => s.id));
@@ -758,7 +1049,7 @@ async function runCleanup(supabase: any) {
   // Revenue
   await supabase.from("revenue_daily").delete().like("notes", "[DEMO]%");
 
-  // Complaints
+  // Complaints - comments first
   const { data: demoComplaints } = await supabase.from("complaints").select("id").like("notes", "[DEMO]%");
   if (demoComplaints && demoComplaints.length > 0) {
     await supabase.from("complaint_comments").delete().in("complaint_id", demoComplaints.map((c: any) => c.id));
@@ -766,6 +1057,7 @@ async function runCleanup(supabase: any) {
   await supabase.from("complaints").delete().like("notes", "[DEMO]%");
 
   // Operations
+  await supabase.from("free_hours_settings").delete().like("notes", "[DEMO]%");
   await supabase.from("fee_exemptions").delete().like("notes", "[DEMO]%");
   await supabase.from("outsourcing_contracts").delete().like("notes", "[DEMO]%");
   await supabase.from("monthly_passes").delete().like("notes", "[DEMO]%");
