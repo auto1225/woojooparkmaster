@@ -77,6 +77,7 @@ export default function BudgetExecutions() {
       execution_date: form.execution_date, amount: form.amount, vendor_name: form.vendor_name || null,
       description: form.description, document_number: form.document_number || null,
       payment_method: form.payment_method, requested_by: profile?.id, created_by: profile?.id,
+      author_name: (form as any).author_name || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success('집행 등록 완료');

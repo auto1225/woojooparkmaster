@@ -83,6 +83,7 @@ export default function FacilitySchedule() {
         description: form.description || null,
         is_active: form.is_active,
         created_by: user?.id,
+        author_name: (form as any).author_name || null,
       });
 
       if (error) throw error;

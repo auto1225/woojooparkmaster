@@ -72,6 +72,7 @@ export default function BudgetTransfers() {
       from_item_id: form.from_item_id, to_item_id: form.to_item_id, amount: form.amount,
       reason: form.reason, legal_basis: form.legal_basis || null,
       requested_by: profile?.id, created_by: profile?.id,
+      author_name: (form as any).author_name || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success('전용/이체 신청 완료');

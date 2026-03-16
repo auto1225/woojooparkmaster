@@ -106,6 +106,7 @@ export default function PlanningSites() {
       traffic_impact_review: form.traffic_impact_review || false,
       cultural_heritage_review: form.cultural_heritage_review || false,
       created_by: profile?.id,
+      author_name: form.author_name || null,
     }] as any);
     if (error) { toast({ title: "등록 실패", description: error.message, variant: "destructive" }); return; }
     toast({ title: "후보부지 등록 완료" });

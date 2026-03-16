@@ -118,6 +118,7 @@ export default function FacilitySafety() {
         follow_up_required: failCount > 0,
         status: "completed",
         created_by: user?.id,
+        author_name: (form as any).author_name || null,
       };
 
       const { error } = await supabase.from("safety_inspections").insert(payload);

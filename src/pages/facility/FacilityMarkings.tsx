@@ -91,6 +91,7 @@ export default function FacilityMarkings() {
         next_due: nextDue,
         is_regulatory: form.is_regulatory,
         regulation_ref: form.regulation_ref || null,
+        author_name: (form as any).author_name || null,
       });
       if (error) throw error;
     },

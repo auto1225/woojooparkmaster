@@ -83,6 +83,7 @@ export default function PlanningProjects() {
       other_cost: Number(form.other_cost) || 0,
       target_completion: form.target_completion || null,
       created_by: profile?.id,
+      author_name: form.author_name || null,
     }] as any);
     if (error) { toast({ title: "등록 실패", description: error.message, variant: "destructive" }); return; }
     toast({ title: "공사 프로젝트 등록 완료" });

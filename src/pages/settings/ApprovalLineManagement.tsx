@@ -68,6 +68,7 @@ export default function ApprovalLineManagement() {
         steps: steps as any,
         is_default: form.isDefault,
         created_by: profile?.id,
+        author_name: (form as any).author_name || null,
       } as any);
       if (error) throw error;
     },

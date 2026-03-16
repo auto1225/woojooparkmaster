@@ -95,6 +95,7 @@ export default function RealtimeSensors() {
       mounting_type: form.mounting_type || null,
       mounting_height_cm: form.mounting_height_cm ? Number(form.mounting_height_cm) : null,
       install_date: form.install_date || null,
+      author_name: form.author_name || null,
     });
     if (error) {
       toast({ title: "등록 실패", description: error.message, variant: "destructive" });

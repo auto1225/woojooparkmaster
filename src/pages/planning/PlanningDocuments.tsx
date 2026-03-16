@@ -183,6 +183,7 @@ export default function PlanningDocuments() {
             <div><Label>제목 *</Label><Input value={form.title || ''} onChange={e => updateForm('title', e.target.value)} /></div>
             <div><Label>버전</Label><Input value={form.version || 'v1.0'} onChange={e => updateForm('version', e.target.value)} /></div>
             <div><Label>버전 메모</Label><Textarea value={form.version_note || ''} onChange={e => updateForm('version_note', e.target.value)} /></div>
+            <AuthorField value={form.author_name || ""} onChange={v => updateForm('author_name', v)} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowUpload(false)}>취소</Button>

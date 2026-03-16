@@ -90,6 +90,7 @@ export default function FacilityMaintenance() {
         parts_cost: 0,
         labor_cost: 0,
         other_cost: 0,
+        author_name: (form as any).author_name || null,
       });
       if (error) throw error;
     },

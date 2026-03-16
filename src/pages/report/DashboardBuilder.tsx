@@ -107,6 +107,7 @@ export default function DashboardBuilder() {
         position_y: (widgets?.length || 0) * 3,
         is_visible: true,
         sort_order: widgets?.length || 0,
+        author_name: (widgetForm as any).author_name || null,
       });
       if (error) throw error;
     },

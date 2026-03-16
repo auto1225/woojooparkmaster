@@ -83,6 +83,7 @@ export default function PlanningPermits() {
       fee_paid: form.fee_paid || false,
       notes: form.notes || null,
       assigned_to: profile?.id,
+      author_name: form.author_name || null,
     }] as any);
     if (error) { toast({ title: "등록 실패", description: error.message, variant: "destructive" }); return; }
     toast({ title: "인허가 등록 완료" });

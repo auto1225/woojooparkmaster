@@ -43,7 +43,7 @@ function PlanList() {
     const nextNum = existing.length + 1;
     const { error } = await supabase.from('budget_plans').insert({
       fiscal_year: form.fiscal_year, plan_type: form.plan_type, plan_number: nextNum,
-      title: form.title, created_by: profile?.id,
+      title: form.title, created_by: profile?.id, author_name: (form as any).author_name || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success('편성안 생성 완료');

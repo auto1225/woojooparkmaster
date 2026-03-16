@@ -98,6 +98,7 @@ export default function FacilityEquipment() {
         purchase_cost: form.purchase_cost ? parseInt(form.purchase_cost, 10) : null,
         notes: form.notes || null,
         quantity: 1,
+        author_name: (form as any).author_name || null,
       });
 
       if (error) throw error;
