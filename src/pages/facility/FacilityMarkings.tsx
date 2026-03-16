@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Star } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { toast } from "sonner";
 import { MARKING_TYPE_LABELS, CONDITION_LABELS, CONDITION_COLORS } from "@/types/facility";
 import type { SurfaceMarking, MarkingCondition } from "@/types/facility";
