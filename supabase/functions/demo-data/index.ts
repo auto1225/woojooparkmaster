@@ -76,6 +76,33 @@ function rnd(min: number, max: number): number {
 }
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 
+function getEquipmentLifecycle(type: string, installDate: string) {
+  const install = new Date(installDate);
+  const usefulLifeYearsMap: Record<string, number> = {
+    cctv: 6,
+    barrier: 8,
+    lpr: 5,
+    kiosk: 7,
+    display_board: 6,
+    sensor: 4,
+    gateway: 5,
+    lighting: 10,
+    ev_charger: 8,
+  };
+  const usefulLifeYears = usefulLifeYearsMap[type] ?? 5;
+  const warrantyStart = installDate;
+  const warrantyEndDate = new Date(install);
+  warrantyEndDate.setFullYear(warrantyEndDate.getFullYear() + 2);
+  const replacementDueDate = new Date(install);
+  replacementDueDate.setFullYear(replacementDueDate.getFullYear() + usefulLifeYears);
+  return {
+    usefulLifeYears,
+    warrantyStart,
+    warrantyEnd: warrantyEndDate.toISOString().split("T")[0],
+    replacementDue: replacementDueDate.toISOString().split("T")[0],
+  };
+}
+
 async function batchInsert(supabase: any, table: string, rows: any[], batchSize = 200) {
   if (!rows || rows.length === 0) return;
   for (let i = 0; i < rows.length; i += batchSize) {
