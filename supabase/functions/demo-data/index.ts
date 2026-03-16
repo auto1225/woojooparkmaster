@@ -732,30 +732,7 @@ async function runSeed(supabase: any, userId: string) {
     await batchInsert(supabase, "bid_documents", bidDocRows);
   }
 
-  // Free hours settings (for top lots)
-  const freeHoursRows = topLots.slice(0, 8).flatMap((lot: any) => [
-    {
-      lot_id: lot.id,
-      setting_name: `${lot.name} 평일 무료시간`,
-      day_type: "weekday",
-      start_time: "00:00",
-      end_time: "23:59",
-      reason: "입차 후 30분 무료",
-      effective_from: `${currentYear}-01-01`,
-      is_active: true,
-    },
-    {
-      lot_id: lot.id,
-      setting_name: `${lot.name} 주말 무료시간`,
-      day_type: "weekend",
-      start_time: "00:00",
-      end_time: "23:59",
-      reason: "주말/공휴일 60분 무료",
-      effective_from: `${currentYear}-01-01`,
-      is_active: true,
-    },
-  ]);
-  await batchInsert(supabase, "free_hours_settings", freeHoursRows);
+  // Free hours settings are seeded later with richer weekday/holiday scenarios.
 
   // ══════════════════════════════════════════
   //  7. 용역사업관리 – service_projects, milestones, issues, inspections, payments, deliverables
