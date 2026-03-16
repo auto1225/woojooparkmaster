@@ -43,6 +43,7 @@ export default function ServiceProjectNew() {
     supervisor_id: "", inspector_id: "", sub_supervisor_id: "",
     contract_amount: "", vat_amount: "", contract_date: "",
     start_date: "", end_date: "", warranty_months: "12",
+    author_name: "",
   });
 
   const [milestones, setMilestones] = useState<MilestoneRow[]>([...defaultMilestones]);
