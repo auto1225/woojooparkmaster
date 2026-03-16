@@ -38,9 +38,12 @@ export default function FacilitySchedule() {
   const { data: schedules = [], isLoading } = useQuery({
     queryKey: ["facility-schedules"],
     queryFn: async () => {
-      const { data } = await supabase.from("maintenance_schedules")
-        .select("*, parking_lots(code, name), equipment(name, equipment_type), profiles(name)")
+      const { data, error } = await supabase
+        .from("maintenance_schedules")
+        .select("*, parking_lots(code, name), equipment(name, equipment_type), assignee:profiles!maintenance_schedules_assigned_to_fkey(name)")
         .order("next_due_date");
+
+      if (error) throw error;
       return (data ?? []) as unknown as MaintenanceSchedule[];
     },
   });
