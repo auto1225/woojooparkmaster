@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { Plus, LayoutGrid, List, MapPin } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import {
   SITE_STATUS_LABELS, SITE_STATUS_COLORS, OWNERSHIP_LABELS,
   getSiteGrade, getSiteGradeColor, formatBudgetWon, SHAPE_LABELS, ACQUISITION_LABELS,
