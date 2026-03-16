@@ -504,7 +504,7 @@ async function runSeed(supabase: any, userId: string) {
   }
 
   // ══════════════════════════════════════════
-  //  7. 용역사업관리 – service_projects, milestones
+  //  7. 용역사업관리 – service_projects, milestones, issues, inspections, payments, deliverables
   // ══════════════════════════════════════════
   const svcProjectRows = [
     { title: "주차관제시스템 유지보수 용역", service_type: "maintenance", service_category: "facility", contract_amount: 120000000, total_amount: 132000000, contractor_name: "(주)스마트파킹", status: "in_progress", progress_pct: 65 },
@@ -522,9 +522,10 @@ async function runSeed(supabase: any, userId: string) {
     notes: "[DEMO] 데모 용역사업",
   }));
 
-  const { data: insertedSvcProjects } = await supabase.from("service_projects").insert(svcProjectRows).select("id, title, total_amount");
+  const { data: insertedSvcProjects } = await supabase.from("service_projects").insert(svcProjectRows).select("id, title, total_amount, contract_amount");
 
   if (insertedSvcProjects && insertedSvcProjects.length > 0) {
+    // Milestones
     const milestoneRows: any[] = [];
     for (const proj of insertedSvcProjects) {
       const milestones = [
@@ -538,6 +539,123 @@ async function runSeed(supabase: any, userId: string) {
       }
     }
     await batchInsert(supabase, "service_milestones", milestoneRows);
+
+    // Service Issues (3~5 per project)
+    const issueTypes = ["scope_change", "schedule_delay", "quality_issue", "budget_overrun", "contract_dispute", "safety_incident"];
+    const severities = ["low", "medium", "high", "critical"];
+    const issueRows: any[] = [];
+    let issueNum = 0;
+    for (const proj of insertedSvcProjects) {
+      const count = rnd(2, 4);
+      for (let i = 0; i < count; i++) {
+        issueNum++;
+        const severity = pick(severities);
+        issueRows.push({
+          issue_number: `ISS-DEMO-${String(issueNum).padStart(4, "0")}`,
+          project_id: proj.id,
+          issue_type: pick(issueTypes),
+          severity,
+          title: pick([
+            "공정 지연으로 인한 일정 조정 필요",
+            "자재 가격 상승에 따른 설계변경",
+            "시공 품질 미달 시정 요청",
+            "안전관리 계획 미이행",
+            "하도급 업체 교체 요청",
+            "기성금 청구 내역 불일치",
+            "현장 근로자 안전교육 미실시",
+            "설계도면과 현장 불일치",
+          ]),
+          description: `[DEMO] ${proj.title} 관련 이슈입니다. 조치가 필요합니다.`,
+          status: pick(["open", "open", "in_progress", "in_progress", "resolved", "closed"]),
+          impact_amount: severity === "critical" ? rnd(10000000, 50000000) : severity === "high" ? rnd(1000000, 10000000) : rnd(0, 1000000),
+          impact_days: severity === "critical" ? rnd(10, 30) : severity === "high" ? rnd(3, 10) : rnd(0, 3),
+          reported_at: new Date(Date.now() - rnd(1, 120) * 86400000).toISOString(),
+          notes: "[DEMO] 데모 이슈",
+        });
+      }
+    }
+    await batchInsert(supabase, "service_issues", issueRows);
+
+    // Service Inspections (2 per project)
+    const inspectionRows: any[] = [];
+    let inspNum = 0;
+    for (const proj of insertedSvcProjects) {
+      for (let seq = 1; seq <= 2; seq++) {
+        inspNum++;
+        const targetAmt = Math.floor((proj.contract_amount || 0) * (seq === 1 ? 0.3 : 0.7));
+        inspectionRows.push({
+          inspection_number: `SINSP-DEMO-${String(inspNum).padStart(4, "0")}`,
+          project_id: proj.id,
+          inspection_seq: seq,
+          inspection_type: seq === 1 ? "interim" : "final",
+          inspection_date: seq === 1 ? daysAgo(rnd(30, 90)) : daysFromNow(rnd(10, 60)),
+          title: `${proj.title} ${seq === 1 ? "중간검사" : "최종검사"}`,
+          target_amount: targetAmt,
+          approved_amount: seq === 1 ? Math.floor(targetAmt * 0.95) : null,
+          result: seq === 1 ? pick(["pass", "conditional_pass"]) : null,
+          result_note: seq === 1 ? "[DEMO] 일부 보완 사항 있으나 전반적으로 양호" : null,
+          status: seq === 1 ? "completed" : "pending",
+          inspector_id: userId,
+          inspector_name: "관리자",
+          total_items: 10,
+          pass_items: seq === 1 ? rnd(7, 10) : null,
+          fail_items: seq === 1 ? rnd(0, 3) : null,
+          notes: "[DEMO] 데모 검사",
+        });
+      }
+    }
+    await batchInsert(supabase, "service_inspections", inspectionRows);
+
+    // Service Payments (2 per project)
+    const paymentRows: any[] = [];
+    let payNum = 0;
+    for (const proj of insertedSvcProjects) {
+      for (let seq = 1; seq <= 2; seq++) {
+        payNum++;
+        const grossAmt = Math.floor((proj.total_amount || 0) * (seq === 1 ? 0.3 : 0.4));
+        paymentRows.push({
+          payment_number: `SPAY-DEMO-${String(payNum).padStart(4, "0")}`,
+          project_id: proj.id,
+          payment_seq: seq,
+          payment_type: seq === 1 ? "interim" : "completion",
+          request_date: seq === 1 ? daysAgo(rnd(30, 60)) : daysAgo(rnd(1, 29)),
+          title: `${proj.title} ${seq === 1 ? "기성금" : "준공금"}`,
+          gross_amount: grossAmt,
+          net_amount: Math.floor(grossAmt * 0.97),
+          status: seq === 1 ? "paid" : pick(["requested", "reviewing", "approved"]),
+          paid_amount: seq === 1 ? Math.floor(grossAmt * 0.97) : null,
+          paid_date: seq === 1 ? daysAgo(rnd(10, 30)) : null,
+          payment_method: "transfer",
+          bank_name: pick(["국민은행", "신한은행", "농협"]),
+          bank_account: `${rnd(100, 999)}-${rnd(10, 99)}-${rnd(100000, 999999)}`,
+          notes: "[DEMO] 데모 대금",
+        });
+      }
+    }
+    await batchInsert(supabase, "service_payments", paymentRows);
+
+    // Service Deliverables (3 per project)
+    const deliverableRows: any[] = [];
+    let delNum = 0;
+    for (const proj of insertedSvcProjects) {
+      const deliverables = [
+        { title: "착수보고서", deliverable_type: "report", sort_order: 1, status: "accepted" },
+        { title: "중간보고서", deliverable_type: "report", sort_order: 2, status: pick(["submitted", "reviewing", "accepted"]) },
+        { title: "최종보고서", deliverable_type: "report", sort_order: 3, status: "pending" },
+      ];
+      for (const del of deliverables) {
+        delNum++;
+        deliverableRows.push({
+          deliverable_number: `DEL-DEMO-${String(delNum).padStart(4, "0")}`,
+          project_id: proj.id,
+          ...del,
+          required_copies: rnd(3, 10),
+          format_required: "PDF + 한글",
+          notes: "[DEMO] 데모 산출물",
+        });
+      }
+    }
+    await batchInsert(supabase, "service_deliverables", deliverableRows);
   }
 
   // ══════════════════════════════════════════
