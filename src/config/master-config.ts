@@ -39,8 +39,11 @@ const EQUIP_STATUS: Record<string, { label: string; color: string }> = {
 
 const MAINT_STATUS: Record<string, { label: string; color: string }> = {
   reported: { label: '접수', color: 'bg-yellow-100 text-yellow-700' },
+  assigned: { label: '배정', color: 'bg-purple-100 text-purple-700' },
   in_progress: { label: '진행', color: 'bg-blue-100 text-blue-700' },
+  pending_parts: { label: '부품대기', color: 'bg-orange-100 text-orange-700' },
   completed: { label: '완료', color: 'bg-green-100 text-green-700' },
+  verified: { label: '확인', color: 'bg-teal-100 text-teal-700' },
 };
 
 const CONGESTION: Record<string, { label: string; color: string }> = {
