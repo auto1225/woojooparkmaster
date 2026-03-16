@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { STAFF_TYPE_LABELS } from "@/types/operations";
 import { Plus, Search, Trash2 } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 export default function OpsStaffPage() {
   const queryClient = useQueryClient();
