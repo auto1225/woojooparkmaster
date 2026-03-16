@@ -632,7 +632,7 @@ async function runSeed(supabase: any, userId: string) {
         mobile_amount: Math.floor(dailyBase * 0.25 * factor * (0.8 + Math.random() * 0.4)),
         monthly_pass_amount: Math.floor(dailyBase * 0.18 * factor * (0.8 + Math.random() * 0.3)),
         other_amount: Math.floor(dailyBase * 0.05 * factor * (0.7 + Math.random() * 0.3)),
-        total_amount: Math.floor(dailyBase * factor * (0.8 + Math.random() * 0.4)),
+        // total_amount is a generated column (auto-calculated)
         total_vehicles: Math.floor(Math.max(lot.total_spaces, 30) * factor * (0.5 + Math.random() * 1.5)),
         peak_hour_vehicles: Math.floor(Math.max(lot.total_spaces, 30) * factor * (0.08 + Math.random() * 0.08)),
         peak_hour: `${rnd(8, 19)}:00`,
@@ -656,7 +656,8 @@ async function runSeed(supabase: any, userId: string) {
     fiscal_year: currentYear, plan_type: "original",
     title: `${currentYear}년도 본예산`, status: "executed",
     total_revenue: 1200000000, total_expenditure: 800000000,
-    balance: 400000000, notes: "[DEMO] 데모 예산",
+    // balance is a generated column (total_revenue - total_expenditure)
+    notes: "[DEMO] 데모 예산",
   }).select("id").single();
 
   if (budgetPlanData) {
@@ -671,8 +672,7 @@ async function runSeed(supabase: any, userId: string) {
       { item_code: "E-004", item_name: "위탁운영비", budget_type: "expenditure", category_l1: "경상경비", planned_amount: 100000000, allocated_amount: 100000000, executed_amount: 70000000 },
     ].map(item => ({
       ...item, plan_id: planId, is_summary: false, depth: 1, sort_order: 0,
-      remaining_amount: (item.allocated_amount || 0) - (item.executed_amount || 0),
-      execution_rate: Math.round(((item.executed_amount || 0) / (item.allocated_amount || 1)) * 100),
+      // remaining_amount and execution_rate are generated columns - do not set
       notes: "[DEMO]",
     }));
     await batchInsert(supabase, "budget_items", budgetItems);
@@ -1168,22 +1168,22 @@ async function runSeed(supabase: any, userId: string) {
       const repCash = sysCash + rnd(-200000, 200000);
       const repCard = sysCard + rnd(-100000, 100000);
       const repMobile = sysMobile + rnd(-50000, 50000);
-      rows.push({
-        lot_id: lot.id,
-        recon_number: `RC-DEMO-${String(i * 3 + m).padStart(4, "0")}`,
-        period_type: "monthly",
-        period_start: `${currentYear}-${monthStr}-01`,
-        period_end: `${currentYear}-${monthStr}-${m === 2 ? "28" : "30"}`,
-        system_cash: sysCash, system_card: sysCard, system_mobile: sysMobile, system_other: 0,
-        system_total: sysCash + sysCard + sysMobile,
-        reported_cash: repCash, reported_card: repCard, reported_mobile: repMobile, reported_other: 0,
-        reported_total: repCash + repCard + repMobile,
-        diff_amount: (repCash + repCard + repMobile) - (sysCash + sysCard + sysMobile),
-        diff_analysis: "[DEMO] 시스템 매출과 정산 보고서 비교 데이터",
-        status: m === 1 ? "pending" : pick(["matched", "resolved", "discrepancy"]),
-        company_name: pick(["(주)제주파킹", "(주)그린주차", "스마트주차관리"]),
-        created_by: userId,
-      });
+        rows.push({
+          lot_id: lot.id,
+          recon_number: `RC-DEMO-${String(i * 3 + m).padStart(4, "0")}`,
+          period_type: "monthly",
+          period_start: `${currentYear}-${monthStr}-01`,
+          period_end: `${currentYear}-${monthStr}-${m === 2 ? "28" : "30"}`,
+          system_cash: sysCash, system_card: sysCard, system_mobile: sysMobile, system_other: 0,
+          // system_total, reported_total, diff_amount are generated columns
+          reported_cash: repCash, reported_card: repCard, reported_mobile: repMobile, reported_other: 0,
+          reported_vehicles: rnd(5000, 20000),
+          system_vehicles: rnd(5000, 20000),
+          diff_analysis: "[DEMO] 시스템 매출과 정산 보고서 비교 데이터",
+          status: m === 1 ? "pending" : pick(["matched", "resolved", "discrepancy"]),
+          company_name: pick(["(주)제주파킹", "(주)그린주차", "스마트주차관리"]),
+          created_by: userId,
+        });
     }
     return rows;
   });
@@ -1657,8 +1657,7 @@ async function runSeed(supabase: any, userId: string) {
       lot_id: lot.id,
       total_spaces: totalSpaces,
       occupied_spaces: occupiedSpaces,
-      available_spaces: totalSpaces - occupiedSpaces,
-      occupancy_rate: occupancyRate,
+      // available_spaces and occupancy_rate are generated columns
       congestion_level: congestionLevel,
       status: occupiedSpaces >= totalSpaces ? "full" : "normal",
       last_sensor_update: new Date().toISOString(),
