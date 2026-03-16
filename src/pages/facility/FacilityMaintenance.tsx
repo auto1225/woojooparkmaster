@@ -196,6 +196,7 @@ export default function FacilityMaintenance() {
                   </div>
                   <div><Label>제목 *</Label><Input value={form.title} onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))} /></div>
                   <div><Label>증상/설명</Label><Textarea value={form.symptom} onChange={(event) => setForm((prev) => ({ ...prev, symptom: event.target.value }))} rows={3} /></div>
+                  <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
                   <Button className="w-full" disabled={!form.lot_id || !form.title || createMutation.isPending} onClick={() => createMutation.mutate()}>
                     {createMutation.isPending ? "접수 중..." : "접수"}
                   </Button>
