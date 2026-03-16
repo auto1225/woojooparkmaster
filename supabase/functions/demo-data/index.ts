@@ -1824,6 +1824,13 @@ async function runSeed(supabase: any, userId: string) {
 async function runCleanup(supabase: any) {
   console.log("🧹 Starting demo data cleanup...");
 
+  // API keys & call logs
+  const { data: demoApiKeys } = await supabase.from("api_keys").select("id").like("notes", "[DEMO]%");
+  if (demoApiKeys && demoApiKeys.length > 0) {
+    await supabase.from("api_call_logs").delete().in("api_key_id", demoApiKeys.map((k: any) => k.id));
+  }
+  await supabase.from("api_keys").delete().like("notes", "[DEMO]%");
+
   // Activity logs
   await supabase.from("activity_logs").delete().eq("details->>demo", "true");
 
