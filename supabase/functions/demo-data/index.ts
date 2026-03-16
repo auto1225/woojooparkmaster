@@ -1159,7 +1159,9 @@ async function runSeed(supabase: any, userId: string) {
     const rows: any[] = [];
     for (let m = 1; m <= 3; m++) {
       const rawMonth = new Date().getMonth() + 1 - m;
-      const monthStr = String(rawMonth < 1 ? rawMonth + 12 : rawMonth).padStart(2, "0");
+      const actualMonth = rawMonth < 1 ? rawMonth + 12 : rawMonth;
+      const monthStr = String(actualMonth).padStart(2, "0");
+      const lastDay = new Date(currentYear, actualMonth, 0).getDate(); // correct last day of month
       const sysCash = rnd(2000000, 8000000);
       const sysCard = rnd(8000000, 25000000);
       const sysMobile = rnd(3000000, 10000000);
@@ -1171,7 +1173,7 @@ async function runSeed(supabase: any, userId: string) {
           recon_number: `RC-DEMO-${String(i * 3 + m).padStart(4, "0")}`,
           period_type: "monthly",
           period_start: `${currentYear}-${monthStr}-01`,
-          period_end: `${currentYear}-${monthStr}-${m === 2 ? "28" : "30"}`,
+          period_end: `${currentYear}-${monthStr}-${String(lastDay).padStart(2, "0")}`,
           system_cash: sysCash, system_card: sysCard, system_mobile: sysMobile, system_other: 0,
           // system_total, reported_total, diff_amount are generated columns
           reported_cash: repCash, reported_card: repCard, reported_mobile: repMobile, reported_other: 0,
