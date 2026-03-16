@@ -1612,6 +1612,174 @@ async function runSeed(supabase: any, userId: string) {
     await batchInsert(supabase, "survey_sensor_plan", sensorPlanRows);
   }
 
+  // ══════════════════════════════════════════
+  //  18. 실시간 – gateway_devices, sensor_devices, display_boards, parking_spaces, lot_realtime_status
+  // ══════════════════════════════════════════
+  const realtimeLots = topLots.slice(0, 8);
+
+  // Gateway devices (1~2 per lot)
+  const gatewayRows: any[] = [];
+  realtimeLots.forEach((lot: any, li: number) => {
+    const gwCount = rnd(1, 2);
+    for (let g = 0; g < gwCount; g++) {
+      const gwNum = li * 2 + g + 1;
+      gatewayRows.push({
+        lot_id: lot.id,
+        device_id: `GW-${String(gwNum).padStart(3, "0")}`,
+        device_name: `${lot.name} 게이트웨이 ${g + 1}`,
+        ip_address: `192.168.${li + 1}.${10 + g}`,
+        mac_address: `AA:BB:CC:DD:${String(li).padStart(2, "0")}:${String(g).padStart(2, "0")}`,
+        protocol: pick(["mqtt", "http", "tcp"]),
+        mqtt_topic: `park/${lot.code || "PL"}/gw${g + 1}`,
+        location_detail: pick(["입구 상단", "관제실 외벽", "주차장 중앙 기둥", "출구 옆"]),
+        floor: pick([1, 1, 1, -1]),
+        install_date: daysAgo(rnd(30, 365)),
+        connected_sensors: 0, // will be updated
+        max_sensors: 200,
+        firmware_version: `v${rnd(2, 4)}.${rnd(0, 9)}.${rnd(0, 9)}`,
+        hardware_version: `HW-${pick(["A", "B", "C"])}${rnd(1, 3)}`,
+        last_heartbeat: new Date(Date.now() - rnd(0, 600) * 1000).toISOString(),
+        last_data_received: new Date(Date.now() - rnd(0, 300) * 1000).toISOString(),
+        uptime_hours: rnd(100, 8760),
+        restart_count: rnd(0, 15),
+        status: pick(["active", "active", "active", "offline"]),
+        notes: "[DEMO] 데모 게이트웨이",
+        registered_by: userId,
+      });
+    }
+  });
+  const { data: insertedGateways } = await supabase.from("gateway_devices").insert(gatewayRows).select("id, lot_id, device_id");
+
+  // Sensor devices (5~20 per lot)
+  const sensorRows: any[] = [];
+  realtimeLots.forEach((lot: any, li: number) => {
+    const sensorCount = Math.min(rnd(5, 20), lot.total_spaces || 20);
+    const lotGateways = (insertedGateways || []).filter((g: any) => g.lot_id === lot.id);
+    for (let s = 0; s < sensorCount; s++) {
+      const sNum = li * 20 + s + 1;
+      const gw = lotGateways.length > 0 ? pick(lotGateways) : null;
+      const statusVal = pick(["active", "active", "active", "active", "offline", "low_battery", "error"]);
+      sensorRows.push({
+        lot_id: lot.id,
+        gateway_id: gw?.id || null,
+        device_id: `SEN-DEMO-${String(sNum).padStart(4, "0")}`,
+        device_name: `${lot.name} 센서 ${s + 1}`,
+        device_type: pick(["radar_60ghz", "magnetic", "ultrasonic", "camera"]),
+        model: pick(["RP-100", "MS-200", "US-300", "CV-400"]),
+        install_date: daysAgo(rnd(30, 365)),
+        location_detail: `${pick(["A", "B", "C", "D"])}구역 ${s + 1}번`,
+        floor: pick([1, 1, -1]),
+        zone: pick(["A", "B", "C", "D"]),
+        mounting_type: pick(["surface", "embedded", "overhead"]),
+        mounting_height_cm: pick([0, 0, 300, 350]),
+        firmware_version: `v${rnd(1, 3)}.${rnd(0, 9)}.${rnd(0, 20)}`,
+        battery_level: statusVal === "low_battery" ? rnd(5, 18) : rnd(40, 100),
+        battery_voltage: statusVal === "low_battery" ? 2.8 + Math.random() * 0.3 : 3.2 + Math.random() * 0.4,
+        rssi: -(rnd(40, 95)),
+        snr: rnd(5, 30),
+        last_heartbeat: statusVal === "offline" ? new Date(Date.now() - rnd(3600, 86400) * 1000).toISOString() : new Date(Date.now() - rnd(0, 300) * 1000).toISOString(),
+        last_reading: new Date(Date.now() - rnd(0, 600) * 1000).toISOString(),
+        total_readings: rnd(1000, 500000),
+        error_count: statusVal === "error" ? rnd(10, 100) : rnd(0, 5),
+        status: statusVal,
+        false_positive_rate: Math.round(Math.random() * 3 * 100) / 100,
+        false_negative_rate: Math.round(Math.random() * 2 * 100) / 100,
+        notes: "[DEMO] 데모 센서",
+        registered_by: userId,
+      });
+    }
+  });
+  await batchInsert(supabase, "sensor_devices", sensorRows);
+
+  // Update gateway connected_sensors count
+  if (insertedGateways) {
+    for (const gw of insertedGateways) {
+      const cnt = sensorRows.filter(s => s.gateway_id === gw.id).length;
+      await supabase.from("gateway_devices").update({ connected_sensors: cnt }).eq("id", gw.id);
+    }
+  }
+
+  // Display boards (1~2 per lot)
+  const boardRows: any[] = [];
+  realtimeLots.forEach((lot: any, li: number) => {
+    const boardCount = rnd(1, 2);
+    for (let b = 0; b < boardCount; b++) {
+      const bNum = li * 2 + b + 1;
+      const totalSpaces = lot.total_spaces || rnd(30, 200);
+      const occupied = rnd(0, totalSpaces);
+      boardRows.push({
+        lot_id: lot.id,
+        board_id: `DSP-${String(bNum).padStart(3, "0")}`,
+        board_name: `${lot.name} ${pick(["입구", "출구", "도로변"])} 전광판`,
+        location: pick(["entrance", "exit", "roadside", "building_front"]),
+        location_type: pick(["entrance", "exit", "roadside"]),
+        floor: 1,
+        direction: pick(["north", "south", "east", "west"]),
+        protocol: pick(["tcp", "serial", "http"]),
+        ip_address: `192.168.${li + 1}.${100 + b}`,
+        port: pick([5000, 8080, 9100]),
+        display_type: pick(["led_matrix", "lcd", "full_color"]),
+        display_size: pick(["32x16", "64x32", "96x16"]),
+        max_lines: pick([2, 3, 4]),
+        current_message: `잔여 ${totalSpaces - occupied}면 / 총 ${totalSpaces}면`,
+        last_push: new Date(Date.now() - rnd(0, 60) * 1000).toISOString(),
+        last_push_success: Math.random() > 0.1,
+        push_interval_sec: pick([10, 15, 30]),
+        status: pick(["active", "active", "active", "maintenance"]),
+        manufacturer: pick(["파킹클라우드", "한국전광", "대한LED"]),
+        model: pick(["PD-100", "KL-200", "DH-300"]),
+        install_date: daysAgo(rnd(60, 500)),
+        notes: "[DEMO] 데모 전광판",
+      });
+    }
+  });
+  await batchInsert(supabase, "display_boards", boardRows);
+
+  // Parking spaces (per lot, matching sensor count)
+  const spaceRows: any[] = [];
+  realtimeLots.forEach((lot: any, li: number) => {
+    const spaceCount = Math.min(lot.total_spaces || 20, 30); // cap for demo
+    for (let s = 0; s < spaceCount; s++) {
+      const zone = pick(["A", "B", "C", "D"]);
+      const hasSensor = s < sensorRows.filter(sr => sr.lot_id === lot.id).length;
+      spaceRows.push({
+        lot_id: lot.id,
+        floor: pick([1, 1, -1]),
+        zone,
+        space_number: `${zone}-${String(s + 1).padStart(3, "0")}`,
+        space_type: pick(["general", "general", "disabled", "ev", "compact"]),
+        has_sensor: hasSensor,
+        sensor_id: hasSensor ? sensorRows.filter(sr => sr.lot_id === lot.id)[s]?.device_id : null,
+        status: pick(["occupied", "occupied", "vacant", "vacant", "vacant"]),
+      });
+    }
+  });
+  await batchInsert(supabase, "parking_spaces", spaceRows);
+
+  // lot_realtime_status (per lot)
+  for (const lot of realtimeLots) {
+    const totalSpaces = lot.total_spaces || rnd(30, 200);
+    const occupiedSpaces = rnd(Math.floor(totalSpaces * 0.3), totalSpaces);
+    const occupancyRate = Math.round((occupiedSpaces / totalSpaces) * 100 * 100) / 100;
+    const congestionLevel = occupancyRate < 30 ? "empty" : occupancyRate < 70 ? "normal" : occupancyRate < 90 ? "crowded" : "full";
+
+    await supabase.from("lot_realtime_status").upsert({
+      lot_id: lot.id,
+      total_spaces: totalSpaces,
+      occupied_spaces: occupiedSpaces,
+      available_spaces: totalSpaces - occupiedSpaces,
+      occupancy_rate: occupancyRate,
+      congestion_level: congestionLevel,
+      status: occupiedSpaces >= totalSpaces ? "full" : "normal",
+      last_sensor_update: new Date().toISOString(),
+      last_updated: new Date().toISOString(),
+      today_total_in: rnd(50, 300),
+      today_total_out: rnd(40, 280),
+      today_peak_occupied: rnd(occupiedSpaces, totalSpaces),
+      today_peak_time: `${rnd(8, 18)}:${String(rnd(0, 59)).padStart(2, "0")}`,
+    }, { onConflict: "lot_id" });
+  }
+
   console.log("✅ Demo data seed completed for ALL modules (5-depth)");
 }
 
@@ -1666,12 +1834,20 @@ async function runCleanup(supabase: any) {
   }
   await supabase.from("surveys").delete().like("notes", "[DEMO]%");
 
-  // Realtime - sensor readings, parking spaces
+  // Realtime - order matters due to FK constraints
   await supabase.from("sensor_readings").delete().like("device_id", "SEN-DEMO%");
+  // Delete parking_spaces that reference demo sensors
+  const { data: demoSensorIds } = await supabase.from("sensor_devices").select("device_id").like("notes", "[DEMO]%");
+  if (demoSensorIds && demoSensorIds.length > 0) {
+    await supabase.from("parking_spaces").delete().in("sensor_id", demoSensorIds.map((s: any) => s.device_id));
+  }
+  // Also delete parking spaces by space_number pattern from old demos
   await supabase.from("parking_spaces").delete().like("space_number", "%-0%");
   await supabase.from("display_boards").delete().like("notes", "[DEMO]%");
   await supabase.from("sensor_devices").delete().like("notes", "[DEMO]%");
   await supabase.from("gateway_devices").delete().like("notes", "[DEMO]%");
+  // lot_realtime_status - clear all (will be recreated by seed)
+  await supabase.from("lot_realtime_status").delete().neq("lot_id", "00000000-0000-0000-0000-000000000000");
 
 
   // Fee policies
