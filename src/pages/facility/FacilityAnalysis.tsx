@@ -38,7 +38,10 @@ export default function FacilityAnalysis() {
   const { data: maintenance = [] } = useQuery({
     queryKey: ['maint-analysis'],
     queryFn: async () => {
-      const { data } = await supabase.from('maintenance_logs').select('*').order('scheduled_date', { ascending: false });
+      const { data } = await supabase
+        .from('maintenance_logs')
+        .select('id, title, status, reported_at, completed_at, created_at, total_cost')
+        .order('reported_at', { ascending: false });
       return data || [];
     },
   });
@@ -51,8 +54,8 @@ export default function FacilityAnalysis() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const monthlyMaintCost = maintenance
-    .filter((m: any) => m.scheduled_date >= monthStart)
-    .reduce((s: number, m: any) => s + (m.actual_cost || 0), 0);
+    .filter((m: any) => (m.completed_at || m.reported_at || m.created_at || '').slice(0, 10) >= monthStart)
+    .reduce((s: number, m: any) => s + (m.total_cost || 0), 0);
 
   // 상태 분포 도넛
   const statusDist = useMemo(() => {
@@ -78,8 +81,8 @@ export default function FacilityAnalysis() {
   const monthlyMaint = useMemo(() => {
     const map: Record<string, number> = {};
     maintenance.forEach((m: any) => {
-      const mo = m.scheduled_date?.slice(0, 7);
-      if (mo) map[mo] = (map[mo] || 0) + (m.actual_cost || 0);
+      const mo = (m.completed_at || m.reported_at || m.created_at)?.slice(0, 7);
+      if (mo) map[mo] = (map[mo] || 0) + (m.total_cost || 0);
     });
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0])).slice(-12).map(([month, cost]) => ({
       month: month.slice(5) + '월', cost: Math.round(cost / 10000),
@@ -89,9 +92,9 @@ export default function FacilityAnalysis() {
   // 노후화 장비
   const agingEquip = useMemo(() => {
     return equipment
-      .filter((e: any) => e.installed_date && e.useful_life_years)
+      .filter((e: any) => e.install_date && e.useful_life_years)
       .map((e: any) => {
-        const installed = new Date(e.installed_date);
+        const installed = new Date(e.install_date);
         const yearsElapsed = (now.getTime() - installed.getTime()) / (365.25 * 86400000);
         const ratio = (yearsElapsed / e.useful_life_years) * 100;
         return { ...e, yearsElapsed: Number(yearsElapsed.toFixed(1)), ratio: Number(ratio.toFixed(0)), lotName: e.parking_lots?.name || '-' };
@@ -133,12 +136,12 @@ export default function FacilityAnalysis() {
             { key: 'ratio', label: '경과율(%)', format: 'number' as const },
           ],
           data: equipment.map((e: any) => {
-            const installed = e.installed_date ? new Date(e.installed_date) : null;
+            const installed = e.install_date ? new Date(e.install_date) : null;
             const years = installed ? ((now.getTime() - installed.getTime()) / (365.25 * 86400000)).toFixed(1) : '-';
             const ratio = (installed && e.useful_life_years) ? Math.round(((now.getTime() - installed.getTime()) / (365.25 * 86400000 * e.useful_life_years)) * 100) : '-';
             return {
-              name: e.equipment_name, type: e.equipment_type, lot: e.parking_lots?.name || '-',
-              status: STATUS_LABELS[e.status] || e.status, installed: e.installed_date, years, ratio,
+              name: e.name, type: e.equipment_type, lot: e.parking_lots?.name || '-',
+              status: STATUS_LABELS[e.status] || e.status, installed: e.install_date, years, ratio,
             };
           }),
           autoFilter: true, freezePane: { row: 1, col: 0 },
@@ -155,8 +158,8 @@ export default function FacilityAnalysis() {
             { key: 'status', label: '상태' },
           ],
           data: agingEquip.map((e: any) => ({
-            name: e.equipment_name, type: e.equipment_type, lotName: e.lotName,
-            installed_date: e.installed_date, useful_life_years: e.useful_life_years,
+            name: e.name, type: e.equipment_type, lotName: e.lotName,
+            installed_date: e.install_date, useful_life_years: e.useful_life_years,
             ratio: e.ratio, status: STATUS_LABELS[e.status] || e.status,
           })),
           autoFilter: true, freezePane: { row: 1, col: 0 },
@@ -284,10 +287,10 @@ export default function FacilityAnalysis() {
                 <TableBody>
                   {agingEquip.slice(0, 20).map((e: any) => (
                     <TableRow key={e.id}>
-                      <TableCell className="text-xs font-medium">{e.equipment_name}</TableCell>
+                      <TableCell className="text-xs font-medium">{e.name}</TableCell>
                       <TableCell className="text-xs">{e.equipment_type}</TableCell>
                       <TableCell className="text-xs">{e.lotName}</TableCell>
-                      <TableCell className="text-xs">{e.installed_date}</TableCell>
+                      <TableCell className="text-xs">{e.install_date}</TableCell>
                       <TableCell className="text-xs">{e.useful_life_years}년</TableCell>
                       <TableCell className="text-xs">
                         <div className="flex items-center gap-2">

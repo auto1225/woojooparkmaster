@@ -76,6 +76,33 @@ function rnd(min: number, max: number): number {
 }
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 
+function getEquipmentLifecycle(type: string, installDate: string) {
+  const install = new Date(installDate);
+  const usefulLifeYearsMap: Record<string, number> = {
+    cctv: 6,
+    barrier: 8,
+    lpr: 5,
+    kiosk: 7,
+    display_board: 6,
+    sensor: 4,
+    gateway: 5,
+    lighting: 10,
+    ev_charger: 8,
+  };
+  const usefulLifeYears = usefulLifeYearsMap[type] ?? 5;
+  const warrantyStart = installDate;
+  const warrantyEndDate = new Date(install);
+  warrantyEndDate.setFullYear(warrantyEndDate.getFullYear() + 2);
+  const replacementDueDate = new Date(install);
+  replacementDueDate.setFullYear(replacementDueDate.getFullYear() + usefulLifeYears);
+  return {
+    usefulLifeYears,
+    warrantyStart,
+    warrantyEnd: warrantyEndDate.toISOString().split("T")[0],
+    replacementDue: replacementDueDate.toISOString().split("T")[0],
+  };
+}
+
 async function batchInsert(supabase: any, table: string, rows: any[], batchSize = 200) {
   if (!rows || rows.length === 0) return;
   for (let i = 0; i < rows.length; i += batchSize) {
@@ -135,44 +162,72 @@ async function runSeed(supabase: any, userId: string) {
     if (eqCount >= 80) break;
     for (let i = 1; i <= rnd(2, 6) && eqCount < 80; i++) {
       eqCount++;
+      const installDate = daysAgo(rnd(100, 800));
+      const lifecycle = getEquipmentLifecycle("cctv", installDate);
       equipmentRows.push({
         lot_id: lot.id, equipment_code: `EQ-${String(eqCount).padStart(4, "0")}`,
         equipment_type: "cctv", name: `${lot.name} CCTV-${i}`, quantity: 1,
         status: pick(["normal", "normal", "normal", "warning"]),
         manufacturer: pick(["한화비전", "하이크비전", "다후아"]),
-        install_date: daysAgo(rnd(100, 800)),
+        install_date: installDate,
+        useful_life_years: lifecycle.usefulLifeYears,
+        warranty_start: lifecycle.warrantyStart,
+        warranty_end: lifecycle.warrantyEnd,
+        replacement_due: lifecycle.replacementDue,
+        next_maintenance_date: daysFromNow(rnd(15, 75)),
         total_maintenance_cost: 0, maintenance_count: 0, notes: "[DEMO] 데모 장비",
       });
     }
     if (lot.total_spaces >= 100 && eqCount < 80) {
       for (let i = 1; i <= 2 && eqCount < 80; i++) {
         eqCount++;
+        const installDate = daysAgo(rnd(100, 600));
+        const lifecycle = getEquipmentLifecycle("barrier", installDate);
         equipmentRows.push({
           lot_id: lot.id, equipment_code: `EQ-${String(eqCount).padStart(4, "0")}`,
           equipment_type: "barrier", name: `${lot.name} 차단기-${i}`, quantity: 1,
           status: "normal", manufacturer: pick(["파킹클라우드", "아마노코리아"]),
-          install_date: daysAgo(rnd(100, 600)),
+          install_date: installDate,
+          useful_life_years: lifecycle.usefulLifeYears,
+          warranty_start: lifecycle.warrantyStart,
+          warranty_end: lifecycle.warrantyEnd,
+          replacement_due: lifecycle.replacementDue,
+          next_maintenance_date: daysFromNow(rnd(10, 45)),
           total_maintenance_cost: 0, maintenance_count: 0, notes: "[DEMO] 데모 장비",
         });
       }
       if (eqCount < 80) {
         eqCount++;
+        const installDate = daysAgo(rnd(100, 400));
+        const lifecycle = getEquipmentLifecycle("lpr", installDate);
         equipmentRows.push({
           lot_id: lot.id, equipment_code: `EQ-${String(eqCount).padStart(4, "0")}`,
           equipment_type: "lpr", name: `${lot.name} LPR`, quantity: 2,
           status: "normal", manufacturer: "파킹클라우드",
-          install_date: daysAgo(rnd(100, 400)),
+          install_date: installDate,
+          useful_life_years: lifecycle.usefulLifeYears,
+          warranty_start: lifecycle.warrantyStart,
+          warranty_end: lifecycle.warrantyEnd,
+          replacement_due: lifecycle.replacementDue,
+          next_maintenance_date: daysFromNow(rnd(20, 60)),
           total_maintenance_cost: 0, maintenance_count: 0, notes: "[DEMO] 데모 장비",
         });
       }
     }
     if (lot.total_spaces >= 50 && Math.random() > 0.4 && eqCount < 80) {
       eqCount++;
+      const installDate = daysAgo(rnd(30, 300));
+      const lifecycle = getEquipmentLifecycle("kiosk", installDate);
       equipmentRows.push({
         lot_id: lot.id, equipment_code: `EQ-${String(eqCount).padStart(4, "0")}`,
         equipment_type: "kiosk", name: `${lot.name} 무인정산기`, quantity: 1,
         status: "normal", manufacturer: "파킹클라우드",
-        install_date: daysAgo(rnd(30, 300)),
+        install_date: installDate,
+        useful_life_years: lifecycle.usefulLifeYears,
+        warranty_start: lifecycle.warrantyStart,
+        warranty_end: lifecycle.warrantyEnd,
+        replacement_due: lifecycle.replacementDue,
+        next_maintenance_date: daysFromNow(rnd(15, 45)),
         total_maintenance_cost: 0, maintenance_count: 0, notes: "[DEMO] 데모 장비",
       });
     }
