@@ -198,7 +198,7 @@ async function runSeed(supabase: any, userId: string) {
         { item: "전원/통신 상태 확인", required: true },
         { item: "작동 테스트", required: true },
       ],
-      assigned_team: pick(["시설관리팀", "운영관리팀"]),
+      assigned_team: pick(["facilities", "operations"]),
       assigned_to: userId,
       vendor_name: pick(["파킹클라우드", "한화비전", "아마노코리아"]),
       estimated_cost: rnd(100000, 700000),
