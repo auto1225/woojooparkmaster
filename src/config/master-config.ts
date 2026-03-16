@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 const SURVEY_STATUS: Record<string, { label: string; color: string }> = {
   draft: { label: '작성중', color: 'bg-muted text-muted-foreground' },
   in_progress: { label: '조사중', color: 'bg-blue-100 text-blue-700' },
+  submitted: { label: '제출됨', color: 'bg-purple-100 text-purple-700' },
   review: { label: '검토중', color: 'bg-yellow-100 text-yellow-700' },
   approved: { label: '승인완료', color: 'bg-green-100 text-green-700' },
   rejected: { label: '반려', color: 'bg-red-100 text-red-700' },
