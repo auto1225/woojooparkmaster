@@ -224,6 +224,7 @@ export default function FacilitySchedule() {
                     <Switch checked={form.is_active} onCheckedChange={(value) => setForm((prev) => ({ ...prev, is_active: value }))} />
                     <Label>활성</Label>
                   </div>
+                  <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
                   <Button
                     className="w-full"
                     disabled={!form.schedule_name || !form.lot_id || !form.next_due_date || createMutation.isPending}
