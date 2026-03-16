@@ -1555,7 +1555,7 @@ async function runCleanup(supabase: any) {
   await supabase.from("complaints").delete().like("notes", "[DEMO]%");
 
   // Operations
-  await supabase.from("free_hours_settings").delete().like("setting_name", "%무료시간");
+  await supabase.from("free_hours_settings").delete().like("reason", "[DEMO]%");
   await supabase.from("fee_exemptions").delete().in("exemption_name", ["장애인 감면", "국가유공자 감면", "경차 감면", "전기차 감면", "다자녀 감면", "임산부 감면", "공무 차량", "30분 무료"]);
   await supabase.from("outsourcing_contracts").delete().like("notes", "[DEMO]%");
   await supabase.from("monthly_passes").delete().like("notes", "[DEMO]%");
