@@ -721,14 +721,24 @@ async function runSeed(supabase: any, userId: string) {
   // Free hours settings (for top lots)
   const freeHoursRows = topLots.slice(0, 8).flatMap((lot: any) => [
     {
-      lot_id: lot.id, day_type: "weekday", free_minutes: 30,
-      start_time: "00:00", end_time: "23:59", is_active: true,
-      notes: "[DEMO] 데모 무료시간",
+      lot_id: lot.id,
+      setting_name: `${lot.name} 평일 무료시간`,
+      day_type: "weekday",
+      start_time: "00:00",
+      end_time: "23:59",
+      reason: "입차 후 30분 무료",
+      effective_from: `${currentYear}-01-01`,
+      is_active: true,
     },
     {
-      lot_id: lot.id, day_type: "weekend", free_minutes: 60,
-      start_time: "00:00", end_time: "23:59", is_active: true,
-      notes: "[DEMO] 데모 무료시간",
+      lot_id: lot.id,
+      setting_name: `${lot.name} 주말 무료시간`,
+      day_type: "weekend",
+      start_time: "00:00",
+      end_time: "23:59",
+      reason: "주말/공휴일 60분 무료",
+      effective_from: `${currentYear}-01-01`,
+      is_active: true,
     },
   ]);
   await batchInsert(supabase, "free_hours_settings", freeHoursRows);
