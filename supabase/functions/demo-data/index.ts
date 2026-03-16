@@ -1004,16 +1004,15 @@ async function runSeed(supabase: any, userId: string) {
   //  9. 실시간 – sensor_devices, gateway_devices, lot_realtime_status, display_boards, parking_spaces, sensor_readings
   // ══════════════════════════════════════════
   const gwRows = topLots.slice(0, 5).map((lot: any, i: number) => ({
-    gateway_id: `GW-DEMO-${String(i + 1).padStart(3, "0")}`,
-    gateway_name: `${lot.name} 게이트웨이`,
+    device_id: `GW-DEMO-${String(i + 1).padStart(3, "0")}`,
+    device_name: `${lot.name} 게이트웨이`,
     lot_id: lot.id,
     ip_address: `192.168.${rnd(1, 10)}.${rnd(1, 254)}`,
-    status: pick(["online", "online", "online", "offline"]),
+    status: pick(["active", "active", "active", "offline"]),
     protocol: pick(["lorawan", "nb-iot"]),
-    manufacturer: pick(["파킹클라우드", "한국IoT"]),
-    model: pick(["GW-100", "GW-200"]),
     connected_sensors: rnd(5, 30),
     max_sensors: 50,
+    firmware_version: "v1.2.0",
     notes: "[DEMO] 데모 게이트웨이",
   }));
   const { data: insertedGws } = await supabase.from("gateway_devices").insert(gwRows).select("id, lot_id");
