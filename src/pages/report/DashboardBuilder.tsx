@@ -231,6 +231,7 @@ export default function DashboardBuilder() {
                     <div><Label>폭 (1~12)</Label><Input type="number" min={1} max={12} value={widgetForm.width} onChange={(e) => setWidgetForm({ ...widgetForm, width: Number(e.target.value) })} /></div>
                     <div><Label>높이 (1~6)</Label><Input type="number" min={1} max={6} value={widgetForm.height} onChange={(e) => setWidgetForm({ ...widgetForm, height: Number(e.target.value) })} /></div>
                   </div>
+                  <AuthorField value={(widgetForm as any).author_name || ""} onChange={v => setWidgetForm(prev => ({ ...prev, author_name: v } as any))} />
                   <Button className="w-full" onClick={() => addMutation.mutate()} disabled={!widgetForm.title}>추가</Button>
                 </div>
               </DialogContent>
