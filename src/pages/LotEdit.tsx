@@ -58,7 +58,9 @@ type EquipState = Record<(typeof EQUIP_KEYS)[number]["key"], boolean>;
 export default function LotEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [authorName, setAuthorName] = useState("");
   const [equipment, setEquipment] = useState<EquipState>({
     has_gate: false, has_lpr: false, has_kiosk: false, has_cctv: false,
     has_display_board: false, has_sensor: false, control_system_linked: false, portal_linked: false,
