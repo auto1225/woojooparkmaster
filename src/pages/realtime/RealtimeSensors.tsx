@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Cpu, CheckCircle, WifiOff, BatteryLow, AlertTriangle, Plus } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
@@ -94,6 +95,7 @@ export default function RealtimeSensors() {
       mounting_type: form.mounting_type || null,
       mounting_height_cm: form.mounting_height_cm ? Number(form.mounting_height_cm) : null,
       install_date: form.install_date || null,
+      author_name: form.author_name || null,
     });
     if (error) {
       toast({ title: "등록 실패", description: error.message, variant: "destructive" });
@@ -274,6 +276,9 @@ export default function RealtimeSensors() {
               <div>
                 <Label>상세 위치</Label>
                 <Input value={form.location_detail || ''} onChange={e => updateForm('location_detail', e.target.value)} />
+              </div>
+              <div className="col-span-2">
+                <AuthorField value={form.author_name || ""} onChange={v => updateForm('author_name', v)} />
               </div>
             </div>
             <DialogFooter>

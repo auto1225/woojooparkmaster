@@ -246,6 +246,7 @@ export type Database = {
       }
       approval_lines: {
         Row: {
+          author_name: string | null
           created_at: string | null
           created_by: string | null
           document_type: string
@@ -256,6 +257,7 @@ export type Database = {
           steps: Json
         }
         Insert: {
+          author_name?: string | null
           created_at?: string | null
           created_by?: string | null
           document_type: string
@@ -266,6 +268,7 @@ export type Database = {
           steps: Json
         }
         Update: {
+          author_name?: string | null
           created_at?: string | null
           created_by?: string | null
           document_type?: string
@@ -1285,6 +1288,7 @@ export type Database = {
       budget_items: {
         Row: {
           allocated_amount: number | null
+          author_name: string | null
           budget_type: string
           category_l1: string
           category_l2: string | null
@@ -1318,6 +1322,7 @@ export type Database = {
         }
         Insert: {
           allocated_amount?: number | null
+          author_name?: string | null
           budget_type: string
           category_l1: string
           category_l2?: string | null
@@ -1351,6 +1356,7 @@ export type Database = {
         }
         Update: {
           allocated_amount?: number | null
+          author_name?: string | null
           budget_type?: string
           category_l1?: string
           category_l2?: string | null
@@ -2187,6 +2193,7 @@ export type Database = {
       }
       dashboard_widgets: {
         Row: {
+          author_name: string | null
           chart_config: Json | null
           chart_type: string | null
           created_at: string | null
@@ -2210,6 +2217,7 @@ export type Database = {
           width: number | null
         }
         Insert: {
+          author_name?: string | null
           chart_config?: Json | null
           chart_type?: string | null
           created_at?: string | null
@@ -2233,6 +2241,7 @@ export type Database = {
           width?: number | null
         }
         Update: {
+          author_name?: string | null
           chart_config?: Json | null
           chart_type?: string | null
           created_at?: string | null
@@ -2276,6 +2285,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          author_name: string | null
           category: string | null
           created_at: string | null
           description: string | null
@@ -2301,6 +2311,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          author_name?: string | null
           category?: string | null
           created_at?: string | null
           description?: string | null
@@ -2326,6 +2337,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          author_name?: string | null
           category?: string | null
           created_at?: string | null
           description?: string | null
@@ -3523,6 +3535,7 @@ export type Database = {
           advance_notice_days: number | null
           assigned_team: Database["public"]["Enums"]["team_type"] | null
           assigned_to: string | null
+          author_name: string | null
           checklist: Json | null
           created_at: string | null
           created_by: string | null
@@ -3545,6 +3558,7 @@ export type Database = {
           advance_notice_days?: number | null
           assigned_team?: Database["public"]["Enums"]["team_type"] | null
           assigned_to?: string | null
+          author_name?: string | null
           checklist?: Json | null
           created_at?: string | null
           created_by?: string | null
@@ -3567,6 +3581,7 @@ export type Database = {
           advance_notice_days?: number | null
           assigned_team?: Database["public"]["Enums"]["team_type"] | null
           assigned_to?: string | null
+          author_name?: string | null
           checklist?: Json | null
           created_at?: string | null
           created_by?: string | null
@@ -4725,6 +4740,7 @@ export type Database = {
       }
       report_schedules: {
         Row: {
+          author_name: string | null
           consecutive_fails: number | null
           created_at: string | null
           created_by: string | null
@@ -4754,6 +4770,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          author_name?: string | null
           consecutive_fails?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -4783,6 +4800,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          author_name?: string | null
           consecutive_fails?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -5530,6 +5548,7 @@ export type Database = {
           alert_battery_threshold: number | null
           alert_offline_minutes: number | null
           alert_sent: boolean | null
+          author_name: string | null
           battery_level: number | null
           battery_voltage: number | null
           calibration_date: string | null
@@ -5571,6 +5590,7 @@ export type Database = {
           alert_battery_threshold?: number | null
           alert_offline_minutes?: number | null
           alert_sent?: boolean | null
+          author_name?: string | null
           battery_level?: number | null
           battery_voltage?: number | null
           calibration_date?: string | null
@@ -5612,6 +5632,7 @@ export type Database = {
           alert_battery_threshold?: number | null
           alert_offline_minutes?: number | null
           alert_sent?: boolean | null
+          author_name?: string | null
           battery_level?: number | null
           battery_voltage?: number | null
           calibration_date?: string | null

@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, ChevronRight, ChevronDown, Send, Check, X } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { PLAN_TYPE_LABELS, BUDGET_STATUS_LABELS, BUDGET_STATUS_COLORS, BUDGET_TYPE_LABELS } from "@/types/budget";
 import { formatManWon } from "@/types/revenue";
 import { useAuth } from "@/hooks/useAuth";
@@ -42,7 +43,7 @@ function PlanList() {
     const nextNum = existing.length + 1;
     const { error } = await supabase.from('budget_plans').insert({
       fiscal_year: form.fiscal_year, plan_type: form.plan_type, plan_number: nextNum,
-      title: form.title, created_by: profile?.id,
+      title: form.title, created_by: profile?.id, author_name: (form as any).author_name || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success('편성안 생성 완료');
@@ -111,6 +112,7 @@ function PlanList() {
                 </div>
               </div>
               <div><Label>제목</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="예: 2026년 본예산" /></div>
+              <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(f => ({ ...f, author_name: v } as any))} />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCreateOpen(false)}>취소</Button>

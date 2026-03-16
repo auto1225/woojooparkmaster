@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, List, Columns3 } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { toast } from "sonner";
 import { PRIORITY_LABELS, PRIORITY_COLORS, MAINT_STATUS_LABELS, MAINT_TYPE_LABELS } from "@/types/facility";
 import type { MaintenanceLog, MaintenanceLogStatus } from "@/types/facility";
@@ -89,6 +90,7 @@ export default function FacilityMaintenance() {
         parts_cost: 0,
         labor_cost: 0,
         other_cost: 0,
+        author_name: (form as any).author_name || null,
       });
       if (error) throw error;
     },
@@ -195,6 +197,7 @@ export default function FacilityMaintenance() {
                   </div>
                   <div><Label>제목 *</Label><Input value={form.title} onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))} /></div>
                   <div><Label>증상/설명</Label><Textarea value={form.symptom} onChange={(event) => setForm((prev) => ({ ...prev, symptom: event.target.value }))} rows={3} /></div>
+                  <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
                   <Button className="w-full" disabled={!form.lot_id || !form.title || createMutation.isPending} onClick={() => createMutation.mutate()}>
                     {createMutation.isPending ? "접수 중..." : "접수"}
                   </Button>

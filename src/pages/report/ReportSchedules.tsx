@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Plus, Play, Edit, Trash2, Calendar, Clock, Users } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { FREQUENCY_LABELS, type ReportTemplate } from "@/types/report";
 
 export default function ReportSchedules() {
@@ -152,6 +153,7 @@ export default function ReportSchedules() {
                   <Switch checked={form.include_excel} onCheckedChange={(c) => setForm({ ...form, include_excel: c })} />
                   <Label>엑셀 포함</Label>
                 </div>
+                <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
                 <Button className="w-full" onClick={() => createMutation.mutate()} disabled={!form.schedule_name || !form.template_id}>등록</Button>
               </div>
             </DialogContent>

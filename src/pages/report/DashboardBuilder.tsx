@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Settings, Trash2, Eye, Edit3, GripVertical, BarChart3, PieChart as PieChartIcon } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { WIDGET_TYPE_LABELS, type DashboardWidget } from "@/types/report";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -106,6 +107,7 @@ export default function DashboardBuilder() {
         position_y: (widgets?.length || 0) * 3,
         is_visible: true,
         sort_order: widgets?.length || 0,
+        author_name: (widgetForm as any).author_name || null,
       });
       if (error) throw error;
     },
@@ -230,6 +232,7 @@ export default function DashboardBuilder() {
                     <div><Label>폭 (1~12)</Label><Input type="number" min={1} max={12} value={widgetForm.width} onChange={(e) => setWidgetForm({ ...widgetForm, width: Number(e.target.value) })} /></div>
                     <div><Label>높이 (1~6)</Label><Input type="number" min={1} max={6} value={widgetForm.height} onChange={(e) => setWidgetForm({ ...widgetForm, height: Number(e.target.value) })} /></div>
                   </div>
+                  <AuthorField value={(widgetForm as any).author_name || ""} onChange={v => setWidgetForm(prev => ({ ...prev, author_name: v } as any))} />
                   <Button className="w-full" onClick={() => addMutation.mutate()} disabled={!widgetForm.title}>추가</Button>
                 </div>
               </DialogContent>

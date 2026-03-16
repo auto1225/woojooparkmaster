@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Plus, Trash2, GitBranch } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 const MODULE_OPTIONS = [
   { value: 'BUDGET', label: '예산관리' },
@@ -67,6 +68,7 @@ export default function ApprovalLineManagement() {
         steps: steps as any,
         is_default: form.isDefault,
         created_by: profile?.id,
+        author_name: (form as any).author_name || null,
       } as any);
       if (error) throw error;
     },
@@ -221,6 +223,7 @@ export default function ApprovalLineManagement() {
               <Switch checked={form.isDefault} onCheckedChange={v => setForm(f => ({ ...f, isDefault: v }))} />
               <Label className="text-xs">기본 결재선으로 설정</Label>
             </div>
+            <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(f => ({ ...f, author_name: v } as any))} />
           </div>
           <DialogFooter>
             <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>등록</Button>

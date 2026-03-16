@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Star } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { toast } from "sonner";
 import { MARKING_TYPE_LABELS, CONDITION_LABELS, CONDITION_COLORS } from "@/types/facility";
 import type { SurfaceMarking, MarkingCondition } from "@/types/facility";
@@ -90,6 +91,7 @@ export default function FacilityMarkings() {
         next_due: nextDue,
         is_regulatory: form.is_regulatory,
         regulation_ref: form.regulation_ref || null,
+        author_name: (form as any).author_name || null,
       });
       if (error) throw error;
     },
@@ -173,6 +175,7 @@ export default function FacilityMarkings() {
                     <Label>법적 의무 표시</Label>
                   </div>
                   {form.is_regulatory && <div><Label>관련 규정</Label><Input value={form.regulation_ref} onChange={(event) => setForm((prev) => ({ ...prev, regulation_ref: event.target.value }))} /></div>}
+                  <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
                   <Button className="w-full" disabled={!form.marking_type || !form.marking_name || createMutation.isPending} onClick={() => createMutation.mutate()}>
                     {createMutation.isPending ? "등록 중..." : "등록"}
                   </Button>

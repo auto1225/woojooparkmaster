@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Check, X } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { EXECUTION_TYPE_LABELS, BUDGET_STATUS_LABELS, BUDGET_STATUS_COLORS } from "@/types/budget";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -76,6 +77,7 @@ export default function BudgetExecutions() {
       execution_date: form.execution_date, amount: form.amount, vendor_name: form.vendor_name || null,
       description: form.description, document_number: form.document_number || null,
       payment_method: form.payment_method, requested_by: profile?.id, created_by: profile?.id,
+      author_name: (form as any).author_name || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success('집행 등록 완료');
@@ -222,6 +224,7 @@ export default function BudgetExecutions() {
               <div><Label>내용 *</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
               <div><Label>지출결의서 번호</Label><Input value={form.document_number} onChange={e => setForm(f => ({ ...f, document_number: e.target.value }))} /></div>
               <div><Label>비고</Label><Input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+              <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(f => ({ ...f, author_name: v } as any))} />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCreateOpen(false)}>취소</Button>

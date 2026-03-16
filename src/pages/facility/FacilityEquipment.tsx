@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, LayoutGrid, List } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { toast } from "sonner";
 import { EQUIPMENT_TYPE_LABELS, EQUIPMENT_STATUS_LABELS, EQUIPMENT_STATUS_COLORS } from "@/types/facility";
 import type { Equipment } from "@/types/facility";
@@ -97,6 +98,7 @@ export default function FacilityEquipment() {
         purchase_cost: form.purchase_cost ? parseInt(form.purchase_cost, 10) : null,
         notes: form.notes || null,
         quantity: 1,
+        author_name: (form as any).author_name || null,
       });
 
       if (error) throw error;
@@ -191,6 +193,7 @@ export default function FacilityEquipment() {
                   </div>
                   <div><Label>취득원가 (원)</Label><Input type="number" value={form.purchase_cost} onChange={(event) => setForm((prev) => ({ ...prev, purchase_cost: event.target.value }))} /></div>
                   <div><Label>비고</Label><Textarea value={form.notes} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} rows={2} /></div>
+                  <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
                   <Button className="w-full" disabled={!form.equipment_type || !form.name || !form.lot_id || createMutation.isPending} onClick={() => createMutation.mutate()}>
                     {createMutation.isPending ? "등록 중..." : "등록"}
                   </Button>

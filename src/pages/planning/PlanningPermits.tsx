@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { Plus, AlertTriangle } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { PERMIT_STATUS_LABELS, PERMIT_STATUS_COLORS } from "@/types/planning";
 
 const PERMIT_TYPES = [
@@ -82,6 +83,7 @@ export default function PlanningPermits() {
       fee_paid: form.fee_paid || false,
       notes: form.notes || null,
       assigned_to: profile?.id,
+      author_name: form.author_name || null,
     }] as any);
     if (error) { toast({ title: "등록 실패", description: error.message, variant: "destructive" }); return; }
     toast({ title: "인허가 등록 완료" });
@@ -234,6 +236,7 @@ export default function PlanningPermits() {
               <div className="flex items-center gap-2 pt-6"><Switch checked={form.fee_paid || false} onCheckedChange={v => updateForm('fee_paid', v)} /><Label>납부완료</Label></div>
             </div>
             <div><Label>비고</Label><Textarea value={form.notes || ''} onChange={e => updateForm('notes', e.target.value)} /></div>
+            <AuthorField value={form.author_name || ""} onChange={v => updateForm('author_name', v)} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNew(false)}>취소</Button>

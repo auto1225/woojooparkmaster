@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { Plus, LayoutGrid, List, MapPin } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import {
   SITE_STATUS_LABELS, SITE_STATUS_COLORS, OWNERSHIP_LABELS,
   getSiteGrade, getSiteGradeColor, formatBudgetWon, SHAPE_LABELS, ACQUISITION_LABELS,
@@ -105,6 +106,7 @@ export default function PlanningSites() {
       traffic_impact_review: form.traffic_impact_review || false,
       cultural_heritage_review: form.cultural_heritage_review || false,
       created_by: profile?.id,
+      author_name: form.author_name || null,
     }] as any);
     if (error) { toast({ title: "등록 실패", description: error.message, variant: "destructive" }); return; }
     toast({ title: "후보부지 등록 완료" });
@@ -397,6 +399,7 @@ export default function PlanningSites() {
                 <div className="flex items-center gap-2"><Switch checked={form.traffic_impact_review || false} onCheckedChange={v => updateForm('traffic_impact_review', v)} /><Label>교통영향평가 필요</Label></div>
                 <div className="flex items-center gap-2"><Switch checked={form.cultural_heritage_review || false} onCheckedChange={v => updateForm('cultural_heritage_review', v)} /><Label>문화재조사 필요</Label></div>
               </div>
+              <AuthorField value={form.author_name || ""} onChange={v => updateForm('author_name', v)} />
             </div>
           )}
 

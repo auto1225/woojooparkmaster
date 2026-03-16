@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, ChevronRight, Calendar, List, Plus } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { toast } from "sonner";
 import { ScheduleCalendarView } from "@/components/facility/ScheduleCalendarView";
 import { ScheduleDetailSheet } from "@/components/facility/ScheduleDetailSheet";
@@ -82,6 +83,7 @@ export default function FacilitySchedule() {
         description: form.description || null,
         is_active: form.is_active,
         created_by: user?.id,
+        author_name: (form as any).author_name || null,
       });
 
       if (error) throw error;
@@ -223,6 +225,7 @@ export default function FacilitySchedule() {
                     <Switch checked={form.is_active} onCheckedChange={(value) => setForm((prev) => ({ ...prev, is_active: value }))} />
                     <Label>활성</Label>
                   </div>
+                  <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
                   <Button
                     className="w-full"
                     disabled={!form.schedule_name || !form.lot_id || !form.next_due_date || createMutation.isPending}

@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Check, X, ArrowRight } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { TRANSFER_TYPE_LABELS, TRANSFER_TYPE_COLORS, BUDGET_STATUS_LABELS, BUDGET_STATUS_COLORS } from "@/types/budget";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -71,6 +72,7 @@ export default function BudgetTransfers() {
       from_item_id: form.from_item_id, to_item_id: form.to_item_id, amount: form.amount,
       reason: form.reason, legal_basis: form.legal_basis || null,
       requested_by: profile?.id, created_by: profile?.id,
+      author_name: (form as any).author_name || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success('전용/이체 신청 완료');
@@ -199,6 +201,7 @@ export default function BudgetTransfers() {
               </div>
               <div><Label>사유 *</Label><Textarea value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} /></div>
               <div><Label>근거 법령/조례</Label><Input value={form.legal_basis} onChange={e => setForm(f => ({ ...f, legal_basis: e.target.value }))} placeholder="예: 지방재정법 제47조" /></div>
+              <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(f => ({ ...f, author_name: v } as any))} />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCreateOpen(false)}>취소</Button>

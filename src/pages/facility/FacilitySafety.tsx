@@ -15,6 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, AlertTriangle } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { toast } from "sonner";
 import { INSPECTION_TYPE_LABELS, GRADE_COLORS } from "@/types/facility";
 import type { SafetyInspection, ChecklistItem } from "@/types/facility";
@@ -117,6 +118,7 @@ export default function FacilitySafety() {
         follow_up_required: failCount > 0,
         status: "completed",
         created_by: user?.id,
+        author_name: (form as any).author_name || null,
       };
 
       const { error } = await supabase.from("safety_inspections").insert(payload);
@@ -237,6 +239,7 @@ export default function FacilitySafety() {
                   </>
                 )}
 
+                <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
                 <Button className="w-full" disabled={!form.lot_id || createMutation.isPending} onClick={() => createMutation.mutate()}>
                   {createMutation.isPending ? "등록 중..." : "점검 결과 저장"}
                 </Button>
