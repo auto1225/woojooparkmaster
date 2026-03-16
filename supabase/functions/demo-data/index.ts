@@ -1145,12 +1145,32 @@ async function runSeed(supabase: any, userId: string) {
   await batchInsert(supabase, "fee_policies", feePolicyRows);
 
   // ══════════════════════════════════════════
-  //  11. 수입 – revenue_reconciliation (정산대사)
+  //  11-a. 무료개방 – free_hours_settings
+  // ══════════════════════════════════════════
+  const freeHoursRows = topLots.slice(0, 8).flatMap((lot: any) => [
+    {
+      lot_id: lot.id, setting_name: `${lot.name} 야간 무료시간`,
+      day_type: "weekday", start_time: "20:00", end_time: "08:00",
+      reason: "[DEMO] 야간 무료 개방 (주민 편의)",
+      is_active: true, effective_from: `${currentYear}-01-01`,
+    },
+    {
+      lot_id: lot.id, setting_name: `${lot.name} 공휴일 무료시간`,
+      day_type: "holiday", start_time: "00:00", end_time: "23:59",
+      reason: "[DEMO] 공휴일 전일 무료 개방",
+      is_active: true, effective_from: `${currentYear}-01-01`,
+    },
+  ]);
+  await batchInsert(supabase, "free_hours_settings", freeHoursRows);
+
+  // ══════════════════════════════════════════
+  //  11-b. 수입 – revenue_reconciliation (정산대사)
   // ══════════════════════════════════════════
   const reconRows = revLots.slice(0, 10).flatMap((lot: any, i: number) => {
     const rows: any[] = [];
     for (let m = 1; m <= 3; m++) {
-      const monthStr = String(new Date().getMonth() + 1 - m).padStart(2, "0");
+      const rawMonth = new Date().getMonth() + 1 - m;
+      const monthStr = String(rawMonth < 1 ? rawMonth + 12 : rawMonth).padStart(2, "0");
       const sysCash = rnd(2000000, 8000000);
       const sysCard = rnd(8000000, 25000000);
       const sysMobile = rnd(3000000, 10000000);
@@ -1169,7 +1189,7 @@ async function runSeed(supabase: any, userId: string) {
         reported_total: repCash + repCard + repMobile,
         diff_amount: (repCash + repCard + repMobile) - (sysCash + sysCard + sysMobile),
         diff_analysis: "[DEMO] 시스템 매출과 정산 보고서 비교 데이터",
-        status: m === 1 ? "pending" : pick(["confirmed", "adjusted"]),
+        status: m === 1 ? "pending" : pick(["matched", "resolved", "discrepancy"]),
         company_name: pick(["(주)제주파킹", "(주)그린주차", "스마트주차관리"]),
         created_by: userId,
       });
