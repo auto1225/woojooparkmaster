@@ -358,6 +358,7 @@ export default function ComplaintNew() {
                     </SelectContent>
                   </Select>
                 </div>
+                <AuthorField value={form.author_name || ""} onChange={v => update("author_name", v)} />
               </CardContent>
             </Card>
           </div>
