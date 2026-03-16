@@ -38,9 +38,12 @@ export default function FacilitySchedule() {
   const { data: schedules = [], isLoading } = useQuery({
     queryKey: ["facility-schedules"],
     queryFn: async () => {
-      const { data } = await supabase.from("maintenance_schedules")
-        .select("*, parking_lots(code, name), equipment(name, equipment_type), profiles(name)")
+      const { data, error } = await supabase
+        .from("maintenance_schedules")
+        .select("*, parking_lots(code, name), equipment(name, equipment_type), assignee:profiles!maintenance_schedules_assigned_to_fkey(name)")
         .order("next_due_date");
+
+      if (error) throw error;
       return (data ?? []) as unknown as MaintenanceSchedule[];
     },
   });
@@ -189,7 +192,7 @@ export default function FacilitySchedule() {
                       <TableCell>{s.parking_lots?.name || '-'}</TableCell>
                       <TableCell>{s.equipment?.name || '-'}</TableCell>
                       <TableCell><Badge className={`text-white ${SCHEDULE_TYPE_COLORS[s.schedule_type] || 'bg-gray-400'}`}>{SCHEDULE_TYPE_LABELS[s.schedule_type] || s.schedule_type}</Badge></TableCell>
-                      <TableCell>{s.profiles?.name || '-'}</TableCell>
+                      <TableCell>{s.assignee?.name || '-'}</TableCell>
                       <TableCell>{s.next_due_date}</TableCell>
                       <TableCell><Badge variant={s.is_active ? 'default' : 'secondary'}>{s.is_active ? '활성' : '비활성'}</Badge></TableCell>
                     </TableRow>
