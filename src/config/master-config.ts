@@ -406,6 +406,7 @@ MODULES.PROCUREMENT = {
         draft: { label: '작성중', color: 'bg-muted text-muted-foreground' },
         announced: { label: '공고중', color: 'bg-blue-100 text-blue-700' },
         bidding: { label: '투찰중', color: 'bg-yellow-100 text-yellow-700' },
+        evaluation: { label: '심사중', color: 'bg-orange-100 text-orange-700' },
         evaluating: { label: '심사중', color: 'bg-orange-100 text-orange-700' },
         awarded: { label: '낙찰', color: 'bg-green-100 text-green-700' },
         contracted: { label: '계약완료', color: 'bg-green-100 text-green-700' },
