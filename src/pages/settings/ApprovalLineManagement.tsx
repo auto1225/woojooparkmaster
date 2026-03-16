@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Plus, Trash2, GitBranch } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 const MODULE_OPTIONS = [
   { value: 'BUDGET', label: '예산관리' },
