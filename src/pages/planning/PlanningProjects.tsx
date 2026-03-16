@@ -195,6 +195,7 @@ export default function PlanningProjects() {
             <div><Label>공사비 (원)</Label><Input type="number" value={form.construction_cost || ''} onChange={e => updateForm('construction_cost', e.target.value)} /></div>
             <div><Label>감리비 (원)</Label><Input type="number" value={form.supervision_cost || ''} onChange={e => updateForm('supervision_cost', e.target.value)} /></div>
             <div><Label>기타비 (원)</Label><Input type="number" value={form.other_cost || ''} onChange={e => updateForm('other_cost', e.target.value)} /></div>
+            <div className="col-span-2"><AuthorField value={form.author_name || ""} onChange={v => updateForm('author_name', v)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNew(false)}>취소</Button>
