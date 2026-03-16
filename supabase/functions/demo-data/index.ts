@@ -672,8 +672,7 @@ async function runSeed(supabase: any, userId: string) {
       { item_code: "E-004", item_name: "위탁운영비", budget_type: "expenditure", category_l1: "경상경비", planned_amount: 100000000, allocated_amount: 100000000, executed_amount: 70000000 },
     ].map(item => ({
       ...item, plan_id: planId, is_summary: false, depth: 1, sort_order: 0,
-      remaining_amount: (item.allocated_amount || 0) - (item.executed_amount || 0),
-      execution_rate: Math.round(((item.executed_amount || 0) / (item.allocated_amount || 1)) * 100),
+      // remaining_amount and execution_rate are generated columns - do not set
       notes: "[DEMO]",
     }));
     await batchInsert(supabase, "budget_items", budgetItems);
