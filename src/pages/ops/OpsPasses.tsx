@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { PASS_STATUS_LABELS } from "@/types/operations";
 import { Plus, Search, RefreshCw } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 export default function OpsPassesPage() {
   const queryClient = useQueryClient();
