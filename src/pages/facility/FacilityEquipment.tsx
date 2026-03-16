@@ -192,6 +192,7 @@ export default function FacilityEquipment() {
                   </div>
                   <div><Label>취득원가 (원)</Label><Input type="number" value={form.purchase_cost} onChange={(event) => setForm((prev) => ({ ...prev, purchase_cost: event.target.value }))} /></div>
                   <div><Label>비고</Label><Textarea value={form.notes} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} rows={2} /></div>
+                  <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
                   <Button className="w-full" disabled={!form.equipment_type || !form.name || !form.lot_id || createMutation.isPending} onClick={() => createMutation.mutate()}>
                     {createMutation.isPending ? "등록 중..." : "등록"}
                   </Button>
