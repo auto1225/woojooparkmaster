@@ -214,19 +214,18 @@ MODULES.OPS = {
       columns: [
         { key: '_no', label: '번호', group: '기본정보', width: 50, sticky: true },
         { key: 'lot_name', label: '주차장', group: '기본정보', width: 120, sticky: true },
-        { key: 'name', label: '이름', group: '인력정보', width: 80, sticky: true },
+        { key: 'staff_name', label: '이름', group: '인력정보', width: 80, sticky: true },
         { key: 'position', label: '직책', group: '인력정보', width: 80 },
-        { key: 'employment_type', label: '고용유형', group: '인력정보', width: 80 },
-        { key: 'duty', label: '담당업무', group: '인력정보', width: 100 },
+        { key: 'staff_type', label: '고용유형', group: '인력정보', width: 80 },
         { key: 'hire_date', label: '입사일', group: '인력정보', format: 'date', width: 100 },
         { key: 'phone', label: '연락처', group: '인력정보', width: 120 },
         { key: 'is_active', label: '상태', group: '인력정보', format: 'boolean', booleanLabels: { true: '재직', false: '퇴직' }, width: 70 },
       ],
       queryFn: async () => {
-        const { data } = await supabase.from('operations_staff').select('*, parking_lots(code, name)').order('name');
+        const { data } = await supabase.from('operations_staff').select('*, parking_lots(code, name)').order('staff_name');
         return (data || []).map((s: any, i: number) => ({
-          _no: i + 1, lot_name: s.parking_lots?.name, name: s.name, position: s.position,
-          employment_type: s.employment_type, duty: s.duty, hire_date: s.hire_date, phone: s.phone, is_active: s.is_active,
+          _no: i + 1, lot_name: s.parking_lots?.name, staff_name: s.staff_name, position: s.position,
+          staff_type: s.staff_type, hire_date: s.hire_date, phone: s.phone, is_active: s.is_active,
         }));
       },
     },
