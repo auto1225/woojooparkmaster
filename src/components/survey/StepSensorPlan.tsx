@@ -68,6 +68,8 @@ export function StepSensorPlan({ data, onSave, readOnly }: Props) {
         )}
       </div>
 
+      <AuthorField value={(form as any).author_name || ""} onChange={v => set("author_name", v)} readOnly={readOnly} />
+
       {!readOnly && (
         <div className="flex justify-end">
           <Button onClick={() => { const { id: _id, survey_id, ...rest } = form as any; onSave(rest); }}>
