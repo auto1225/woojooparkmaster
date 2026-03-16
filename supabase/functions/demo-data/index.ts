@@ -1521,7 +1521,7 @@ async function runCleanup(supabase: any) {
 
   // Revenue
   await supabase.from("revenue_daily").delete().eq("data_source", "demo_seed");
-  await supabase.from("revenue_reconciliation").delete().eq("created_by", userId);
+  await supabase.from("revenue_reconciliation").delete().like("diff_analysis", "[DEMO]%");
 
   // Complaints
   const { data: demoComplaints } = await supabase.from("complaints").select("id").like("notes", "[DEMO]%");
