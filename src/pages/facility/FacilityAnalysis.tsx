@@ -54,8 +54,8 @@ export default function FacilityAnalysis() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const monthlyMaintCost = maintenance
-    .filter((m: any) => m.scheduled_date >= monthStart)
-    .reduce((s: number, m: any) => s + (m.actual_cost || 0), 0);
+    .filter((m: any) => (m.completed_at || m.reported_at || m.created_at || '').slice(0, 10) >= monthStart)
+    .reduce((s: number, m: any) => s + (m.total_cost || 0), 0);
 
   // 상태 분포 도넛
   const statusDist = useMemo(() => {
