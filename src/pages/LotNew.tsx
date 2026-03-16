@@ -42,7 +42,9 @@ type FormData = z.infer<typeof schema>;
 
 export default function LotNewPage() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [authorName, setAuthorName] = useState("");
   const [equipment, setEquipment] = useState({
     has_gate: false, has_lpr: false, has_kiosk: false, has_cctv: false,
     has_display_board: false, has_sensor: false, control_system_linked: false, portal_linked: false,
