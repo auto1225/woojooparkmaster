@@ -802,7 +802,7 @@ async function runSeed(supabase: any, userId: string) {
   }
 
   // ══════════════════════════════════════════
-  //  8. 신설기획 – site_candidates, construction_projects
+  //  8. 신설기획 – site_candidates, construction_projects, permits
   // ══════════════════════════════════════════
   const siteRows = Array.from({ length: 5 }, (_, i) => ({
     site_number: `SITE-DEMO-${String(i + 1).padStart(3, "0")}`,
@@ -823,7 +823,6 @@ async function runSeed(supabase: any, userId: string) {
   }));
   await batchInsert(supabase, "site_candidates", siteRows);
 
-  // Construction projects (3)
   const constRows = Array.from({ length: 3 }, (_, i) => ({
     project_number: `CP-DEMO-${currentYear}-${String(i + 1).padStart(3, "0")}`,
     project_name: pick(["연동 공영주차장 신축공사", "노형동 주차빌딩 건설", "삼도동 주차장 리모델링"]),
@@ -840,8 +839,8 @@ async function runSeed(supabase: any, userId: string) {
   }));
   const { data: insertedConstProjects } = await supabase.from("construction_projects").insert(constRows).select("id, project_name");
 
-  // Design documents (for construction projects)
   if (insertedConstProjects && insertedConstProjects.length > 0) {
+    // Design documents
     const designDocRows: any[] = [];
     let ddNum = 0;
     for (const proj of insertedConstProjects) {
@@ -868,12 +867,43 @@ async function runSeed(supabase: any, userId: string) {
       }
     }
     await batchInsert(supabase, "design_documents", designDocRows);
+
+    // Permits (3~4 per construction project)
+    const permitRows: any[] = [];
+    let permitNum = 0;
+    for (const proj of insertedConstProjects) {
+      const permitTypes = [
+        { permit_type: "building_permit", authority: "제주시 건축과", permit_category: "건축" },
+        { permit_type: "traffic_impact", authority: "제주시 교통과", permit_category: "교통" },
+        { permit_type: "environment", authority: "제주도 환경정책과", permit_category: "환경" },
+        { permit_type: "fire_safety", authority: "제주소방서", permit_category: "소방" },
+      ];
+      for (const pt of permitTypes) {
+        permitNum++;
+        const applied = daysAgo(rnd(60, 200));
+        permitRows.push({
+          project_id: proj.id,
+          permit_number: `PRM-DEMO-${String(permitNum).padStart(4, "0")}`,
+          permit_type: pt.permit_type,
+          permit_category: pt.permit_category,
+          authority: pt.authority,
+          authority_department: pt.authority,
+          application_date: applied,
+          target_approval_date: daysFromNow(rnd(10, 60)),
+          actual_approval_date: Math.random() > 0.4 ? daysAgo(rnd(1, 50)) : null,
+          status: pick(["approved", "approved", "in_review", "submitted", "not_started"]),
+          fee_amount: rnd(100000, 2000000),
+          fee_paid: Math.random() > 0.3,
+          notes: "[DEMO] 데모 인허가",
+        });
+      }
+    }
+    await batchInsert(supabase, "permits", permitRows);
   }
 
   // ══════════════════════════════════════════
-  //  9. 실시간 – sensor_devices, gateway_devices, lot_realtime_status, display_boards
+  //  9. 실시간 – sensor_devices, gateway_devices, lot_realtime_status, display_boards, parking_spaces, sensor_readings
   // ══════════════════════════════════════════
-  // Gateway devices (5)
   const gwRows = topLots.slice(0, 5).map((lot: any, i: number) => ({
     gateway_id: `GW-DEMO-${String(i + 1).padStart(3, "0")}`,
     gateway_name: `${lot.name} 게이트웨이`,
@@ -887,12 +917,10 @@ async function runSeed(supabase: any, userId: string) {
     max_sensors: 50,
     notes: "[DEMO] 데모 게이트웨이",
   }));
-
   const { data: insertedGws } = await supabase.from("gateway_devices").insert(gwRows).select("id, lot_id");
 
-  // Sensor devices (40)
+  const sensorRows: any[] = [];
   if (insertedGws && insertedGws.length > 0) {
-    const sensorRows: any[] = [];
     for (const gw of insertedGws) {
       const count = rnd(5, 12);
       for (let s = 0; s < count && sensorRows.length < 40; s++) {
@@ -915,9 +943,49 @@ async function runSeed(supabase: any, userId: string) {
       }
     }
     await batchInsert(supabase, "sensor_devices", sensorRows);
+
+    // Sensor readings (5 recent readings per sensor)
+    const readingRows: any[] = [];
+    for (const sensor of sensorRows.slice(0, 20)) {
+      for (let r = 0; r < 5; r++) {
+        const t = new Date(Date.now() - r * 60000 * rnd(1, 10));
+        readingRows.push({
+          device_id: sensor.device_id,
+          lot_id: sensor.lot_id,
+          time: t.toISOString(),
+          occupied: Math.random() > 0.4,
+          battery_level: sensor.battery_level - r,
+          rssi: sensor.rssi + rnd(-5, 5),
+        });
+      }
+    }
+    await batchInsert(supabase, "sensor_readings", readingRows);
   }
 
-  // Display boards (8)
+  // Parking spaces (주차면 배치 - for ParkingLayout page)
+  const spaceRows: any[] = [];
+  for (const lot of topLots.slice(0, 8)) {
+    const zones = ["A", "B", "C"];
+    for (const zone of zones) {
+      const count = rnd(10, Math.min(30, Math.floor(lot.total_spaces / 3)));
+      for (let s = 1; s <= count; s++) {
+        const sensorMatch = sensorRows.find((sr: any) => sr.lot_id === lot.id && sr.zone === zone);
+        spaceRows.push({
+          lot_id: lot.id,
+          floor: 1,
+          zone: zone,
+          space_number: `${zone}-${String(s).padStart(3, "0")}`,
+          space_type: s <= 2 ? "disabled" : s <= 3 ? "ev" : "general",
+          has_sensor: !!sensorMatch,
+          sensor_id: sensorMatch ? sensorMatch.device_id : null,
+          status: pick(["active", "active", "active", "maintenance"]),
+        });
+      }
+    }
+  }
+  await batchInsert(supabase, "parking_spaces", spaceRows);
+
+  // Display boards
   const displayRows = topLots.slice(0, 8).map((lot: any, i: number) => ({
     board_id: `DSP-DEMO-${String(i + 1).padStart(3, "0")}`,
     board_name: `${lot.name} ${pick(["입구 안내판", "출구 안내판", "내부 안내판"])}`,
@@ -946,13 +1014,68 @@ async function runSeed(supabase: any, userId: string) {
     last_updated: new Date().toISOString(),
     notes: "[DEMO]",
   }));
-  // Use upsert for lot_realtime_status (unique on lot_id)
   for (const rt of rtRows) {
     await supabase.from("lot_realtime_status").upsert(rt, { onConflict: "lot_id" });
   }
 
   // ══════════════════════════════════════════
-  //  10. 보고서 – report_templates
+  //  10. 운영 – fee_policies (요금정책)
+  // ══════════════════════════════════════════
+  const feePolicyRows = topLots.slice(0, 10).flatMap((lot: any) => [
+    {
+      lot_id: lot.id, policy_name: `${lot.name} 평일 요금`, day_type: "weekday",
+      time_start: "08:00", time_end: "20:00",
+      base_minutes: 30, base_fee: 500, add_minutes: 10, add_fee: 200,
+      daily_max: 10000, monthly_pass_fee: 70000,
+      is_active: true, effective_from: `${currentYear}-01-01`,
+      legal_basis: "주차장 조례", notes: "[DEMO] 데모 요금정책",
+    },
+    {
+      lot_id: lot.id, policy_name: `${lot.name} 주말 요금`, day_type: "weekend",
+      time_start: "09:00", time_end: "18:00",
+      base_minutes: 60, base_fee: 0, add_minutes: 10, add_fee: 200,
+      daily_max: 8000, monthly_pass_fee: 50000,
+      is_active: true, effective_from: `${currentYear}-01-01`,
+      legal_basis: "주차장 조례", notes: "[DEMO] 데모 요금정책",
+    },
+  ]);
+  await batchInsert(supabase, "fee_policies", feePolicyRows);
+
+  // ══════════════════════════════════════════
+  //  11. 수입 – revenue_reconciliation (정산대사)
+  // ══════════════════════════════════════════
+  const reconRows = revLots.slice(0, 10).flatMap((lot: any, i: number) => {
+    const rows: any[] = [];
+    for (let m = 1; m <= 3; m++) {
+      const monthStr = String(new Date().getMonth() + 1 - m).padStart(2, "0");
+      const sysCash = rnd(2000000, 8000000);
+      const sysCard = rnd(8000000, 25000000);
+      const sysMobile = rnd(3000000, 10000000);
+      const repCash = sysCash + rnd(-200000, 200000);
+      const repCard = sysCard + rnd(-100000, 100000);
+      const repMobile = sysMobile + rnd(-50000, 50000);
+      rows.push({
+        lot_id: lot.id,
+        recon_number: `RC-DEMO-${String(i * 3 + m).padStart(4, "0")}`,
+        period_type: "monthly",
+        period_start: `${currentYear}-${monthStr}-01`,
+        period_end: `${currentYear}-${monthStr}-${m === 2 ? "28" : "30"}`,
+        system_cash: sysCash, system_card: sysCard, system_mobile: sysMobile, system_other: 0,
+        system_total: sysCash + sysCard + sysMobile,
+        reported_cash: repCash, reported_card: repCard, reported_mobile: repMobile, reported_other: 0,
+        reported_total: repCash + repCard + repMobile,
+        diff_amount: (repCash + repCard + repMobile) - (sysCash + sysCard + sysMobile),
+        status: m === 1 ? "pending" : pick(["confirmed", "adjusted"]),
+        company_name: pick(["(주)제주파킹", "(주)그린주차", "스마트주차관리"]),
+        notes: "[DEMO] 데모 정산",
+      });
+    }
+    return rows;
+  });
+  await batchInsert(supabase, "revenue_reconciliation", reconRows);
+
+  // ══════════════════════════════════════════
+  //  12. 보고서 – report_templates, report_generated, report_schedules
   // ══════════════════════════════════════════
   const templateRows = [
     { template_code: "RPT-DEMO-MONTHLY", name: "월간 운영현황 보고서", report_type: "monthly", report_category: "operation", is_system: true },
@@ -969,22 +1092,209 @@ async function runSeed(supabase: any, userId: string) {
   }));
   await batchInsert(supabase, "report_templates", templateRows);
 
+  // Report generated (from templates)
+  const { data: insertedTemplates } = await supabase.from("report_templates").select("id, name, report_type").like("template_code", "RPT-DEMO%");
+  if (insertedTemplates && insertedTemplates.length > 0) {
+    const genRows: any[] = [];
+    let rptNum = 0;
+    for (const tmpl of insertedTemplates) {
+      for (let g = 0; g < 2; g++) {
+        rptNum++;
+        genRows.push({
+          report_number: `RG-DEMO-${String(rptNum).padStart(4, "0")}`,
+          template_id: tmpl.id,
+          title: `${tmpl.name} - ${currentYear}년 ${rnd(1, 12)}월`,
+          period_type: tmpl.report_type,
+          period_start: daysAgo(rnd(60, 120)),
+          period_end: daysAgo(rnd(1, 59)),
+          file_path: `/demo/reports/report_${rptNum}.pdf`,
+          file_format: "pdf",
+          file_size: rnd(100000, 5000000),
+          page_count: rnd(5, 30),
+          status: pick(["completed", "completed", "generating"]),
+          generation_time_ms: rnd(1000, 15000),
+          generated_by: userId,
+          summary_data: { total_lots: lots.length, total_revenue: rnd(50000000, 200000000) },
+        });
+      }
+    }
+    await batchInsert(supabase, "report_generated", genRows);
+
+    // Report schedules
+    const schedRows = insertedTemplates.slice(0, 3).map((tmpl: any, i: number) => ({
+      schedule_name: `${tmpl.name} 자동 발송`,
+      template_id: tmpl.id,
+      frequency: pick(["monthly", "quarterly"]),
+      day_of_month: pick([1, 5, 10, 15]),
+      execution_time: "06:00",
+      recipients: [{ type: "email", value: "admin@parkmaster.kr" }],
+      send_method: "notification",
+      output_format: "pdf",
+      include_excel: true,
+      is_active: true,
+      run_count: rnd(1, 12),
+      next_run: daysFromNow(rnd(1, 30)) + "T06:00:00Z",
+      last_status: "success",
+      created_by: userId,
+    }));
+    await batchInsert(supabase, "report_schedules", schedRows);
+  }
+
   // ══════════════════════════════════════════
-  //  11. 활동 로그 (10)
+  //  13. 결재 – approval_lines, approval_records, approval_steps
   // ══════════════════════════════════════════
-  const logRows = Array.from({ length: 10 }, (_, i) => ({
+  const approvalLineRows = [
+    { line_name: "예산 집행 결재", module: "budget", document_type: "execution", is_default: true, steps: [{ step: 1, label: "담당자", role: "editor" }, { step: 2, label: "팀장", role: "manager" }, { step: 3, label: "관리자", role: "admin" }] },
+    { line_name: "민원 처리 결재", module: "complaint", document_type: "response", is_default: true, steps: [{ step: 1, label: "담당자", role: "editor" }, { step: 2, label: "팀장", role: "manager" }] },
+    { line_name: "용역 대금 결재", module: "service", document_type: "payment", is_default: true, steps: [{ step: 1, label: "감독관", role: "editor" }, { step: 2, label: "팀장", role: "manager" }, { step: 3, label: "관리자", role: "admin" }] },
+  ].map(l => ({ ...l, created_by: userId }));
+  const { data: insertedLines } = await supabase.from("approval_lines").insert(approvalLineRows).select("id, line_name, module, document_type, steps");
+
+  if (insertedLines && insertedLines.length > 0) {
+    const aRecordRows: any[] = [];
+    for (const line of insertedLines) {
+      const stepsArr = line.steps as any[];
+      for (let r = 0; r < 2; r++) {
+        aRecordRows.push({
+          line_id: line.id,
+          module: line.module,
+          document_type: line.document_type,
+          ref_id: crypto.randomUUID(),
+          ref_number: `APR-DEMO-${line.module}-${r + 1}`,
+          title: `${line.line_name} 테스트 ${r + 1}`,
+          total_steps: stepsArr.length,
+          current_step: pick([1, 2, stepsArr.length]),
+          status: pick(["in_progress", "approved", "rejected"]),
+          initiated_by: userId,
+          initiated_at: new Date(Date.now() - rnd(5, 60) * 86400000).toISOString(),
+          completed_at: Math.random() > 0.5 ? new Date(Date.now() - rnd(1, 4) * 86400000).toISOString() : null,
+        });
+      }
+    }
+    const { data: insertedRecords } = await supabase.from("approval_records").insert(aRecordRows).select("id, total_steps, status");
+
+    if (insertedRecords && insertedRecords.length > 0) {
+      const aStepRows: any[] = [];
+      for (const rec of insertedRecords) {
+        for (let s = 1; s <= rec.total_steps; s++) {
+          aStepRows.push({
+            record_id: rec.id,
+            step_number: s,
+            step_label: s === 1 ? "담당자" : s === 2 ? "팀장" : "관리자",
+            approver_id: userId,
+            approver_name: "관리자",
+            action: rec.status === "approved" ? "approved" : s === 1 ? "approved" : "pending",
+            comment: s === 1 ? "확인 완료" : null,
+            acted_at: s === 1 ? new Date(Date.now() - rnd(1, 30) * 86400000).toISOString() : null,
+          });
+        }
+      }
+      await batchInsert(supabase, "approval_steps", aStepRows);
+    }
+  }
+
+  // ══════════════════════════════════════════
+  //  14. 알림 & 메시지
+  // ══════════════════════════════════════════
+  const notifRows = Array.from({ length: 15 }, (_, i) => ({
+    user_id: userId,
+    module: pick(["facility", "revenue", "complaint", "ops", "budget", "service"]),
+    type: pick(["info", "warning", "success", "error"]),
+    title: pick([
+      "장비 점검 알림", "민원 접수 알림", "예산 집행 승인", "용역 검수 요청",
+      "안전점검 예정", "수입 이상 감지", "정기권 만료 예정", "단속 현황 보고",
+    ]),
+    message: `[DEMO] 데모 알림 메시지입니다. 확인해 주세요.`,
+    link: pick(["/facility/equipment", "/complaint", "/budget/executions", "/service/projects", "/ops/enforcement"]),
+    is_read: i < 8,
+    read_at: i < 8 ? new Date(Date.now() - rnd(1, 10) * 86400000).toISOString() : null,
+    created_at: new Date(Date.now() - rnd(0, 30) * 86400000).toISOString(),
+  }));
+  await batchInsert(supabase, "notifications", notifRows);
+
+  // Message logs
+  const msgRows = Array.from({ length: 10 }, (_, i) => ({
+    message_type: pick(["notification", "sms", "email"]),
+    channel: pick(["sms", "email", "push"]),
+    recipient_name: pick(staffNames),
+    recipient_phone: `010-${rnd(1000, 9999)}-${rnd(1000, 9999)}`,
+    title: pick(["민원 처리 안내", "정기점검 알림", "예산 승인 통보", "용역 검수 결과"]),
+    content: `[DEMO] 데모 메시지 본문입니다.`,
+    module: pick(["complaint", "facility", "budget", "service"]),
+    status: pick(["sent", "sent", "delivered", "failed"]),
+    sent_at: new Date(Date.now() - rnd(1, 60) * 86400000).toISOString(),
+    created_by: userId,
+  }));
+  await batchInsert(supabase, "message_logs", msgRows);
+
+  // ══════════════════════════════════════════
+  //  15. 대시보드 위젯
+  // ══════════════════════════════════════════
+  const widgetRows = [
+    { widget_type: "kpi", title: "총 주차장 수", data_source: "parking_lots", chart_type: "number", position_x: 0, position_y: 0, width: 3, height: 2 },
+    { widget_type: "chart", title: "월별 수입 추이", data_source: "revenue_daily", chart_type: "line", position_x: 3, position_y: 0, width: 6, height: 4 },
+    { widget_type: "chart", title: "민원 유형 분포", data_source: "complaints", chart_type: "pie", position_x: 0, position_y: 2, width: 3, height: 4 },
+    { widget_type: "table", title: "최근 민원 목록", data_source: "complaints", chart_type: "table", position_x: 9, position_y: 0, width: 3, height: 4 },
+    { widget_type: "kpi", title: "금일 총 수입", data_source: "revenue_daily", chart_type: "number", position_x: 0, position_y: 6, width: 3, height: 2 },
+  ].map(w => ({
+    ...w,
+    user_id: userId,
+    dashboard_name: "default",
+    data_config: { table: w.data_source },
+    chart_config: { type: w.chart_type },
+    is_visible: true,
+    sort_order: 0,
+  }));
+  await batchInsert(supabase, "dashboard_widgets", widgetRows);
+
+  // ══════════════════════════════════════════
+  //  16. 활동 로그 (20건)
+  // ══════════════════════════════════════════
+  const logRows = Array.from({ length: 20 }, (_, i) => ({
     user_id: userId,
     user_name: "관리자",
-    module: pick(["facility", "revenue", "complaint", "ops", "settings"]),
-    action: pick(["조회", "등록", "수정", "엑셀 다운로드", "보고서 생성"]),
-    target_type: pick(["주차장", "장비", "민원", "수입"]),
+    module: pick(["facility", "revenue", "complaint", "ops", "settings", "budget", "service", "realtime", "report", "planning"]),
+    action: pick(["조회", "등록", "수정", "삭제", "엑셀 다운로드", "보고서 생성", "승인", "반려"]),
+    target_type: pick(["주차장", "장비", "민원", "수입", "예산", "용역", "인력"]),
     target_name: pick(topLots).name,
     details: { demo: true },
-    created_at: new Date(Date.now() - rnd(1, 30) * 86400000).toISOString(),
+    created_at: new Date(Date.now() - rnd(0, 30) * 86400000).toISOString(),
   }));
   await batchInsert(supabase, "activity_logs", logRows);
 
-  console.log("✅ Demo data seed completed for ALL modules");
+  // ══════════════════════════════════════════
+  //  17. 현황조사 – surveys, survey_basic_info
+  // ══════════════════════════════════════════
+  const surveyRows = topLots.slice(0, 5).map((lot: any, i: number) => ({
+    lot_id: lot.id,
+    survey_number: `SRV-DEMO-${String(i + 1).padStart(4, "0")}`,
+    title: `${lot.name} 현황조사`,
+    status: pick(["draft", "in_progress", "submitted", "approved"]),
+    surveyor_id: userId,
+    surveyor_name: "관리자",
+    survey_date: daysAgo(rnd(10, 90)),
+    notes: "[DEMO] 데모 현황조사",
+  }));
+  const { data: insertedSurveys } = await supabase.from("surveys").insert(surveyRows).select("id, lot_id");
+
+  if (insertedSurveys && insertedSurveys.length > 0) {
+    const basicInfoRows = insertedSurveys.map((srv: any, i: number) => {
+      const lot = topLots.find((l: any) => l.id === srv.lot_id) || topLots[0];
+      return {
+        survey_id: srv.id,
+        lot_name: lot.name,
+        lot_code: lot.code,
+        lot_type: pick(["offstreet", "onstreet", "multilevel"]),
+        address_road: `제주시 ${pick(["연동", "노형동", "이도동"])} ${rnd(1, 200)}`,
+        total_spaces: lot.total_spaces,
+        operator_type: pick(["direct", "outsourced"]),
+        status: pick(["active", "inactive"]),
+      };
+    });
+    await batchInsert(supabase, "survey_basic_info", basicInfoRows);
+  }
+
+  console.log("✅ Demo data seed completed for ALL modules (5-depth)");
 }
 
 // ══════════════════════════════════════════════════════════════════
