@@ -1658,8 +1658,7 @@ async function runSeed(supabase: any, userId: string) {
       lot_id: lot.id,
       total_spaces: totalSpaces,
       occupied_spaces: occupiedSpaces,
-      available_spaces: totalSpaces - occupiedSpaces,
-      occupancy_rate: occupancyRate,
+      // available_spaces and occupancy_rate are generated columns
       congestion_level: congestionLevel,
       status: occupiedSpaces >= totalSpaces ? "full" : "normal",
       last_sensor_update: new Date().toISOString(),
