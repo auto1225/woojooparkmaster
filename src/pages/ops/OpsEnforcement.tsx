@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { VIOLATION_TYPE_LABELS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS } from "@/types/operations";
 import { Plus, Search } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 export default function OpsEnforcementPage() {
   const queryClient = useQueryClient();
