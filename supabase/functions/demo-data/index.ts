@@ -242,29 +242,43 @@ async function runSeed(supabase: any, userId: string) {
 
   // Maintenance schedules (12)
   if (demoEq && demoEq.length > 0) {
-    const scheduleRows = demoEq.slice(0, 12).map((eq: any, i: number) => ({
-      lot_id: eq.lot_id,
-      equipment_id: eq.id,
-      schedule_name: `${eq.name} ${pick(["월간 정기점검", "분기 예방정비", "반기 기능점검", "연간 교체점검"])}`,
-      schedule_type: pick(["monthly", "quarterly", "semi_annual", "yearly"]),
-      description: `[DEMO] ${eq.name}에 대한 예방정비 일정입니다.`,
-      checklist: [
-        { item: "외관 점검", required: true },
-        { item: "전원/통신 상태 확인", required: true },
-        { item: "작동 테스트", required: true },
-      ],
-      assigned_team: pick(["facilities", "operations"]),
-      assigned_to: userId,
-      vendor_name: pick(["파킹클라우드", "한화비전", "아마노코리아"]),
-      estimated_cost: rnd(100000, 700000),
-      estimated_hours: rnd(1, 6),
-      last_completed: daysAgo(rnd(10, 90)),
-      next_due_date: daysFromNow(rnd(1, 90)),
-      recurrence_rule: { interval: 1, unit: "month" },
-      advance_notice_days: pick([3, 7, 14]),
-      is_active: true,
-      created_by: userId,
-    }));
+    const scheduleTemplates = {
+      monthly: { label: "월간 정기점검", interval: 1, unit: "month" },
+      quarterly: { label: "분기 예방정비", interval: 3, unit: "month" },
+      semi_annual: { label: "반기 기능점검", interval: 6, unit: "month" },
+      yearly: { label: "연간 교체점검", interval: 12, unit: "month" },
+    } as const;
+
+    const scheduleTypes = Object.keys(scheduleTemplates) as Array<keyof typeof scheduleTemplates>;
+
+    const scheduleRows = demoEq.slice(0, 12).map((eq: any) => {
+      const scheduleType = pick(scheduleTypes);
+      const template = scheduleTemplates[scheduleType];
+
+      return {
+        lot_id: eq.lot_id,
+        equipment_id: eq.id,
+        schedule_name: `${eq.name} ${template.label}`,
+        schedule_type: scheduleType,
+        description: `[DEMO] ${eq.name}의 ${template.label} 일정입니다. 장비 유형(${eq.equipment_type})과 점검 주기에 맞춰 자동 생성되었습니다.`,
+        checklist: [
+          { item: "외관 점검", required: true },
+          { item: "전원/통신 상태 확인", required: true },
+          { item: "작동 테스트", required: true },
+        ],
+        assigned_team: pick(["facilities", "operations"]),
+        assigned_to: userId,
+        vendor_name: pick(["파킹클라우드", "한화비전", "아마노코리아"]),
+        estimated_cost: rnd(100000, 700000),
+        estimated_hours: rnd(1, 6),
+        last_completed: daysAgo(rnd(10, 90)),
+        next_due_date: daysFromNow(rnd(1, 90)),
+        recurrence_rule: { interval: template.interval, unit: template.unit },
+        advance_notice_days: pick([3, 7, 14]),
+        is_active: true,
+        created_by: userId,
+      };
+    });
     await batchInsert(supabase, "maintenance_schedules", scheduleRows);
   }
 
