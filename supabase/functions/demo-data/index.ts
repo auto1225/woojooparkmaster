@@ -1807,7 +1807,7 @@ async function runCleanup(supabase: any) {
   await supabase.from("service_projects").delete().like("notes", "[DEMO]%");
 
   // Procurement
-  const { data: demoBids } = await supabase.from("bid_projects").select("id").like("notes", "[DEMO]%");
+  const { data: demoBids } = await supabase.from("bid_projects").select("id").like("description", "[DEMO]%");
   if (demoBids && demoBids.length > 0) {
     const bidIds = demoBids.map((b: any) => b.id);
     await supabase.from("bid_documents").delete().in("bid_project_id", bidIds);
@@ -1818,7 +1818,7 @@ async function runCleanup(supabase: any) {
     }
     await supabase.from("bid_submissions").delete().in("bid_project_id", bidIds);
   }
-  await supabase.from("bid_projects").delete().like("notes", "[DEMO]%");
+  await supabase.from("bid_projects").delete().like("description", "[DEMO]%");
 
   // Budget
   await supabase.from("budget_transfers").delete().like("notes", "[DEMO]%");
