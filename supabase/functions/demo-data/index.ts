@@ -76,11 +76,23 @@ function rnd(min: number, max: number): number {
 }
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 
-async function batchInsert(supabase: any, table: string, rows: any[], batchSize = 50) {
+async function batchInsert(supabase: any, table: string, rows: any[], batchSize = 200) {
+  if (!rows || rows.length === 0) return;
   for (let i = 0; i < rows.length; i += batchSize) {
-    const { error } = await supabase.from(table).insert(rows.slice(i, i + batchSize));
-    if (error) console.error(`${table} insert error:`, error.message);
+    const batch = rows.slice(i, i + batchSize);
+    const { error } = await supabase.from(table).insert(batch);
+    if (error) {
+      console.error(`❌ ${table} insert error (batch ${i}-${i + batch.length}):`, error.message, error.details, error.hint);
+      // Try inserting one by one to find the bad row
+      if (batch.length > 1 && batch.length <= 10) {
+        for (const row of batch) {
+          const { error: singleErr } = await supabase.from(table).insert(row);
+          if (singleErr) console.error(`  ↳ ${table} single row error:`, singleErr.message, JSON.stringify(row).slice(0, 200));
+        }
+      }
+    }
   }
+  console.log(`✅ ${table}: ${rows.length} rows inserted`);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -186,7 +198,7 @@ async function runSeed(supabase: any, userId: string) {
         { item: "전원/통신 상태 확인", required: true },
         { item: "작동 테스트", required: true },
       ],
-      assigned_team: pick(["시설관리팀", "운영관리팀"]),
+      assigned_team: pick(["facilities", "operations"]),
       assigned_to: userId,
       vendor_name: pick(["파킹클라우드", "한화비전", "아마노코리아"]),
       estimated_cost: rnd(100000, 700000),
@@ -486,15 +498,17 @@ async function runSeed(supabase: any, userId: string) {
   }
 
   // ══════════════════════════════════════════
-  const revLots = bigLots.slice(0, 20);
+  //  4. 수입관리 – revenue_daily (10개 주차장 × 30일 = 300건)
+  // ══════════════════════════════════════════
+  const revLots = bigLots.slice(0, 10);
+  const allRevRows: any[] = [];
   for (const lot of revLots) {
-    const dailyBase = lot.total_spaces * 500;
-    const revRows: any[] = [];
-    for (let d = 1; d <= 90; d++) {
+    const dailyBase = Math.max(lot.total_spaces, 30) * 500;
+    for (let d = 1; d <= 30; d++) {
       const dateStr = daysAgo(d);
       const weekday = new Date(dateStr).getDay();
       const factor = (weekday === 0 || weekday === 6) ? 0.6 : 1.0;
-      revRows.push({
+      allRevRows.push({
         lot_id: lot.id,
         revenue_date: dateStr,
         cash_amount: Math.floor(dailyBase * 0.15 * factor * (0.8 + Math.random() * 0.4)),
@@ -503,8 +517,8 @@ async function runSeed(supabase: any, userId: string) {
         monthly_pass_amount: Math.floor(dailyBase * 0.18 * factor * (0.8 + Math.random() * 0.3)),
         other_amount: Math.floor(dailyBase * 0.05 * factor * (0.7 + Math.random() * 0.3)),
         total_amount: Math.floor(dailyBase * factor * (0.8 + Math.random() * 0.4)),
-        total_vehicles: Math.floor(lot.total_spaces * factor * (0.5 + Math.random() * 1.5)),
-        peak_hour_vehicles: Math.floor(lot.total_spaces * factor * (0.08 + Math.random() * 0.08)),
+        total_vehicles: Math.floor(Math.max(lot.total_spaces, 30) * factor * (0.5 + Math.random() * 1.5)),
+        peak_hour_vehicles: Math.floor(Math.max(lot.total_spaces, 30) * factor * (0.08 + Math.random() * 0.08)),
         peak_hour: `${rnd(8, 19)}:00`,
         avg_parking_minutes: rnd(35, 180),
         turnover_rate: rnd(80, 260),
@@ -513,11 +527,11 @@ async function runSeed(supabase: any, userId: string) {
         exemption_detail: { disabled: rnd(0, 5), veteran: rnd(0, 4), compact: rnd(0, 8) },
         data_source: "demo_seed",
         source_detail: "[DEMO] generated revenue",
-        verified: d > 30,
+        verified: d > 7,
       });
     }
-    await batchInsert(supabase, "revenue_daily", revRows);
   }
+  await batchInsert(supabase, "revenue_daily", allRevRows);
 
   // ══════════════════════════════════════════
   //  5. 예산관리 – budget_plans, budget_items, budget_executions, budget_transfers
@@ -1210,13 +1224,14 @@ async function runSeed(supabase: any, userId: string) {
   ].map(t => ({
     ...t,
     description: `[DEMO] ${t.name}`,
-    target_audience: ["admin", "manager"],
-    required_modules: ["facility", "revenue"],
+    target_audience: "internal",
+    required_modules: ["CORE", "OPS"],
     data_sources: [{ table: "parking_lots" }],
-    parameters: { period: t.report_type },
+    parameters: [{ name: "period", type: t.report_type, label: "기간", required: true }],
     page_size: "A4",
     page_orientation: "portrait",
     template_format: "pdf",
+    sort_order: rnd(20, 30),
   }));
   await batchInsert(supabase, "report_templates", templateRows);
 
