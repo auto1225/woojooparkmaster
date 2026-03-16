@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, ChevronRight, ChevronDown, Send, Check, X } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { PLAN_TYPE_LABELS, BUDGET_STATUS_LABELS, BUDGET_STATUS_COLORS, BUDGET_TYPE_LABELS } from "@/types/budget";
 import { formatManWon } from "@/types/revenue";
 import { useAuth } from "@/hooks/useAuth";
