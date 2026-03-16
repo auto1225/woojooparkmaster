@@ -28,6 +28,26 @@ export default function SettingsPage() {
   const [editedConfig, setEditedConfig] = useState<Record<string, string>>({});
   const [demoGenDialog, setDemoGenDialog] = useState(false);
   const [demoCleanDialog, setDemoCleanDialog] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  const runDemoAction = async (action: "seed" | "cleanup") => {
+    setDemoLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("로그인이 필요합니다"); return; }
+      const { data, error } = await supabase.functions.invoke("demo-data", {
+        body: { action },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(data?.message || "완료");
+      queryClient.invalidateQueries();
+    } catch (e: any) {
+      toast.error(e.message || "처리 중 오류가 발생했습니다");
+    } finally {
+      setDemoLoading(false);
+    }
+  };
 
   const isAdmin = profile?.role === "admin";
   const configValue = (key: string) => editedConfig[key] ?? config?.[key] ?? "";
@@ -337,7 +357,7 @@ export default function SettingsPage() {
                       <p className="text-xs text-muted-foreground">생성 항목: 장비, 유지보수, 안전점검, 민원, 수입 데이터 등</p>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setDemoGenDialog(false)}>취소</Button>
-                        <Button onClick={() => { setDemoGenDialog(false); toast.info("데모 데이터 SQL은 src/demo-data/demo_seed.sql을 참고하세요. SQL Editor에서 직접 실행해주세요."); }}>확인</Button>
+                        <Button disabled={demoLoading} onClick={() => { setDemoGenDialog(false); runDemoAction("seed"); }}>{demoLoading ? "처리중..." : "확인"}</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
@@ -351,7 +371,7 @@ export default function SettingsPage() {
                       <p className="text-sm text-muted-foreground">데모 데이터만 삭제하고 시스템을 초기 상태로 복원합니다.</p>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setDemoCleanDialog(false)}>취소</Button>
-                        <Button variant="destructive" onClick={() => { setDemoCleanDialog(false); toast.info("데모 데이터 정리 SQL은 src/demo-data/demo_cleanup.sql을 참고하세요. SQL Editor에서 직접 실행해주세요."); }}>초기화</Button>
+                        <Button variant="destructive" disabled={demoLoading} onClick={() => { setDemoCleanDialog(false); runDemoAction("cleanup"); }}>{demoLoading ? "처리중..." : "초기화"}</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
