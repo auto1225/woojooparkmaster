@@ -30,13 +30,18 @@ export default function MasterHub() {
   const { data: counts = {} } = useQuery({
     queryKey: ['master-hub-counts'], queryFn: async () => {
       const c: Record<string, string> = {};
-      const [lots, surveys, equip, complaints, bids, services] = await Promise.all([
+      const [lots, surveys, equip, complaints, bids, services, revenue, budgetItems, sites, realtime, reports] = await Promise.all([
         supabase.from('parking_lots').select('*', { count: 'exact', head: true }),
         supabase.from('surveys').select('*', { count: 'exact', head: true }),
         supabase.from('equipment').select('*', { count: 'exact', head: true }),
         supabase.from('complaints').select('*', { count: 'exact', head: true }).not('status', 'in', '("closed","responded")'),
         supabase.from('bid_projects').select('*', { count: 'exact', head: true }).not('status', 'in', '("contracted","cancelled")'),
         supabase.from('service_projects').select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
+        supabase.from('revenue_daily').select('total_amount').order('revenue_date', { ascending: false }).limit(30),
+        supabase.from('budget_items').select('*', { count: 'exact', head: true }),
+        supabase.from('site_candidates').select('*', { count: 'exact', head: true }),
+        supabase.from('lot_realtime_status').select('*', { count: 'exact', head: true }),
+        supabase.from('report_generated').select('*', { count: 'exact', head: true }),
       ]);
       c.surveys = `조사 ${surveys.count || 0}건`;
       c.ops = `주차장 ${lots.count || 0}개소`;
@@ -44,11 +49,12 @@ export default function MasterHub() {
       c.complaint = `미처리 ${complaints.count || 0}건`;
       c.procurement = `진행중 ${bids.count || 0}건`;
       c.service = `진행중 ${services.count || 0}건`;
-      c.revenue = '수입 현황';
-      c.budget = '예산 현황';
-      c.planning = '기획 현황';
-      c.realtime = '실시간 현황';
-      c.report = '보고서 현황';
+      const totalRev = (revenue.data || []).reduce((s: number, r: any) => s + (r.total_amount || 0), 0);
+      c.revenue = totalRev > 0 ? `최근 30일 ${(totalRev / 100000000).toFixed(1)}억원` : '수입 데이터 없음';
+      c.budget = `항목 ${budgetItems.count || 0}건`;
+      c.planning = `후보지 ${sites.count || 0}건`;
+      c.realtime = `연동 ${realtime.count || 0}개소`;
+      c.report = `보고서 ${reports.count || 0}건`;
       return c;
     },
   });

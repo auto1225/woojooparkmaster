@@ -542,17 +542,23 @@ async function runSeed(supabase: any, userId: string) {
   const compRows = Array.from({ length: 30 }, (_, i) => {
     const lot = pick(lots);
     const cat = pick(compCategories);
+    const createdAt = new Date(Date.now() - rnd(1, 180) * 86400000).toISOString();
+    const status = pick(compStatuses);
     return {
       complaint_number: `CMP-DEMO-${String(i + 1).padStart(4, "0")}`,
       lot_id: lot.id, category: cat, channel: pick(compChannels),
       title: `${lot.name} ${pick(compTitles)}`,
       content: `[DEMO] ${lot.name}에 대한 ${cat} 관련 민원입니다. 신속한 처리 부탁드립니다.`,
-      status: pick(compStatuses),
+      status,
       priority: pick(["low", "normal", "normal", "high", "urgent"]),
       complainant_name: pick(staffNames),
       complainant_phone: `010-${rnd(1000, 9999)}-${rnd(1000, 9999)}`,
+      received_at: createdAt,
+      closed_at: status === "closed" ? new Date(Date.now() - rnd(0, 30) * 86400000).toISOString() : null,
+      responded_at: ["closed", "responded"].includes(status) ? new Date(Date.now() - rnd(1, 60) * 86400000).toISOString() : null,
+      assigned_to: ["in_progress", "responded", "closed"].includes(status) ? userId : null,
       notes: "[DEMO] 데모 민원",
-      created_at: new Date(Date.now() - rnd(1, 180) * 86400000).toISOString(),
+      created_at: createdAt,
     };
   });
   await batchInsert(supabase, "complaints", compRows);
@@ -1004,10 +1010,13 @@ async function runSeed(supabase: any, userId: string) {
   // ══════════════════════════════════════════
   //  8. 신설기획 – site_candidates, construction_projects, permits
   // ══════════════════════════════════════════
+  const siteNames = ["연동 공영주차장 후보지", "노형동 부지", "이도동 유휴부지", "삼도동 공터", "일도동 주차장 부지"];
+  const siteDongs = ["연동", "노형동", "이도동", "삼도동", "일도동"];
   const siteRows = Array.from({ length: 5 }, (_, i) => ({
     site_number: `SITE-DEMO-${String(i + 1).padStart(3, "0")}`,
-    name: pick(["연동 공영주차장 후보지", "노형동 부지", "이도동 유휴부지", "삼도동 공터", "일도동 주차장 부지"]),
-    address_road: `제주시 ${pick(["연동", "노형동", "이도동", "삼도동"])} ${rnd(1, 100)}`,
+    name: siteNames[i],
+    address_road: `제주시 ${siteDongs[i]} ${rnd(1, 100)}`,
+    address_jibun: `제주시 ${siteDongs[i]} ${rnd(100, 999)}-${rnd(1, 30)}`,
     area_sqm: rnd(1000, 5000),
     estimated_spaces: rnd(50, 200),
     zoning: pick(["일반상업지역", "준주거지역", "일반주거지역"]),
