@@ -92,9 +92,9 @@ export default function FacilityAnalysis() {
   // 노후화 장비
   const agingEquip = useMemo(() => {
     return equipment
-      .filter((e: any) => e.installed_date && e.useful_life_years)
+      .filter((e: any) => e.install_date && e.useful_life_years)
       .map((e: any) => {
-        const installed = new Date(e.installed_date);
+        const installed = new Date(e.install_date);
         const yearsElapsed = (now.getTime() - installed.getTime()) / (365.25 * 86400000);
         const ratio = (yearsElapsed / e.useful_life_years) * 100;
         return { ...e, yearsElapsed: Number(yearsElapsed.toFixed(1)), ratio: Number(ratio.toFixed(0)), lotName: e.parking_lots?.name || '-' };
