@@ -498,15 +498,17 @@ async function runSeed(supabase: any, userId: string) {
   }
 
   // ══════════════════════════════════════════
-  const revLots = bigLots.slice(0, 20);
+  //  4. 수입관리 – revenue_daily (10개 주차장 × 30일 = 300건)
+  // ══════════════════════════════════════════
+  const revLots = bigLots.slice(0, 10);
+  const allRevRows: any[] = [];
   for (const lot of revLots) {
-    const dailyBase = lot.total_spaces * 500;
-    const revRows: any[] = [];
-    for (let d = 1; d <= 90; d++) {
+    const dailyBase = Math.max(lot.total_spaces, 30) * 500;
+    for (let d = 1; d <= 30; d++) {
       const dateStr = daysAgo(d);
       const weekday = new Date(dateStr).getDay();
       const factor = (weekday === 0 || weekday === 6) ? 0.6 : 1.0;
-      revRows.push({
+      allRevRows.push({
         lot_id: lot.id,
         revenue_date: dateStr,
         cash_amount: Math.floor(dailyBase * 0.15 * factor * (0.8 + Math.random() * 0.4)),
@@ -515,8 +517,8 @@ async function runSeed(supabase: any, userId: string) {
         monthly_pass_amount: Math.floor(dailyBase * 0.18 * factor * (0.8 + Math.random() * 0.3)),
         other_amount: Math.floor(dailyBase * 0.05 * factor * (0.7 + Math.random() * 0.3)),
         total_amount: Math.floor(dailyBase * factor * (0.8 + Math.random() * 0.4)),
-        total_vehicles: Math.floor(lot.total_spaces * factor * (0.5 + Math.random() * 1.5)),
-        peak_hour_vehicles: Math.floor(lot.total_spaces * factor * (0.08 + Math.random() * 0.08)),
+        total_vehicles: Math.floor(Math.max(lot.total_spaces, 30) * factor * (0.5 + Math.random() * 1.5)),
+        peak_hour_vehicles: Math.floor(Math.max(lot.total_spaces, 30) * factor * (0.08 + Math.random() * 0.08)),
         peak_hour: `${rnd(8, 19)}:00`,
         avg_parking_minutes: rnd(35, 180),
         turnover_rate: rnd(80, 260),
@@ -525,11 +527,11 @@ async function runSeed(supabase: any, userId: string) {
         exemption_detail: { disabled: rnd(0, 5), veteran: rnd(0, 4), compact: rnd(0, 8) },
         data_source: "demo_seed",
         source_detail: "[DEMO] generated revenue",
-        verified: d > 30,
+        verified: d > 7,
       });
     }
-    await batchInsert(supabase, "revenue_daily", revRows);
   }
+  await batchInsert(supabase, "revenue_daily", allRevRows);
 
   // ══════════════════════════════════════════
   //  5. 예산관리 – budget_plans, budget_items, budget_executions, budget_transfers
