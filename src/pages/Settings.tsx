@@ -371,7 +371,7 @@ export default function SettingsPage() {
                       <p className="text-sm text-muted-foreground">데모 데이터만 삭제하고 시스템을 초기 상태로 복원합니다.</p>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setDemoCleanDialog(false)}>취소</Button>
-                        <Button variant="destructive" onClick={() => { setDemoCleanDialog(false); toast.info("데모 데이터 정리 SQL은 src/demo-data/demo_cleanup.sql을 참고하세요. SQL Editor에서 직접 실행해주세요."); }}>초기화</Button>
+                        <Button variant="destructive" disabled={demoLoading} onClick={() => { setDemoCleanDialog(false); runDemoAction("cleanup"); }}>{demoLoading ? "처리중..." : "초기화"}</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
