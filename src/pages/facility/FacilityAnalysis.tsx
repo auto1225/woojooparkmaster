@@ -81,8 +81,8 @@ export default function FacilityAnalysis() {
   const monthlyMaint = useMemo(() => {
     const map: Record<string, number> = {};
     maintenance.forEach((m: any) => {
-      const mo = m.scheduled_date?.slice(0, 7);
-      if (mo) map[mo] = (map[mo] || 0) + (m.actual_cost || 0);
+      const mo = (m.completed_at || m.reported_at || m.created_at)?.slice(0, 7);
+      if (mo) map[mo] = (map[mo] || 0) + (m.total_cost || 0);
     });
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0])).slice(-12).map(([month, cost]) => ({
       month: month.slice(5) + '월', cost: Math.round(cost / 10000),
