@@ -125,6 +125,7 @@ export default function LotEditPage() {
       longitude: data.longitude || null,
       surface_type: data.surface_type || null,
       power_status: data.power_status || null,
+      author_name: authorName || profile?.name || null,
     } as any).eq("id", id);
 
     setSaving(false);
