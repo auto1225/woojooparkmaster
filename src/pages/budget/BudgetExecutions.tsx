@@ -223,6 +223,7 @@ export default function BudgetExecutions() {
               <div><Label>내용 *</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
               <div><Label>지출결의서 번호</Label><Input value={form.document_number} onChange={e => setForm(f => ({ ...f, document_number: e.target.value }))} /></div>
               <div><Label>비고</Label><Input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+              <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(f => ({ ...f, author_name: v } as any))} />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCreateOpen(false)}>취소</Button>
