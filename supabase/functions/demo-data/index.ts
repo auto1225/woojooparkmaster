@@ -1846,9 +1846,7 @@ async function runCleanup(supabase: any) {
   await supabase.from("display_boards").delete().like("notes", "[DEMO]%");
   await supabase.from("sensor_devices").delete().like("notes", "[DEMO]%");
   await supabase.from("gateway_devices").delete().like("notes", "[DEMO]%");
-  // lot_realtime_status - delete for lots that had demo data
-  const realtimeLotIds = realtimeLots(topLots);
-  // Simpler approach: delete all lot_realtime_status and let seed recreate
+  // lot_realtime_status - clear all (will be recreated by seed)
   await supabase.from("lot_realtime_status").delete().neq("lot_id", "00000000-0000-0000-0000-000000000000");
 
 
