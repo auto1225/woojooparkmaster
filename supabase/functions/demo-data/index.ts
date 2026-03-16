@@ -1186,9 +1186,13 @@ async function runSeed(supabase: any, userId: string) {
   ].map(t => ({
     ...t,
     description: `[DEMO] ${t.name}`,
-    sections: [{ title: "개요", type: "summary" }, { title: "상세", type: "table" }],
+    target_audience: ["admin", "manager"],
+    required_modules: ["facility", "revenue"],
     data_sources: [{ table: "parking_lots" }],
-    page_size: "A4", page_orientation: "portrait",
+    parameters: { period: t.report_type },
+    page_size: "A4",
+    page_orientation: "portrait",
+    template_format: "pdf",
   }));
   await batchInsert(supabase, "report_templates", templateRows);
 
