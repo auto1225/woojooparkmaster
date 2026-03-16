@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSystemConfig, useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -14,11 +14,46 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Settings, Shield, Package, Save, MessageSquare, GitBranch, Sparkles, Database, Info, HardDrive, CheckCircle2, XCircle, Trash2, PlayCircle, Lock } from "lucide-react";
+import { Settings, Shield, Package, Save, MessageSquare, GitBranch, Sparkles, Database, Info, HardDrive, CheckCircle2, XCircle, Trash2, PlayCircle, Lock, Loader2 } from "lucide-react";
 import MessageManagement from "@/pages/settings/MessageManagement";
 import ApprovalLineManagement from "@/pages/settings/ApprovalLineManagement";
 import SecurityManagement from "@/pages/settings/SecurityManagement";
+
+const DEMO_SEED_STEPS = [
+  "기존 데모 데이터 정리 중...",
+  "주차장 데이터 보강 중...",
+  "시설관리 데이터 생성 중...",
+  "운영관리 데이터 생성 중...",
+  "민원 데이터 생성 중...",
+  "수입 데이터 생성 중...",
+  "예산 데이터 생성 중...",
+  "입찰 데이터 생성 중...",
+  "용역사업 데이터 생성 중...",
+  "신설기획 데이터 생성 중...",
+  "요금정책 데이터 생성 중...",
+  "정산대사 데이터 생성 중...",
+  "보고서 데이터 생성 중...",
+  "결재/알림 데이터 생성 중...",
+  "현황조사 데이터 생성 중...",
+  "실시간 데이터 생성 중...",
+  "API 데이터 생성 중...",
+  "완료!",
+];
+const DEMO_CLEANUP_STEPS = [
+  "API 데이터 삭제 중...",
+  "활동로그 삭제 중...",
+  "결재 데이터 삭제 중...",
+  "보고서 삭제 중...",
+  "현황조사 삭제 중...",
+  "실시간 데이터 삭제 중...",
+  "기획/용역/입찰 삭제 중...",
+  "예산/수입 삭제 중...",
+  "민원/운영 삭제 중...",
+  "시설 데이터 삭제 중...",
+  "완료!",
+];
 
 export default function SettingsPage() {
   const { profile } = useAuth();
@@ -29,9 +64,29 @@ export default function SettingsPage() {
   const [demoGenDialog, setDemoGenDialog] = useState(false);
   const [demoCleanDialog, setDemoCleanDialog] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
+  const [demoProgress, setDemoProgress] = useState(0);
+  const [demoStepLabel, setDemoStepLabel] = useState("");
+  const progressRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => { if (progressRef.current) clearInterval(progressRef.current); };
+  }, []);
 
   const runDemoAction = async (action: "seed" | "cleanup") => {
     setDemoLoading(true);
+    setDemoProgress(0);
+    const steps = action === "seed" ? DEMO_SEED_STEPS : DEMO_CLEANUP_STEPS;
+    let step = 0;
+    setDemoStepLabel(steps[0]);
+
+    // Simulate progress since edge function doesn't stream
+    progressRef.current = setInterval(() => {
+      step++;
+      const pct = Math.min(Math.floor((step / steps.length) * 100), 95);
+      setDemoProgress(pct);
+      setDemoStepLabel(steps[Math.min(step, steps.length - 2)]);
+    }, action === "seed" ? 1500 : 800);
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("로그인이 필요합니다"); return; }
@@ -40,12 +95,18 @@ export default function SettingsPage() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      if (progressRef.current) clearInterval(progressRef.current);
+      setDemoProgress(100);
+      setDemoStepLabel(steps[steps.length - 1]);
       toast.success(data?.message || "완료");
       queryClient.invalidateQueries();
+      setTimeout(() => { setDemoLoading(false); setDemoProgress(0); setDemoStepLabel(""); }, 1500);
     } catch (e: any) {
-      toast.error(e.message || "처리 중 오류가 발생했습니다");
-    } finally {
+      if (progressRef.current) clearInterval(progressRef.current);
       setDemoLoading(false);
+      setDemoProgress(0);
+      setDemoStepLabel("");
+      toast.error(e.message || "처리 중 오류가 발생했습니다");
     }
   };
 
@@ -346,39 +407,54 @@ export default function SettingsPage() {
               <CardHeader><CardTitle className="text-sm">데모 데이터 관리</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-xs text-muted-foreground">영업/시연용 데모 데이터를 생성하거나 초기화합니다. 데모 데이터는 notes 필드에 [DEMO] 접두어가 붙습니다.</p>
+
+                {/* Progress indicator */}
+                {demoLoading && (
+                  <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span className="text-sm font-medium">{demoStepLabel}</span>
+                    </div>
+                    <Progress value={demoProgress} className="h-2" />
+                    <p className="text-xs text-muted-foreground text-right">{demoProgress}%</p>
+                  </div>
+                )}
+
                 <div className="flex gap-3">
-                  <Dialog open={demoGenDialog} onOpenChange={setDemoGenDialog}>
+                  <Dialog open={demoGenDialog} onOpenChange={v => !demoLoading && setDemoGenDialog(v)}>
                     <DialogTrigger asChild>
-                      <Button variant="outline"><PlayCircle className="h-4 w-4 mr-1" />데모 데이터 생성</Button>
+                      <Button variant="outline" disabled={demoLoading}><PlayCircle className="h-4 w-4 mr-1" />데모 데이터 생성</Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader><DialogTitle>데모 데이터 생성</DialogTitle></DialogHeader>
-                      <p className="text-sm text-muted-foreground">데모 데이터를 생성하면 기존 데이터에 추가됩니다. 계속하시겠습니까?</p>
-                      <p className="text-xs text-muted-foreground">생성 항목: 장비, 유지보수, 안전점검, 민원, 수입 데이터 등</p>
+                      <p className="text-sm text-muted-foreground">전체 17개 모듈(시설, 운영, 수입, 예산, 입찰, 용역, 민원, 기획, 실시간, 보고서 등)에 대한 데모 데이터를 생성합니다.</p>
+                      <p className="text-xs text-muted-foreground">⏱ 약 20~30초 소요됩니다.</p>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setDemoGenDialog(false)}>취소</Button>
-                        <Button disabled={demoLoading} onClick={() => { setDemoGenDialog(false); runDemoAction("seed"); }}>{demoLoading ? "처리중..." : "확인"}</Button>
+                        <Button onClick={() => { setDemoGenDialog(false); runDemoAction("seed"); }}>생성 시작</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
 
-                  <Dialog open={demoCleanDialog} onOpenChange={setDemoCleanDialog}>
+                  <Dialog open={demoCleanDialog} onOpenChange={v => !demoLoading && setDemoCleanDialog(v)}>
                     <DialogTrigger asChild>
-                      <Button variant="destructive"><Trash2 className="h-4 w-4 mr-1" />데모 데이터 초기화</Button>
+                      <Button variant="destructive" disabled={demoLoading}><Trash2 className="h-4 w-4 mr-1" />데모 데이터 초기화</Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader><DialogTitle>데모 데이터 초기화</DialogTitle></DialogHeader>
                       <p className="text-sm text-muted-foreground">데모 데이터만 삭제하고 시스템을 초기 상태로 복원합니다.</p>
+                      <p className="text-xs text-muted-foreground">⏱ 약 10~15초 소요됩니다.</p>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setDemoCleanDialog(false)}>취소</Button>
-                        <Button variant="destructive" disabled={demoLoading} onClick={() => { setDemoCleanDialog(false); runDemoAction("cleanup"); }}>{demoLoading ? "처리중..." : "초기화"}</Button>
+                        <Button variant="destructive" onClick={() => { setDemoCleanDialog(false); runDemoAction("cleanup"); }}>초기화 시작</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
                 </div>
-                <div className="text-[10px] text-muted-foreground">
-                  <p>• 생성 SQL: <code className="bg-muted px-1 rounded">src/demo-data/demo_seed.sql</code></p>
-                  <p>• 초기화 SQL: <code className="bg-muted px-1 rounded">src/demo-data/demo_cleanup.sql</code></p>
+
+                <div className="text-[10px] text-muted-foreground space-y-0.5">
+                  <p>• 생성 대상: 시설장비, 유지보수, 안전점검, 운영인력, 민원, 수입, 예산, 입찰, 용역, 기획, 실시간, 보고서, 결재, 알림</p>
+                  <p>• 약 1,500건 이상의 연관 데이터가 자동 생성됩니다</p>
                 </div>
               </CardContent>
             </Card>

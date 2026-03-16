@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 const SURVEY_STATUS: Record<string, { label: string; color: string }> = {
   draft: { label: '작성중', color: 'bg-muted text-muted-foreground' },
   in_progress: { label: '조사중', color: 'bg-blue-100 text-blue-700' },
+  submitted: { label: '제출됨', color: 'bg-purple-100 text-purple-700' },
   review: { label: '검토중', color: 'bg-yellow-100 text-yellow-700' },
   approved: { label: '승인완료', color: 'bg-green-100 text-green-700' },
   rejected: { label: '반려', color: 'bg-red-100 text-red-700' },
@@ -38,8 +39,11 @@ const EQUIP_STATUS: Record<string, { label: string; color: string }> = {
 
 const MAINT_STATUS: Record<string, { label: string; color: string }> = {
   reported: { label: '접수', color: 'bg-yellow-100 text-yellow-700' },
+  assigned: { label: '배정', color: 'bg-purple-100 text-purple-700' },
   in_progress: { label: '진행', color: 'bg-blue-100 text-blue-700' },
+  pending_parts: { label: '부품대기', color: 'bg-orange-100 text-orange-700' },
   completed: { label: '완료', color: 'bg-green-100 text-green-700' },
+  verified: { label: '확인', color: 'bg-teal-100 text-teal-700' },
 };
 
 const CONGESTION: Record<string, { label: string; color: string }> = {
@@ -402,6 +406,7 @@ MODULES.PROCUREMENT = {
         draft: { label: '작성중', color: 'bg-muted text-muted-foreground' },
         announced: { label: '공고중', color: 'bg-blue-100 text-blue-700' },
         bidding: { label: '투찰중', color: 'bg-yellow-100 text-yellow-700' },
+        evaluation: { label: '심사중', color: 'bg-orange-100 text-orange-700' },
         evaluating: { label: '심사중', color: 'bg-orange-100 text-orange-700' },
         awarded: { label: '낙찰', color: 'bg-green-100 text-green-700' },
         contracted: { label: '계약완료', color: 'bg-green-100 text-green-700' },

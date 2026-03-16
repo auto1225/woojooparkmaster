@@ -637,11 +637,11 @@ async function runSeed(supabase: any, userId: string) {
         peak_hour_vehicles: Math.floor(Math.max(lot.total_spaces, 30) * factor * (0.08 + Math.random() * 0.08)),
         peak_hour: `${rnd(8, 19)}:00`,
         avg_parking_minutes: rnd(35, 180),
-        turnover_rate: rnd(80, 260),
+        turnover_rate: Math.round((1 + Math.random() * 5) * 100) / 100,
         exemption_count: rnd(0, 20),
         exemption_amount: rnd(0, 300000),
         exemption_detail: { disabled: rnd(0, 5), veteran: rnd(0, 4), compact: rnd(0, 8) },
-        data_source: "demo_seed",
+        data_source: pick(["manual", "kiosk", "system", "import"]),
         source_detail: "[DEMO] generated revenue",
         verified: d > 7,
       });
@@ -722,8 +722,7 @@ async function runSeed(supabase: any, userId: string) {
   // ══════════════════════════════════════════
   //  6. 입찰관리 – bid_projects, bid_submissions
   // ══════════════════════════════════════════
-  const bidTypes = ["open_competitive", "limited_competitive", "negotiated"];
-  const bidCategories = ["construction", "service", "goods", "maintenance"];
+  const bidTypes = ["open", "limited", "private", "negotiation"];
   const bidProjectRows = Array.from({ length: 5 }, (_, i) => ({
     bid_number: `BID-DEMO-${currentYear}-${String(i + 1).padStart(3, "0")}`,
     title: pick([
@@ -734,14 +733,14 @@ async function runSeed(supabase: any, userId: string) {
       "주차장 안전시설 보강 공사",
     ]),
     bid_type: pick(bidTypes),
-    contract_type: pick(["lump_sum", "unit_price"]),
-    category: pick(bidCategories),
+    contract_type: pick(["construction", "goods", "service", "lease", "outsourcing"]),
+    category: pick(["construction", "service", "goods"]),
     estimated_amount: rnd(50000000, 500000000),
-    status: pick(["announced", "bidding", "evaluation", "contracted", "completed"]),
+    status: pick(["announced", "bidding", "evaluation", "contracted"]),
     announce_date: daysAgo(rnd(30, 180)),
     bid_deadline: daysAgo(rnd(1, 29)),
     description: `[DEMO] 데모 입찰 사업 ${i + 1}`,
-    evaluation_method: pick(["lowest_price", "comprehensive"]),
+    evaluation_method: pick(["lowest_price", "qualification", "technical", "negotiation"]),
     notes: "[DEMO] 데모 입찰",
   }));
 
@@ -1021,9 +1020,8 @@ async function runSeed(supabase: any, userId: string) {
     estimated_spaces: rnd(50, 200),
     zoning: pick(["일반상업지역", "준주거지역", "일반주거지역"]),
     ownership: pick(["public", "private", "mixed"]),
-    location_score: rnd(60, 100), accessibility_score: rnd(60, 100),
-    demand_score: rnd(60, 100), feasibility_score: rnd(50, 100), legal_score: rnd(60, 100),
-    total_score: rnd(300, 500),
+    location_score: rnd(60, 99), accessibility_score: rnd(60, 99),
+    demand_score: rnd(60, 99), feasibility_score: rnd(50, 99), legal_score: rnd(60, 99),
     status: pick(["evaluation", "evaluation", "selected", "rejected", "pending"]),
     latitude: 33.49 + Math.random() * 0.04,
     longitude: 126.51 + Math.random() * 0.06,
@@ -1161,7 +1159,9 @@ async function runSeed(supabase: any, userId: string) {
     const rows: any[] = [];
     for (let m = 1; m <= 3; m++) {
       const rawMonth = new Date().getMonth() + 1 - m;
-      const monthStr = String(rawMonth < 1 ? rawMonth + 12 : rawMonth).padStart(2, "0");
+      const actualMonth = rawMonth < 1 ? rawMonth + 12 : rawMonth;
+      const monthStr = String(actualMonth).padStart(2, "0");
+      const lastDay = new Date(currentYear, actualMonth, 0).getDate(); // correct last day of month
       const sysCash = rnd(2000000, 8000000);
       const sysCard = rnd(8000000, 25000000);
       const sysMobile = rnd(3000000, 10000000);
@@ -1173,7 +1173,7 @@ async function runSeed(supabase: any, userId: string) {
           recon_number: `RC-DEMO-${String(i * 3 + m).padStart(4, "0")}`,
           period_type: "monthly",
           period_start: `${currentYear}-${monthStr}-01`,
-          period_end: `${currentYear}-${monthStr}-${m === 2 ? "28" : "30"}`,
+          period_end: `${currentYear}-${monthStr}-${String(lastDay).padStart(2, "0")}`,
           system_cash: sysCash, system_card: sysCard, system_mobile: sysMobile, system_other: 0,
           // system_total, reported_total, diff_amount are generated columns
           reported_cash: repCash, reported_card: repCard, reported_mobile: repMobile, reported_other: 0,
@@ -1830,7 +1830,7 @@ async function runCleanup(supabase: any) {
   await supabase.from("budget_plans").delete().like("notes", "[DEMO]%");
 
   // Revenue
-  await supabase.from("revenue_daily").delete().eq("data_source", "demo_seed");
+  await supabase.from("revenue_daily").delete().like("source_detail", "[DEMO]%");
   await supabase.from("revenue_reconciliation").delete().like("diff_analysis", "[DEMO]%");
 
   // Complaints
