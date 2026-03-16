@@ -1099,20 +1099,24 @@ async function runSeed(supabase: any, userId: string) {
   }));
   await batchInsert(supabase, "display_boards", displayRows);
 
-  // Lot realtime status
-  const rtRows = topLots.slice(0, 10).map((lot: any) => ({
-    lot_id: lot.id,
-    total_spaces: lot.total_spaces,
-    occupied_spaces: rnd(Math.floor(lot.total_spaces * 0.3), lot.total_spaces),
-    congestion_level: pick(["empty", "normal", "crowded", "full"]),
-    status: "normal",
-    today_total_in: rnd(50, 500),
-    today_total_out: rnd(40, 480),
-    today_peak_occupied: rnd(Math.floor(lot.total_spaces * 0.7), lot.total_spaces),
-    today_peak_time: `${rnd(10, 15)}:${rnd(0, 59).toString().padStart(2, "0")}`,
-    last_updated: new Date().toISOString(),
-    notes: "[DEMO]",
-  }));
+  // Lot realtime status (no notes column - use status for cleanup)
+  const rtRows = topLots.slice(0, 10).map((lot: any) => {
+    const occupied = rnd(Math.floor(lot.total_spaces * 0.3), lot.total_spaces);
+    return {
+      lot_id: lot.id,
+      total_spaces: lot.total_spaces,
+      occupied_spaces: occupied,
+      available_spaces: lot.total_spaces - occupied,
+      occupancy_rate: Math.round(occupied / lot.total_spaces * 100),
+      congestion_level: pick(["empty", "normal", "crowded", "full"]),
+      status: "normal",
+      today_total_in: rnd(50, 500),
+      today_total_out: rnd(40, 480),
+      today_peak_occupied: rnd(Math.floor(lot.total_spaces * 0.7), lot.total_spaces),
+      today_peak_time: `${rnd(10, 15)}:${rnd(0, 59).toString().padStart(2, "0")}`,
+      last_updated: new Date().toISOString(),
+    };
+  });
   for (const rt of rtRows) {
     await supabase.from("lot_realtime_status").upsert(rt, { onConflict: "lot_id" });
   }
