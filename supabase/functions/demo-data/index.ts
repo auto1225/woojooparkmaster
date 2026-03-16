@@ -76,11 +76,23 @@ function rnd(min: number, max: number): number {
 }
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 
-async function batchInsert(supabase: any, table: string, rows: any[], batchSize = 50) {
+async function batchInsert(supabase: any, table: string, rows: any[], batchSize = 200) {
+  if (!rows || rows.length === 0) return;
   for (let i = 0; i < rows.length; i += batchSize) {
-    const { error } = await supabase.from(table).insert(rows.slice(i, i + batchSize));
-    if (error) console.error(`${table} insert error:`, error.message);
+    const batch = rows.slice(i, i + batchSize);
+    const { error } = await supabase.from(table).insert(batch);
+    if (error) {
+      console.error(`❌ ${table} insert error (batch ${i}-${i + batch.length}):`, error.message, error.details, error.hint);
+      // Try inserting one by one to find the bad row
+      if (batch.length > 1 && batch.length <= 10) {
+        for (const row of batch) {
+          const { error: singleErr } = await supabase.from(table).insert(row);
+          if (singleErr) console.error(`  ↳ ${table} single row error:`, singleErr.message, JSON.stringify(row).slice(0, 200));
+        }
+      }
+    }
   }
+  console.log(`✅ ${table}: ${rows.length} rows inserted`);
 }
 
 // ══════════════════════════════════════════════════════════════════
