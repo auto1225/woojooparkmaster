@@ -957,11 +957,11 @@ async function runSeed(supabase: any, userId: string) {
           title: `${proj.project_name} ${doc.title}`,
           doc_type: doc.doc_type,
           category: doc.category,
+          description: `[DEMO] ${proj.project_name} ${doc.title}`,
           version: "1.0",
           file_path: `/demo/design/${doc.doc_type}.pdf`,
-          status: pick(["approved", "approved", "reviewing", "draft"]),
+          review_status: pick(["approved", "approved", "reviewing", "draft"]),
           is_current: true,
-          notes: "[DEMO] 데모 설계문서",
         });
       }
     }
