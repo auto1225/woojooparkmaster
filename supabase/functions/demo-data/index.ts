@@ -1508,29 +1508,108 @@ async function runSeed(supabase: any, userId: string) {
   if (insertedSurveys && insertedSurveys.length > 0) {
     const basicInfoRows = insertedSurveys.map((srv: any) => {
       const lot = topLots.find((l: any) => l.id === srv.lot_id) || topLots[0];
+      const lotType = pick(["offstreet", "onstreet", "multilevel"]);
       return {
         survey_id: srv.id,
         lot_name: lot.name,
-        address: `제주시 ${pick(["연동", "노형동", "이도동"])} ${rnd(1, 200)}`,
-        lot_type: pick(["offstreet", "onstreet", "multilevel"]),
-        lot_type_floor: pick(["지상", "지하", "복층"]),
+        address: lot.address_jibun || `제주시 ${pick(["연동", "노형동", "이도동"])} ${rnd(1, 200)}`,
+        lot_type: lotType,
+        lot_type_floor: lotType === "multilevel" ? rnd(2, 5) : null,
         operator_type: pick(["direct", "outsourced"]),
-        total_spaces: lot.total_spaces,
+        total_spaces: lot.total_spaces || rnd(30, 200),
         disabled_spaces: rnd(1, 6),
         ev_spaces: rnd(0, 5),
         compact_spaces: rnd(0, 12),
         pregnant_spaces: rnd(0, 3),
         other_spaces: rnd(0, 2),
-        other_spaces_desc: "임시차량",
+        other_spaces_desc: pick(["임시차량", "화물차", ""]),
         entry_count: rnd(1, 4),
         exit_count: rnd(1, 4),
         entry_exit_same: Math.random() > 0.5,
         surface_type: pick(["ascon", "block", "concrete"]),
-        gps_lat: 33.49 + Math.random() * 0.04,
-        gps_lng: 126.51 + Math.random() * 0.06,
+        gps_lat: lot.latitude || 33.49 + Math.random() * 0.04,
+        gps_lng: lot.longitude || 126.51 + Math.random() * 0.06,
       };
     });
     await batchInsert(supabase, "survey_basic_info", basicInfoRows);
+
+    // survey_operation 서브레코드 생성
+    const operationRows = insertedSurveys.map((srv: any) => ({
+      survey_id: srv.id,
+      operating_hours: pick(["24h", "08-22", "09-21", "06-24"]),
+      operating_hours_custom: null,
+      payment_cash: Math.random() > 0.3,
+      payment_card: Math.random() > 0.1,
+      payment_mobile: Math.random() > 0.4,
+      payment_none: false,
+      staff_type: pick(["full_time", "part_time", "none"]),
+      staff_count: rnd(0, 5),
+      management_type: pick(["manned", "unmanned", "hybrid"]),
+      management_etc: null,
+      control_linked: Math.random() > 0.5,
+      portal_linked: Math.random() > 0.6,
+    }));
+    await batchInsert(supabase, "survey_operation", operationRows);
+
+    // survey_infra 서브레코드 생성
+    const infraRows = insertedSurveys.map((srv: any) => ({
+      survey_id: srv.id,
+      power_status: pick(["supplied", "available", "unavailable"]),
+      power_note: pick(["한전 직접", "건물 공용", null]),
+      network_wired: Math.random() > 0.4,
+      network_wifi: Math.random() > 0.5,
+      network_lte: Math.random() > 0.3,
+      network_etc: null,
+      display_installed: Math.random() > 0.5,
+      display_in_use: Math.random() > 0.6,
+      display_company: pick(["파킹클라우드", "아이티에스", "스마트파킹", null]),
+      display_not_use_reason: pick(["노후화", "고장", null]),
+      display_network: pick(["wired", "wifi", "lte", null]),
+      display_sw_status: pick(["active", "outdated", "none", null]),
+      display_sw_note: null,
+      sensor_installed: Math.random() > 0.5,
+      sensor_count: rnd(0, 50),
+      sensor_in_use: Math.random() > 0.6,
+      sensor_company: pick(["파킹클라우드", "센서텍", null]),
+      has_barrier: Math.random() > 0.4,
+      has_lpr: Math.random() > 0.5,
+      has_kiosk: Math.random() > 0.6,
+      has_cctv: Math.random() > 0.2,
+      equipment_company: pick(["한국주차기술", "파킹클라우드", "이지파킹", null]),
+    }));
+    await batchInsert(supabase, "survey_infra", infraRows);
+
+    // survey_usage 서브레코드 생성
+    const usageRows = insertedSurveys.map((srv: any) => ({
+      survey_id: srv.id,
+      avg_usage_rate: pick(["under_30", "30_60", "60_80", "over_80"]),
+      peak_morning: Math.random() > 0.5,
+      peak_afternoon: Math.random() > 0.3,
+      peak_night: Math.random() > 0.7,
+      peak_free_time: Math.random() > 0.8,
+      user_residents: Math.random() > 0.3,
+      user_commercial: Math.random() > 0.5,
+      user_tourists: Math.random() > 0.6,
+      user_etc: pick(["통근차량", "학원차량", null]),
+    }));
+    await batchInsert(supabase, "survey_usage", usageRows);
+
+    // survey_sensor_plan 서브레코드 생성
+    const sensorPlanRows = insertedSurveys.map((srv: any) => {
+      const lot = topLots.find((l: any) => l.id === srv.lot_id) || topLots[0];
+      const totalSpaces = lot.total_spaces || rnd(30, 200);
+      return {
+        survey_id: srv.id,
+        planned_sensors: Math.ceil(totalSpaces * pick([0.5, 0.7, 1.0])),
+        planned_gateways: rnd(1, 4),
+        gateway_location: pick(["입구 상단", "관제실 외벽", "주차장 중앙 기둥", "출구 옆 전봇대"]),
+        display_sw_feasibility: pick(["possible", "needs_upgrade", "not_possible"]),
+        display_sw_note: pick(["기존 시스템 활용 가능", "SW 업그레이드 필요", null]),
+        portal_feasibility: pick(["possible", "needs_network", "not_possible"]),
+        portal_note: pick(["LTE 회선 추가 필요", "기존 인터넷 활용", null]),
+      };
+    });
+    await batchInsert(supabase, "survey_sensor_plan", sensorPlanRows);
   }
 
   console.log("✅ Demo data seed completed for ALL modules (5-depth)");
