@@ -34,7 +34,7 @@ export default function ProcurementProjectNew() {
     work_period_days: 0, work_start_date: '', work_end_date: '',
     qualification: '', evaluation_method: 'qualification', lowest_price_rate: 87.745,
     nara_ref: '', announce_date: '', bid_start_date: '', bid_deadline: '', bid_open_date: '', bid_open_location: '',
-    assigned_to: '',
+    assigned_to: '', author_name: '',
   });
 
   const { data: lots } = useQuery({
