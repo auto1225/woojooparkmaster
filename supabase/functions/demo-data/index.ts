@@ -542,17 +542,23 @@ async function runSeed(supabase: any, userId: string) {
   const compRows = Array.from({ length: 30 }, (_, i) => {
     const lot = pick(lots);
     const cat = pick(compCategories);
+    const createdAt = new Date(Date.now() - rnd(1, 180) * 86400000).toISOString();
+    const status = pick(compStatuses);
     return {
       complaint_number: `CMP-DEMO-${String(i + 1).padStart(4, "0")}`,
       lot_id: lot.id, category: cat, channel: pick(compChannels),
       title: `${lot.name} ${pick(compTitles)}`,
       content: `[DEMO] ${lot.name}에 대한 ${cat} 관련 민원입니다. 신속한 처리 부탁드립니다.`,
-      status: pick(compStatuses),
+      status,
       priority: pick(["low", "normal", "normal", "high", "urgent"]),
       complainant_name: pick(staffNames),
       complainant_phone: `010-${rnd(1000, 9999)}-${rnd(1000, 9999)}`,
+      received_at: createdAt,
+      closed_at: status === "closed" ? new Date(Date.now() - rnd(0, 30) * 86400000).toISOString() : null,
+      responded_at: ["closed", "responded"].includes(status) ? new Date(Date.now() - rnd(1, 60) * 86400000).toISOString() : null,
+      assigned_to: ["in_progress", "responded", "closed"].includes(status) ? userId : null,
       notes: "[DEMO] 데모 민원",
-      created_at: new Date(Date.now() - rnd(1, 180) * 86400000).toISOString(),
+      created_at: createdAt,
     };
   });
   await batchInsert(supabase, "complaints", compRows);
