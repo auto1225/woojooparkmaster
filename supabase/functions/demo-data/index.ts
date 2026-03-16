@@ -1301,29 +1301,77 @@ async function runSeed(supabase: any, userId: string) {
 //  CLEANUP – 데모 데이터 삭제
 // ══════════════════════════════════════════════════════════════════
 async function runCleanup(supabase: any) {
-  // Delete in reverse dependency order
+  console.log("🧹 Starting demo data cleanup...");
 
   // Activity logs
   await supabase.from("activity_logs").delete().eq("details->>demo", "true");
 
+  // Dashboard widgets
+  await supabase.from("dashboard_widgets").delete().like("data_config->>table", "%");
+  // Delete dashboard widgets by checking user-created ones (we'll delete all for demo user)
+
+  // Notifications & messages
+  await supabase.from("notifications").delete().like("message", "[DEMO]%");
+  await supabase.from("message_logs").delete().like("content", "[DEMO]%");
+
+  // Approvals - steps first, then records, then lines
+  const { data: demoApprovalLines } = await supabase.from("approval_lines").select("id").like("line_name", "%결재");
+  if (demoApprovalLines && demoApprovalLines.length > 0) {
+    const lineIds = demoApprovalLines.map((l: any) => l.id);
+    const { data: demoRecords } = await supabase.from("approval_records").select("id").in("line_id", lineIds);
+    if (demoRecords && demoRecords.length > 0) {
+      await supabase.from("approval_steps").delete().in("record_id", demoRecords.map((r: any) => r.id));
+      await supabase.from("approval_records").delete().in("id", demoRecords.map((r: any) => r.id));
+    }
+    await supabase.from("approval_lines").delete().in("id", lineIds);
+  }
+
   // Reports
+  const { data: demoTemplates } = await supabase.from("report_templates").select("id").like("template_code", "RPT-DEMO%");
+  if (demoTemplates && demoTemplates.length > 0) {
+    const tmplIds = demoTemplates.map((t: any) => t.id);
+    await supabase.from("report_generated").delete().in("template_id", tmplIds);
+    await supabase.from("report_schedules").delete().in("template_id", tmplIds);
+  }
   await supabase.from("report_templates").delete().like("template_code", "RPT-DEMO%");
 
-  // Realtime
+  // Surveys
+  const { data: demoSurveys } = await supabase.from("surveys").select("id").like("notes", "[DEMO]%");
+  if (demoSurveys && demoSurveys.length > 0) {
+    const srvIds = demoSurveys.map((s: any) => s.id);
+    await supabase.from("survey_basic_info").delete().in("survey_id", srvIds);
+    await supabase.from("survey_infra").delete().in("survey_id", srvIds);
+    await supabase.from("survey_operation").delete().in("survey_id", srvIds);
+    await supabase.from("survey_photos").delete().in("survey_id", srvIds);
+    await supabase.from("survey_sensor_plan").delete().in("survey_id", srvIds);
+    await supabase.from("survey_usage").delete().in("survey_id", srvIds);
+  }
+  await supabase.from("surveys").delete().like("notes", "[DEMO]%");
+
+  // Realtime - sensor readings, parking spaces
+  await supabase.from("sensor_readings").delete().like("device_id", "SEN-DEMO%");
+  await supabase.from("parking_spaces").delete().like("space_number", "%-0%");
   await supabase.from("display_boards").delete().like("notes", "[DEMO]%");
   await supabase.from("sensor_devices").delete().like("notes", "[DEMO]%");
   await supabase.from("gateway_devices").delete().like("notes", "[DEMO]%");
-  // lot_realtime_status doesn't have notes, clean by checking demo display boards were deleted
 
-  // Planning - design docs first, then construction projects
+  // Revenue reconciliation
+  await supabase.from("revenue_reconciliation").delete().like("notes", "[DEMO]%");
+
+  // Fee policies
+  await supabase.from("fee_policies").delete().like("notes", "[DEMO]%");
+
+  // Planning - permits, design docs, construction projects
   const { data: demoConstProjects } = await supabase.from("construction_projects").select("id").like("notes", "[DEMO]%");
   if (demoConstProjects && demoConstProjects.length > 0) {
-    await supabase.from("design_documents").delete().in("project_id", demoConstProjects.map((p: any) => p.id));
+    const cpIds = demoConstProjects.map((p: any) => p.id);
+    await supabase.from("permits").delete().in("project_id", cpIds);
+    await supabase.from("design_documents").delete().in("project_id", cpIds);
   }
   await supabase.from("construction_projects").delete().like("notes", "[DEMO]%");
   await supabase.from("site_candidates").delete().like("notes", "[DEMO]%");
 
-  // Service - all child tables first, then projects
+  // Service - all child tables first
   const { data: demoSvcProjects } = await supabase.from("service_projects").select("id").like("notes", "[DEMO]%");
   if (demoSvcProjects && demoSvcProjects.length > 0) {
     const svcIds = demoSvcProjects.map((p: any) => p.id);
@@ -1335,7 +1383,7 @@ async function runCleanup(supabase: any) {
   }
   await supabase.from("service_projects").delete().like("notes", "[DEMO]%");
 
-  // Procurement - evaluations, contracts, documents, submissions, then projects
+  // Procurement
   const { data: demoBids } = await supabase.from("bid_projects").select("id").like("notes", "[DEMO]%");
   if (demoBids && demoBids.length > 0) {
     const bidIds = demoBids.map((b: any) => b.id);
@@ -1354,15 +1402,14 @@ async function runCleanup(supabase: any) {
   await supabase.from("budget_executions").delete().like("notes", "[DEMO]%");
   const { data: demoPlans } = await supabase.from("budget_plans").select("id").like("notes", "[DEMO]%");
   if (demoPlans && demoPlans.length > 0) {
-    const planIds = demoPlans.map((p: any) => p.id);
-    await supabase.from("budget_items").delete().in("plan_id", planIds);
+    await supabase.from("budget_items").delete().in("plan_id", demoPlans.map((p: any) => p.id));
   }
   await supabase.from("budget_plans").delete().like("notes", "[DEMO]%");
 
   // Revenue
   await supabase.from("revenue_daily").delete().like("notes", "[DEMO]%");
 
-  // Complaints - comments first
+  // Complaints
   const { data: demoComplaints } = await supabase.from("complaints").select("id").like("notes", "[DEMO]%");
   if (demoComplaints && demoComplaints.length > 0) {
     await supabase.from("complaint_comments").delete().in("complaint_id", demoComplaints.map((c: any) => c.id));
