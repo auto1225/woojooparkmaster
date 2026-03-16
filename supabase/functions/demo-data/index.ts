@@ -1030,12 +1030,13 @@ async function runSeed(supabase: any, userId: string) {
           gateway_id: gw.id,
           zone: pick(["A", "B", "C"]),
           floor: pick([0, 1, -1]),
-          status: pick(["active", "active", "active", "warning", "offline"]),
+          status: pick(["active", "active", "active", "low_battery", "offline"]),
           battery_level: rnd(20, 100),
           rssi: -rnd(40, 100),
           firmware_version: "v2.1.3",
           last_reading: new Date().toISOString(),
           total_readings: rnd(1000, 50000),
+          error_count: rnd(0, 10),
           notes: "[DEMO] 데모 센서",
         });
       }
