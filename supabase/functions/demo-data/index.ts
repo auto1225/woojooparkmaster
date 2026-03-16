@@ -495,14 +495,25 @@ async function runSeed(supabase: any, userId: string) {
       const weekday = new Date(dateStr).getDay();
       const factor = (weekday === 0 || weekday === 6) ? 0.6 : 1.0;
       revRows.push({
-        lot_id: lot.id, revenue_date: dateStr,
+        lot_id: lot.id,
+        revenue_date: dateStr,
         cash_amount: Math.floor(dailyBase * 0.15 * factor * (0.8 + Math.random() * 0.4)),
         card_amount: Math.floor(dailyBase * 0.6 * factor * (0.8 + Math.random() * 0.4)),
         mobile_amount: Math.floor(dailyBase * 0.25 * factor * (0.8 + Math.random() * 0.4)),
+        monthly_pass_amount: Math.floor(dailyBase * 0.18 * factor * (0.8 + Math.random() * 0.3)),
+        other_amount: Math.floor(dailyBase * 0.05 * factor * (0.7 + Math.random() * 0.3)),
         total_amount: Math.floor(dailyBase * factor * (0.8 + Math.random() * 0.4)),
         total_vehicles: Math.floor(lot.total_spaces * factor * (0.5 + Math.random() * 1.5)),
+        peak_hour_vehicles: Math.floor(lot.total_spaces * factor * (0.08 + Math.random() * 0.08)),
+        peak_hour: `${rnd(8, 19)}:00`,
+        avg_parking_minutes: rnd(35, 180),
+        turnover_rate: rnd(80, 260),
+        exemption_count: rnd(0, 20),
+        exemption_amount: rnd(0, 300000),
+        exemption_detail: { disabled: rnd(0, 5), veteran: rnd(0, 4), compact: rnd(0, 8) },
+        data_source: "demo_seed",
+        source_detail: "[DEMO] generated revenue",
         verified: d > 30,
-        notes: "[DEMO] 데모 수입",
       });
     }
     await batchInsert(supabase, "revenue_daily", revRows);
