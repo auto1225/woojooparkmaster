@@ -125,6 +125,125 @@ export type Database = {
           },
         ]
       }
+      api_call_logs: {
+        Row: {
+          api_key_id: string | null
+          called_at: string | null
+          endpoint: string
+          id: string
+          ip_address: string | null
+          method: string
+          response_time_ms: number | null
+          status_code: number | null
+          user_agent: string | null
+        }
+        Insert: {
+          api_key_id?: string | null
+          called_at?: string | null
+          endpoint: string
+          id?: string
+          ip_address?: string | null
+          method?: string
+          response_time_ms?: number | null
+          status_code?: number | null
+          user_agent?: string | null
+        }
+        Update: {
+          api_key_id?: string | null
+          called_at?: string | null
+          endpoint?: string
+          id?: string
+          ip_address?: string | null
+          method?: string
+          response_time_ms?: number | null
+          status_code?: number | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_call_logs_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          allowed_endpoints: string[] | null
+          allowed_ips: string[] | null
+          api_key: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          expires_at: string | null
+          id: string
+          key_name: string
+          key_prefix: string
+          last_used_at: string | null
+          monthly_calls: number | null
+          notes: string | null
+          rate_limit_per_minute: number | null
+          status: string
+          total_calls: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          allowed_endpoints?: string[] | null
+          allowed_ips?: string[] | null
+          api_key: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          key_name: string
+          key_prefix: string
+          last_used_at?: string | null
+          monthly_calls?: number | null
+          notes?: string | null
+          rate_limit_per_minute?: number | null
+          status?: string
+          total_calls?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          allowed_endpoints?: string[] | null
+          allowed_ips?: string[] | null
+          api_key?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          key_name?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          monthly_calls?: number | null
+          notes?: string | null
+          rate_limit_per_minute?: number | null
+          status?: string
+          total_calls?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "complaint_staff_performance"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "api_keys_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approval_lines: {
         Row: {
           created_at: string | null
