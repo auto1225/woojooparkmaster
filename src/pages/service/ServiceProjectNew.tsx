@@ -304,6 +304,9 @@ export default function ServiceProjectNew() {
         </Card>
 
         <div className="flex justify-end gap-2">
+          <AuthorField value={form.author_name} onChange={v => set("author_name", v)} />
+        </div>
+        <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => navigate("/service/projects")}>취소</Button>
           <Button onClick={handleSave} disabled={saving}>{saving ? "저장 중..." : "등록"}</Button>
         </div>

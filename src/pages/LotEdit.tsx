@@ -321,6 +321,13 @@ export default function LotEditPage() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader><CardTitle className="text-sm">작성자</CardTitle></CardHeader>
+          <CardContent>
+            <AuthorField value={authorName} onChange={setAuthorName} />
+          </CardContent>
+        </Card>
+
         <div className="flex gap-3">
           <Button type="submit" disabled={saving}>
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />} 저장

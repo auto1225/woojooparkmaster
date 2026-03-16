@@ -112,6 +112,7 @@ export default function ComplaintNew() {
         saeol_ref: form.saeol_ref || null,
         status,
         created_by: profile?.id,
+        author_name: form.author_name || profile?.name || null,
       };
 
       const { data, error } = await supabase.from("complaints").insert(insertData).select().single();

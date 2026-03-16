@@ -201,6 +201,7 @@ export default function ProcurementProjectNew() {
                   <div><Label>개찰일</Label><Input type="date" value={form.bid_open_date} onChange={e => update('bid_open_date', e.target.value)} /></div>
                   <div><Label>개찰 장소</Label><Input value={form.bid_open_location} onChange={e => update('bid_open_location', e.target.value)} /></div>
                 </div>
+                <AuthorField value={form.author_name} onChange={v => update('author_name', v)} />
               </>
             )}
           </CardContent>
