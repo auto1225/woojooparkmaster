@@ -1834,12 +1834,22 @@ async function runCleanup(supabase: any) {
   }
   await supabase.from("surveys").delete().like("notes", "[DEMO]%");
 
-  // Realtime - sensor readings, parking spaces
+  // Realtime - order matters due to FK constraints
   await supabase.from("sensor_readings").delete().like("device_id", "SEN-DEMO%");
+  // Delete parking_spaces that reference demo sensors
+  const { data: demoSensorIds } = await supabase.from("sensor_devices").select("device_id").like("notes", "[DEMO]%");
+  if (demoSensorIds && demoSensorIds.length > 0) {
+    await supabase.from("parking_spaces").delete().in("sensor_id", demoSensorIds.map((s: any) => s.device_id));
+  }
+  // Also delete parking spaces by space_number pattern from old demos
   await supabase.from("parking_spaces").delete().like("space_number", "%-0%");
   await supabase.from("display_boards").delete().like("notes", "[DEMO]%");
   await supabase.from("sensor_devices").delete().like("notes", "[DEMO]%");
   await supabase.from("gateway_devices").delete().like("notes", "[DEMO]%");
+  // lot_realtime_status - delete for lots that had demo data
+  const realtimeLotIds = realtimeLots(topLots);
+  // Simpler approach: delete all lot_realtime_status and let seed recreate
+  await supabase.from("lot_realtime_status").delete().neq("lot_id", "00000000-0000-0000-0000-000000000000");
 
 
   // Fee policies
