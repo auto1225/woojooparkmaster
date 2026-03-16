@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, ChevronRight, Calendar, List, Plus } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { toast } from "sonner";
 import { ScheduleCalendarView } from "@/components/facility/ScheduleCalendarView";
 import { ScheduleDetailSheet } from "@/components/facility/ScheduleDetailSheet";
