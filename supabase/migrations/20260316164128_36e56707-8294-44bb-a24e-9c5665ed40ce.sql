@@ -1,0 +1,26 @@
+
+ALTER TABLE fee_policies ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE fee_exemptions ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE free_hours_settings ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE outsourcing_contracts ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE enforcement_records ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE monthly_passes ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE operations_staff ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE revenue_daily ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE revenue_reconciliation ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE complaints ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE parking_lots ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE bid_projects ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE service_projects ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE surveys ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE budget_plans ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE budget_executions ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE budget_transfers ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE maintenance_logs ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE safety_inspections ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE equipment ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE surface_markings ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE service_payments ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE construction_projects ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE permits ADD COLUMN IF NOT EXISTS author_name text;
+ALTER TABLE site_candidates ADD COLUMN IF NOT EXISTS author_name text;
