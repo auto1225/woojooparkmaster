@@ -1169,22 +1169,22 @@ async function runSeed(supabase: any, userId: string) {
       const repCash = sysCash + rnd(-200000, 200000);
       const repCard = sysCard + rnd(-100000, 100000);
       const repMobile = sysMobile + rnd(-50000, 50000);
-      rows.push({
-        lot_id: lot.id,
-        recon_number: `RC-DEMO-${String(i * 3 + m).padStart(4, "0")}`,
-        period_type: "monthly",
-        period_start: `${currentYear}-${monthStr}-01`,
-        period_end: `${currentYear}-${monthStr}-${m === 2 ? "28" : "30"}`,
-        system_cash: sysCash, system_card: sysCard, system_mobile: sysMobile, system_other: 0,
-        system_total: sysCash + sysCard + sysMobile,
-        reported_cash: repCash, reported_card: repCard, reported_mobile: repMobile, reported_other: 0,
-        reported_total: repCash + repCard + repMobile,
-        diff_amount: (repCash + repCard + repMobile) - (sysCash + sysCard + sysMobile),
-        diff_analysis: "[DEMO] 시스템 매출과 정산 보고서 비교 데이터",
-        status: m === 1 ? "pending" : pick(["matched", "resolved", "discrepancy"]),
-        company_name: pick(["(주)제주파킹", "(주)그린주차", "스마트주차관리"]),
-        created_by: userId,
-      });
+        rows.push({
+          lot_id: lot.id,
+          recon_number: `RC-DEMO-${String(i * 3 + m).padStart(4, "0")}`,
+          period_type: "monthly",
+          period_start: `${currentYear}-${monthStr}-01`,
+          period_end: `${currentYear}-${monthStr}-${m === 2 ? "28" : "30"}`,
+          system_cash: sysCash, system_card: sysCard, system_mobile: sysMobile, system_other: 0,
+          // system_total, reported_total, diff_amount are generated columns
+          reported_cash: repCash, reported_card: repCard, reported_mobile: repMobile, reported_other: 0,
+          reported_vehicles: rnd(5000, 20000),
+          system_vehicles: rnd(5000, 20000),
+          diff_analysis: "[DEMO] 시스템 매출과 정산 보고서 비교 데이터",
+          status: m === 1 ? "pending" : pick(["matched", "resolved", "discrepancy"]),
+          company_name: pick(["(주)제주파킹", "(주)그린주차", "스마트주차관리"]),
+          created_by: userId,
+        });
     }
     return rows;
   });
