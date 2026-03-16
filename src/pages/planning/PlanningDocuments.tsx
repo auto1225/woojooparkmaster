@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { Plus, Upload, FileText } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { DOC_TYPE_LABELS, DOC_CATEGORY_LABELS, REVIEW_STATUS_LABELS } from "@/types/planning";
 
 export default function PlanningDocuments() {
