@@ -1369,30 +1369,39 @@ async function runSeed(supabase: any, userId: string) {
   // ══════════════════════════════════════════
   //  17. 현황조사 – surveys, survey_basic_info
   // ══════════════════════════════════════════
-  const surveyRows = topLots.slice(0, 5).map((lot: any, i: number) => ({
+  const surveyRows = topLots.slice(0, 5).map((lot: any) => ({
     lot_id: lot.id,
-    survey_number: `SRV-DEMO-${String(i + 1).padStart(4, "0")}`,
-    title: `${lot.name} 현황조사`,
+    survey_type: "facility_status",
     status: pick(["draft", "in_progress", "submitted", "approved"]),
     surveyor_id: userId,
-    surveyor_name: "관리자",
     survey_date: daysAgo(rnd(10, 90)),
     notes: "[DEMO] 데모 현황조사",
   }));
   const { data: insertedSurveys } = await supabase.from("surveys").insert(surveyRows).select("id, lot_id");
 
   if (insertedSurveys && insertedSurveys.length > 0) {
-    const basicInfoRows = insertedSurveys.map((srv: any, i: number) => {
+    const basicInfoRows = insertedSurveys.map((srv: any) => {
       const lot = topLots.find((l: any) => l.id === srv.lot_id) || topLots[0];
       return {
         survey_id: srv.id,
         lot_name: lot.name,
-        lot_code: lot.code,
+        address: `제주시 ${pick(["연동", "노형동", "이도동"])} ${rnd(1, 200)}`,
         lot_type: pick(["offstreet", "onstreet", "multilevel"]),
-        address_road: `제주시 ${pick(["연동", "노형동", "이도동"])} ${rnd(1, 200)}`,
-        total_spaces: lot.total_spaces,
+        lot_type_floor: pick(["지상", "지하", "복층"]),
         operator_type: pick(["direct", "outsourced"]),
-        status: pick(["active", "inactive"]),
+        total_spaces: lot.total_spaces,
+        disabled_spaces: rnd(1, 6),
+        ev_spaces: rnd(0, 5),
+        compact_spaces: rnd(0, 12),
+        pregnant_spaces: rnd(0, 3),
+        other_spaces: rnd(0, 2),
+        other_spaces_desc: "임시차량",
+        entry_count: rnd(1, 4),
+        exit_count: rnd(1, 4),
+        entry_exit_same: Math.random() > 0.5,
+        surface_type: pick(["ascon", "block", "concrete"]),
+        gps_lat: 33.49 + Math.random() * 0.04,
+        gps_lng: 126.51 + Math.random() * 0.06,
       };
     });
     await batchInsert(supabase, "survey_basic_info", basicInfoRows);
