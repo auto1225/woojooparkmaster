@@ -28,6 +28,26 @@ export default function SettingsPage() {
   const [editedConfig, setEditedConfig] = useState<Record<string, string>>({});
   const [demoGenDialog, setDemoGenDialog] = useState(false);
   const [demoCleanDialog, setDemoCleanDialog] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  const runDemoAction = async (action: "seed" | "cleanup") => {
+    setDemoLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("로그인이 필요합니다"); return; }
+      const { data, error } = await supabase.functions.invoke("demo-data", {
+        body: { action },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(data?.message || "완료");
+      queryClient.invalidateQueries();
+    } catch (e: any) {
+      toast.error(e.message || "처리 중 오류가 발생했습니다");
+    } finally {
+      setDemoLoading(false);
+    }
+  };
 
   const isAdmin = profile?.role === "admin";
   const configValue = (key: string) => editedConfig[key] ?? config?.[key] ?? "";
