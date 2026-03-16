@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, List, Columns3 } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { toast } from "sonner";
 import { PRIORITY_LABELS, PRIORITY_COLORS, MAINT_STATUS_LABELS, MAINT_TYPE_LABELS } from "@/types/facility";
 import type { MaintenanceLog, MaintenanceLogStatus } from "@/types/facility";
