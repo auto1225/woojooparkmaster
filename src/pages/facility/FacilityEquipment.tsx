@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, LayoutGrid, List } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { toast } from "sonner";
 import { EQUIPMENT_TYPE_LABELS, EQUIPMENT_STATUS_LABELS, EQUIPMENT_STATUS_COLORS } from "@/types/facility";
 import type { Equipment } from "@/types/facility";
