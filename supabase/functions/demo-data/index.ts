@@ -637,11 +637,11 @@ async function runSeed(supabase: any, userId: string) {
         peak_hour_vehicles: Math.floor(Math.max(lot.total_spaces, 30) * factor * (0.08 + Math.random() * 0.08)),
         peak_hour: `${rnd(8, 19)}:00`,
         avg_parking_minutes: rnd(35, 180),
-        turnover_rate: rnd(80, 260),
+        turnover_rate: Math.round((1 + Math.random() * 5) * 100) / 100,
         exemption_count: rnd(0, 20),
         exemption_amount: rnd(0, 300000),
         exemption_detail: { disabled: rnd(0, 5), veteran: rnd(0, 4), compact: rnd(0, 8) },
-        data_source: "demo_seed",
+        data_source: pick(["manual", "kiosk", "system", "import"]),
         source_detail: "[DEMO] generated revenue",
         verified: d > 7,
       });
