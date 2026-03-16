@@ -399,14 +399,14 @@ async function runSeed(supabase: any, userId: string) {
 
   // Fee exemptions (8)
   const exemptionRows = [
-    { exemption_name: "장애인 감면", exemption_type: "disabled", discount_type: "rate", discount_rate: 50, legal_basis: "주차장법 제10조", notes: "[DEMO]" },
-    { exemption_name: "국가유공자 감면", exemption_type: "veteran", discount_type: "rate", discount_rate: 50, legal_basis: "국가유공자법", notes: "[DEMO]" },
-    { exemption_name: "경차 감면", exemption_type: "compact_car", discount_type: "rate", discount_rate: 50, legal_basis: "주차장법", notes: "[DEMO]" },
-    { exemption_name: "전기차 감면", exemption_type: "ev", discount_type: "rate", discount_rate: 50, legal_basis: "환경부 고시", notes: "[DEMO]" },
-    { exemption_name: "다자녀 감면", exemption_type: "multi_child", discount_type: "rate", discount_rate: 50, legal_basis: "지자체 조례", notes: "[DEMO]" },
-    { exemption_name: "임산부 감면", exemption_type: "pregnant", discount_type: "rate", discount_rate: 50, legal_basis: "지자체 조례", notes: "[DEMO]" },
-    { exemption_name: "공무 차량", exemption_type: "official", discount_type: "full", discount_rate: 100, legal_basis: "지자체 내규", notes: "[DEMO]" },
-    { exemption_name: "30분 무료", exemption_type: "free_time", discount_type: "time", max_hours: 0.5, legal_basis: "주차장 조례", notes: "[DEMO]" },
+    { exemption_name: "장애인 감면", exemption_type: "disabled", discount_type: "rate", discount_rate: 50, legal_basis: "주차장법 제10조" },
+    { exemption_name: "국가유공자 감면", exemption_type: "veteran", discount_type: "rate", discount_rate: 50, legal_basis: "국가유공자법" },
+    { exemption_name: "경차 감면", exemption_type: "compact_car", discount_type: "rate", discount_rate: 50, legal_basis: "주차장법" },
+    { exemption_name: "전기차 감면", exemption_type: "ev", discount_type: "rate", discount_rate: 50, legal_basis: "환경부 고시" },
+    { exemption_name: "다자녀 감면", exemption_type: "multi_child", discount_type: "rate", discount_rate: 50, legal_basis: "지자체 조례" },
+    { exemption_name: "임산부 감면", exemption_type: "pregnant", discount_type: "rate", discount_rate: 50, legal_basis: "지자체 조례" },
+    { exemption_name: "공무 차량", exemption_type: "official", discount_type: "full", discount_rate: 100, legal_basis: "지자체 내규" },
+    { exemption_name: "30분 무료", exemption_type: "free_time", discount_type: "time", max_hours: 0.5, legal_basis: "주차장 조례" },
   ].map(r => ({ ...r, is_active: true }));
   await batchInsert(supabase, "fee_exemptions", exemptionRows);
 
