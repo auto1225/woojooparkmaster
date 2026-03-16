@@ -1527,7 +1527,7 @@ async function runCleanup(supabase: any) {
 
   // Facility
   await supabase.from("surface_markings").delete().like("notes", "[DEMO]%");
-  await supabase.from("maintenance_schedules").delete().like("notes", "[DEMO]%");
+  await supabase.from("maintenance_schedules").delete().like("description", "[DEMO]%");
   await supabase.from("safety_inspections").delete().like("notes", "[DEMO]%");
   await supabase.from("maintenance_logs").delete().like("notes", "[DEMO]%");
   await supabase.from("equipment").delete().like("notes", "[DEMO]%");
