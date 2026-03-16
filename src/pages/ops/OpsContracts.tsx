@@ -18,6 +18,7 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { CONTRACT_STATUS_LABELS, CONTRACT_STATUS_COLORS } from "@/types/operations";
 import { Plus, Trash2 } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 export default function OpsContractsPage() {
   const queryClient = useQueryClient();
