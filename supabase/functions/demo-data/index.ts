@@ -722,8 +722,7 @@ async function runSeed(supabase: any, userId: string) {
   // ══════════════════════════════════════════
   //  6. 입찰관리 – bid_projects, bid_submissions
   // ══════════════════════════════════════════
-  const bidTypes = ["open_competitive", "limited_competitive", "negotiated"];
-  const bidCategories = ["construction", "service", "goods", "maintenance"];
+  const bidTypes = ["open", "limited", "private", "negotiation"];
   const bidProjectRows = Array.from({ length: 5 }, (_, i) => ({
     bid_number: `BID-DEMO-${currentYear}-${String(i + 1).padStart(3, "0")}`,
     title: pick([
@@ -734,14 +733,14 @@ async function runSeed(supabase: any, userId: string) {
       "주차장 안전시설 보강 공사",
     ]),
     bid_type: pick(bidTypes),
-    contract_type: pick(["lump_sum", "unit_price"]),
-    category: pick(bidCategories),
+    contract_type: pick(["construction", "goods", "service", "lease", "outsourcing"]),
+    category: pick(["construction", "service", "goods"]),
     estimated_amount: rnd(50000000, 500000000),
-    status: pick(["announced", "bidding", "evaluation", "contracted", "completed"]),
+    status: pick(["announced", "bidding", "evaluation", "contracted"]),
     announce_date: daysAgo(rnd(30, 180)),
     bid_deadline: daysAgo(rnd(1, 29)),
     description: `[DEMO] 데모 입찰 사업 ${i + 1}`,
-    evaluation_method: pick(["lowest_price", "comprehensive"]),
+    evaluation_method: pick(["lowest_price", "qualification", "technical", "negotiation"]),
     notes: "[DEMO] 데모 입찰",
   }));
 
