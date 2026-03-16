@@ -1507,7 +1507,8 @@ async function runCleanup(supabase: any) {
   await supabase.from("budget_plans").delete().like("notes", "[DEMO]%");
 
   // Revenue
-  await supabase.from("revenue_daily").delete().like("notes", "[DEMO]%");
+  await supabase.from("revenue_daily").delete().eq("data_source", "demo_seed");
+  await supabase.from("revenue_reconciliation").delete().eq("created_by", userId);
 
   // Complaints
   const { data: demoComplaints } = await supabase.from("complaints").select("id").like("notes", "[DEMO]%");
@@ -1517,8 +1518,8 @@ async function runCleanup(supabase: any) {
   await supabase.from("complaints").delete().like("notes", "[DEMO]%");
 
   // Operations
-  await supabase.from("free_hours_settings").delete().like("notes", "[DEMO]%");
-  await supabase.from("fee_exemptions").delete().like("notes", "[DEMO]%");
+  await supabase.from("free_hours_settings").delete().like("setting_name", "%무료시간");
+  await supabase.from("fee_exemptions").delete().in("exemption_name", ["장애인 감면", "국가유공자 감면", "경차 감면", "전기차 감면", "다자녀 감면", "임산부 감면", "공무 차량", "30분 무료"]);
   await supabase.from("outsourcing_contracts").delete().like("notes", "[DEMO]%");
   await supabase.from("monthly_passes").delete().like("notes", "[DEMO]%");
   await supabase.from("enforcement_records").delete().like("notes", "[DEMO]%");
