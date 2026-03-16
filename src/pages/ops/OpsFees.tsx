@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "@/hooks/use-toast";
 import { DAY_TYPE_LABELS } from "@/types/operations";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 export default function OpsFeesPage() {
   const queryClient = useQueryClient();
