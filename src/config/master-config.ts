@@ -190,7 +190,7 @@ MODULES.OPS = {
         { key: '_no', label: '번호', group: '기본정보', width: 50, sticky: true },
         { key: 'lot_code', label: '코드', group: '기본정보', width: 80, sticky: true },
         { key: 'lot_name', label: '주차장', group: '기본정보', width: 120, sticky: true },
-        { key: 'contractor_name', label: '위탁업체', group: '계약정보', width: 120 },
+        { key: 'company_name', label: '위탁업체', group: '계약정보', width: 120 },
         { key: 'contract_start', label: '시작일', group: '계약정보', format: 'date', width: 100 },
         { key: 'contract_end', label: '종료일', group: '계약정보', format: 'date', width: 100 },
         { key: 'contract_amount', label: '계약금액', group: '계약정보', format: 'currency', subTotal: 'sum', width: 120 },
@@ -202,7 +202,7 @@ MODULES.OPS = {
         const { data } = await supabase.from('outsourcing_contracts').select('*, parking_lots(code, name)').order('contract_start', { ascending: false });
         return (data || []).map((c: any, i: number) => ({
           _no: i + 1, lot_code: c.parking_lots?.code, lot_name: c.parking_lots?.name,
-          contractor_name: c.contractor_name, contract_start: c.contract_start, contract_end: c.contract_end,
+          company_name: c.company_name, contract_start: c.contract_start, contract_end: c.contract_end,
           contract_amount: c.contract_amount, revenue_share_rate: c.revenue_share_rate, status: c.status,
           remaining_days: c.contract_end ? Math.max(0, Math.ceil((new Date(c.contract_end).getTime() - Date.now()) / 86400000)) : 0,
         }));
