@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { logActivity } from "@/lib/activity-logger";
 import { BID_TYPE_LABELS, CONTRACT_TYPE_LABELS, EVAL_METHOD_LABELS } from "@/types/procurement";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 const bidTypeDescriptions: Record<string, string> = {
   open: '2인 이상 경쟁 입찰 — 가장 일반적', limited: '특정 자격 제한 경쟁',
@@ -33,7 +34,7 @@ export default function ProcurementProjectNew() {
     work_period_days: 0, work_start_date: '', work_end_date: '',
     qualification: '', evaluation_method: 'qualification', lowest_price_rate: 87.745,
     nara_ref: '', announce_date: '', bid_start_date: '', bid_deadline: '', bid_open_date: '', bid_open_location: '',
-    assigned_to: '',
+    assigned_to: '', author_name: '',
   });
 
   const { data: lots } = useQuery({
@@ -76,6 +77,7 @@ export default function ProcurementProjectNew() {
       bid_deadline: form.bid_deadline ? new Date(form.bid_deadline).toISOString() : null,
       bid_open_date: form.bid_open_date || null, bid_open_location: form.bid_open_location || null,
       assigned_to: form.assigned_to || null, created_by: profile?.id,
+      author_name: (form as any).author_name || profile?.name || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success('입찰 사업 등록 완료');
@@ -199,6 +201,7 @@ export default function ProcurementProjectNew() {
                   <div><Label>개찰일</Label><Input type="date" value={form.bid_open_date} onChange={e => update('bid_open_date', e.target.value)} /></div>
                   <div><Label>개찰 장소</Label><Input value={form.bid_open_location} onChange={e => update('bid_open_location', e.target.value)} /></div>
                 </div>
+                <AuthorField value={form.author_name} onChange={v => update('author_name', v)} />
               </>
             )}
           </CardContent>

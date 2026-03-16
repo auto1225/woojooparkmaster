@@ -832,6 +832,7 @@ export type Database = {
         Row: {
           announce_date: string | null
           assigned_to: string | null
+          author_name: string | null
           bid_deadline: string | null
           bid_number: string
           bid_open_date: string | null
@@ -875,6 +876,7 @@ export type Database = {
         Insert: {
           announce_date?: string | null
           assigned_to?: string | null
+          author_name?: string | null
           bid_deadline?: string | null
           bid_number: string
           bid_open_date?: string | null
@@ -918,6 +920,7 @@ export type Database = {
         Update: {
           announce_date?: string | null
           assigned_to?: string | null
+          author_name?: string | null
           bid_deadline?: string | null
           bid_number?: string
           bid_open_date?: string | null
@@ -1127,6 +1130,7 @@ export type Database = {
           amount: number
           approved_at: string | null
           approved_by: string | null
+          author_name: string | null
           bank_account: string | null
           created_at: string | null
           created_by: string | null
@@ -1156,6 +1160,7 @@ export type Database = {
           amount: number
           approved_at?: string | null
           approved_by?: string | null
+          author_name?: string | null
           bank_account?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -1185,6 +1190,7 @@ export type Database = {
           amount?: number
           approved_at?: string | null
           approved_by?: string | null
+          author_name?: string | null
           bank_account?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -1432,6 +1438,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          author_name: string | null
           balance: number | null
           created_at: string | null
           created_by: string | null
@@ -1453,6 +1460,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          author_name?: string | null
           balance?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -1474,6 +1482,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          author_name?: string | null
           balance?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -1543,6 +1552,7 @@ export type Database = {
           approval_number: string | null
           approved_at: string | null
           approved_by: string | null
+          author_name: string | null
           created_at: string | null
           created_by: string | null
           fiscal_year: number
@@ -1564,6 +1574,7 @@ export type Database = {
           approval_number?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          author_name?: string | null
           created_at?: string | null
           created_by?: string | null
           fiscal_year: number
@@ -1585,6 +1596,7 @@ export type Database = {
           approval_number?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          author_name?: string | null
           created_at?: string | null
           created_by?: string | null
           fiscal_year?: number
@@ -1769,6 +1781,7 @@ export type Database = {
           assigned_team: Database["public"]["Enums"]["team_type"] | null
           assigned_to: string | null
           attachment_paths: Json | null
+          author_name: string | null
           category: string
           channel: string
           closed_at: string | null
@@ -1820,6 +1833,7 @@ export type Database = {
           assigned_team?: Database["public"]["Enums"]["team_type"] | null
           assigned_to?: string | null
           attachment_paths?: Json | null
+          author_name?: string | null
           category: string
           channel: string
           closed_at?: string | null
@@ -1871,6 +1885,7 @@ export type Database = {
           assigned_team?: Database["public"]["Enums"]["team_type"] | null
           assigned_to?: string | null
           attachment_paths?: Json | null
+          author_name?: string | null
           category?: string
           channel?: string
           closed_at?: string | null
@@ -1986,6 +2001,7 @@ export type Database = {
       construction_projects: {
         Row: {
           actual_completion: string | null
+          author_name: string | null
           bid_contract_id: string | null
           budget_execution_rate: number | null
           budget_item_id: string | null
@@ -2032,6 +2048,7 @@ export type Database = {
         }
         Insert: {
           actual_completion?: string | null
+          author_name?: string | null
           bid_contract_id?: string | null
           budget_execution_rate?: number | null
           budget_item_id?: string | null
@@ -2078,6 +2095,7 @@ export type Database = {
         }
         Update: {
           actual_completion?: string | null
+          author_name?: string | null
           bid_contract_id?: string | null
           budget_execution_rate?: number | null
           budget_item_id?: string | null
@@ -2517,6 +2535,7 @@ export type Database = {
           appeal_reason: string | null
           appeal_result: string | null
           appeal_status: string | null
+          author_name: string | null
           created_at: string | null
           enforcement_number: string
           fine_amount: number | null
@@ -2542,6 +2561,7 @@ export type Database = {
           appeal_reason?: string | null
           appeal_result?: string | null
           appeal_status?: string | null
+          author_name?: string | null
           created_at?: string | null
           enforcement_number: string
           fine_amount?: number | null
@@ -2567,6 +2587,7 @@ export type Database = {
           appeal_reason?: string | null
           appeal_result?: string | null
           appeal_status?: string | null
+          author_name?: string | null
           created_at?: string | null
           enforcement_number?: string
           fine_amount?: number | null
@@ -2620,6 +2641,7 @@ export type Database = {
       }
       equipment: {
         Row: {
+          author_name: string | null
           created_at: string | null
           current_value: number | null
           depreciation_method: string | null
@@ -2658,6 +2680,7 @@ export type Database = {
           warranty_start: string | null
         }
         Insert: {
+          author_name?: string | null
           created_at?: string | null
           current_value?: number | null
           depreciation_method?: string | null
@@ -2696,6 +2719,7 @@ export type Database = {
           warranty_start?: string | null
         }
         Update: {
+          author_name?: string | null
           created_at?: string | null
           current_value?: number | null
           depreciation_method?: string | null
@@ -2766,6 +2790,7 @@ export type Database = {
       }
       fee_exemptions: {
         Row: {
+          author_name: string | null
           created_at: string | null
           description: string | null
           discount_amount: number | null
@@ -2784,6 +2809,7 @@ export type Database = {
           required_documents: string | null
         }
         Insert: {
+          author_name?: string | null
           created_at?: string | null
           description?: string | null
           discount_amount?: number | null
@@ -2802,6 +2828,7 @@ export type Database = {
           required_documents?: string | null
         }
         Update: {
+          author_name?: string | null
           created_at?: string | null
           description?: string | null
           discount_amount?: number | null
@@ -2841,6 +2868,7 @@ export type Database = {
           add_fee: number | null
           add_minutes: number | null
           approved_by: string | null
+          author_name: string | null
           base_fee: number | null
           base_minutes: number | null
           created_at: string | null
@@ -2864,6 +2892,7 @@ export type Database = {
           add_fee?: number | null
           add_minutes?: number | null
           approved_by?: string | null
+          author_name?: string | null
           base_fee?: number | null
           base_minutes?: number | null
           created_at?: string | null
@@ -2887,6 +2916,7 @@ export type Database = {
           add_fee?: number | null
           add_minutes?: number | null
           approved_by?: string | null
+          author_name?: string | null
           base_fee?: number | null
           base_minutes?: number | null
           created_at?: string | null
@@ -2954,6 +2984,7 @@ export type Database = {
       free_hours_settings: {
         Row: {
           approved_by: string | null
+          author_name: string | null
           created_at: string | null
           day_type: string
           effective_from: string | null
@@ -2968,6 +2999,7 @@ export type Database = {
         }
         Insert: {
           approved_by?: string | null
+          author_name?: string | null
           created_at?: string | null
           day_type: string
           effective_from?: string | null
@@ -2982,6 +3014,7 @@ export type Database = {
         }
         Update: {
           approved_by?: string | null
+          author_name?: string | null
           created_at?: string | null
           day_type?: string
           effective_from?: string | null
@@ -3296,6 +3329,7 @@ export type Database = {
           after_photo: string | null
           assigned_at: string | null
           assigned_to: string | null
+          author_name: string | null
           before_photo: string | null
           cause: string | null
           checklist_results: Json | null
@@ -3335,6 +3369,7 @@ export type Database = {
           after_photo?: string | null
           assigned_at?: string | null
           assigned_to?: string | null
+          author_name?: string | null
           before_photo?: string | null
           cause?: string | null
           checklist_results?: Json | null
@@ -3374,6 +3409,7 @@ export type Database = {
           after_photo?: string | null
           assigned_at?: string | null
           assigned_to?: string | null
+          author_name?: string | null
           before_photo?: string | null
           cause?: string | null
           checklist_results?: Json | null
@@ -3729,6 +3765,7 @@ export type Database = {
       }
       monthly_passes: {
         Row: {
+          author_name: string | null
           auto_renew: boolean | null
           created_at: string | null
           fee_amount: number
@@ -3754,6 +3791,7 @@ export type Database = {
           vehicle_type: string | null
         }
         Insert: {
+          author_name?: string | null
           auto_renew?: boolean | null
           created_at?: string | null
           fee_amount: number
@@ -3779,6 +3817,7 @@ export type Database = {
           vehicle_type?: string | null
         }
         Update: {
+          author_name?: string | null
           auto_renew?: boolean | null
           created_at?: string | null
           fee_amount?: number
@@ -3897,6 +3936,7 @@ export type Database = {
       }
       operations_staff: {
         Row: {
+          author_name: string | null
           created_at: string | null
           hire_date: string | null
           id: string
@@ -3912,6 +3952,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          author_name?: string | null
           created_at?: string | null
           hire_date?: string | null
           id?: string
@@ -3927,6 +3968,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          author_name?: string | null
           created_at?: string | null
           hire_date?: string | null
           id?: string
@@ -3960,6 +4002,7 @@ export type Database = {
       }
       outsourcing_contracts: {
         Row: {
+          author_name: string | null
           auto_renew: boolean | null
           business_number: string | null
           company_name: string
@@ -3985,6 +4028,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          author_name?: string | null
           auto_renew?: boolean | null
           business_number?: string | null
           company_name: string
@@ -4010,6 +4054,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          author_name?: string | null
           auto_renew?: boolean | null
           business_number?: string | null
           company_name?: string
@@ -4070,6 +4115,7 @@ export type Database = {
           address_jibun: string | null
           address_road: string | null
           area_sqm: number | null
+          author_name: string | null
           code: string
           compact_spaces: number | null
           control_system_linked: boolean | null
@@ -4110,6 +4156,7 @@ export type Database = {
           address_jibun?: string | null
           address_road?: string | null
           area_sqm?: number | null
+          author_name?: string | null
           code: string
           compact_spaces?: number | null
           control_system_linked?: boolean | null
@@ -4150,6 +4197,7 @@ export type Database = {
           address_jibun?: string | null
           address_road?: string | null
           area_sqm?: number | null
+          author_name?: string | null
           code?: string
           compact_spaces?: number | null
           control_system_linked?: boolean | null
@@ -4264,6 +4312,7 @@ export type Database = {
           application_doc_path: string | null
           approval_doc_path: string | null
           assigned_to: string | null
+          author_name: string | null
           authority: string
           authority_contact: string | null
           authority_department: string | null
@@ -4293,6 +4342,7 @@ export type Database = {
           application_doc_path?: string | null
           approval_doc_path?: string | null
           assigned_to?: string | null
+          author_name?: string | null
           authority: string
           authority_contact?: string | null
           authority_department?: string | null
@@ -4322,6 +4372,7 @@ export type Database = {
           application_doc_path?: string | null
           approval_doc_path?: string | null
           assigned_to?: string | null
+          author_name?: string | null
           authority?: string
           authority_contact?: string | null
           authority_department?: string | null
@@ -4889,6 +4940,7 @@ export type Database = {
       }
       revenue_daily: {
         Row: {
+          author_name: string | null
           avg_parking_minutes: number | null
           card_amount: number | null
           cash_amount: number | null
@@ -4917,6 +4969,7 @@ export type Database = {
           verified_by: string | null
         }
         Insert: {
+          author_name?: string | null
           avg_parking_minutes?: number | null
           card_amount?: number | null
           cash_amount?: number | null
@@ -4945,6 +4998,7 @@ export type Database = {
           verified_by?: string | null
         }
         Update: {
+          author_name?: string | null
           avg_parking_minutes?: number | null
           card_amount?: number | null
           cash_amount?: number | null
@@ -5019,6 +5073,7 @@ export type Database = {
       }
       revenue_reconciliation: {
         Row: {
+          author_name: string | null
           company_name: string | null
           contract_id: string | null
           created_at: string | null
@@ -5056,6 +5111,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          author_name?: string | null
           company_name?: string | null
           contract_id?: string | null
           created_at?: string | null
@@ -5093,6 +5149,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          author_name?: string | null
           company_name?: string | null
           contract_id?: string | null
           created_at?: string | null
@@ -5176,6 +5233,7 @@ export type Database = {
       }
       safety_inspections: {
         Row: {
+          author_name: string | null
           checklist_results: Json
           checklist_template: string | null
           correction_completed: string | null
@@ -5207,6 +5265,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          author_name?: string | null
           checklist_results: Json
           checklist_template?: string | null
           correction_completed?: string | null
@@ -5238,6 +5297,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          author_name?: string | null
           checklist_results?: Json
           checklist_template?: string | null
           correction_completed?: string | null
@@ -6251,6 +6311,7 @@ export type Database = {
           advance_deduction: number | null
           approved_at: string | null
           approved_by: string | null
+          author_name: string | null
           bank_account: string | null
           bank_name: string | null
           budget_execution_id: string | null
@@ -6286,6 +6347,7 @@ export type Database = {
           advance_deduction?: number | null
           approved_at?: string | null
           approved_by?: string | null
+          author_name?: string | null
           bank_account?: string | null
           bank_name?: string | null
           budget_execution_id?: string | null
@@ -6321,6 +6383,7 @@ export type Database = {
           advance_deduction?: number | null
           approved_at?: string | null
           approved_by?: string | null
+          author_name?: string | null
           bank_account?: string | null
           bank_name?: string | null
           budget_execution_id?: string | null
@@ -6408,6 +6471,7 @@ export type Database = {
         Row: {
           actual_end_date: string | null
           actual_start_date: string | null
+          author_name: string | null
           bid_contract_id: string | null
           budget_item_id: string | null
           contract_amount: number
@@ -6465,6 +6529,7 @@ export type Database = {
         Insert: {
           actual_end_date?: string | null
           actual_start_date?: string | null
+          author_name?: string | null
           bid_contract_id?: string | null
           budget_item_id?: string | null
           contract_amount: number
@@ -6522,6 +6587,7 @@ export type Database = {
         Update: {
           actual_end_date?: string | null
           actual_start_date?: string | null
+          author_name?: string | null
           bid_contract_id?: string | null
           budget_item_id?: string | null
           contract_amount?: number
@@ -6657,6 +6723,7 @@ export type Database = {
           address_road: string | null
           administrative_dong: string | null
           area_sqm: number | null
+          author_name: string | null
           bc_ratio: number | null
           building_coverage_ratio: number | null
           created_at: string | null
@@ -6726,6 +6793,7 @@ export type Database = {
           address_road?: string | null
           administrative_dong?: string | null
           area_sqm?: number | null
+          author_name?: string | null
           bc_ratio?: number | null
           building_coverage_ratio?: number | null
           created_at?: string | null
@@ -6795,6 +6863,7 @@ export type Database = {
           address_road?: string | null
           administrative_dong?: string | null
           area_sqm?: number | null
+          author_name?: string | null
           bc_ratio?: number | null
           building_coverage_ratio?: number | null
           created_at?: string | null
@@ -6890,6 +6959,7 @@ export type Database = {
       }
       surface_markings: {
         Row: {
+          author_name: string | null
           color: string | null
           condition: string | null
           condition_note: string | null
@@ -6915,6 +6985,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          author_name?: string | null
           color?: string | null
           condition?: string | null
           condition_note?: string | null
@@ -6940,6 +7011,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          author_name?: string | null
           color?: string | null
           condition?: string | null
           condition_note?: string | null
@@ -7357,6 +7429,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approver_id: string | null
+          author_name: string | null
           created_at: string | null
           id: string
           lot_id: string
@@ -7374,6 +7447,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approver_id?: string | null
+          author_name?: string | null
           created_at?: string | null
           id?: string
           lot_id: string
@@ -7391,6 +7465,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approver_id?: string | null
+          author_name?: string | null
           created_at?: string | null
           id?: string
           lot_id?: string

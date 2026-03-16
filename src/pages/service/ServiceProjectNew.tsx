@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { SERVICE_TYPE_LABELS, MILESTONE_TYPE_LABELS } from "@/types/service";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 interface MilestoneRow {
   milestone_number: number; milestone_type: string; title: string;
@@ -42,6 +43,7 @@ export default function ServiceProjectNew() {
     supervisor_id: "", inspector_id: "", sub_supervisor_id: "",
     contract_amount: "", vat_amount: "", contract_date: "",
     start_date: "", end_date: "", warranty_months: "12",
+    author_name: "",
   });
 
   const [milestones, setMilestones] = useState<MilestoneRow[]>([...defaultMilestones]);
@@ -135,6 +137,7 @@ export default function ServiceProjectNew() {
         warranty_months: warrantyMonths || null,
         warranty_end: warrantyEnd || null,
         created_by: profile?.id,
+        author_name: form.author_name || profile?.name || null,
       } as any).select().single();
 
       if (error) throw error;
@@ -300,6 +303,9 @@ export default function ServiceProjectNew() {
           </CardContent>
         </Card>
 
+        <div className="flex justify-end gap-2">
+          <AuthorField value={form.author_name} onChange={v => set("author_name", v)} />
+        </div>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => navigate("/service/projects")}>취소</Button>
           <Button onClick={handleSave} disabled={saving}>{saving ? "저장 중..." : "등록"}</Button>

@@ -16,6 +16,8 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { LOT_TYPE_LABELS, OPERATOR_LABELS, SURFACE_LABELS, POWER_LABELS, LOT_STATUS_LABELS } from "@/types/database";
 import { Loader2 } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
+import { useAuth } from "@/hooks/useAuth";
 
 const schema = z.object({
   name: z.string().min(1, "주차장명을 입력하세요"),
@@ -40,7 +42,9 @@ type FormData = z.infer<typeof schema>;
 
 export default function LotNewPage() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [authorName, setAuthorName] = useState("");
   const [equipment, setEquipment] = useState({
     has_gate: false, has_lpr: false, has_kiosk: false, has_cctv: false,
     has_display_board: false, has_sensor: false, control_system_linked: false, portal_linked: false,
@@ -63,6 +67,7 @@ export default function LotNewPage() {
       longitude: data.longitude || null,
       surface_type: data.surface_type || null,
       power_status: data.power_status || null,
+      author_name: authorName || profile?.name || null,
     } as any]).select("id, name").single();
 
     setSaving(false);
@@ -235,6 +240,13 @@ export default function LotNewPage() {
           <CardHeader><CardTitle className="text-sm">비고</CardTitle></CardHeader>
           <CardContent>
             <Textarea {...register("notes")} rows={3} placeholder="비고 사항을 입력하세요" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-sm">작성자</CardTitle></CardHeader>
+          <CardContent>
+            <AuthorField value={authorName} onChange={setAuthorName} />
           </CardContent>
         </Card>
 

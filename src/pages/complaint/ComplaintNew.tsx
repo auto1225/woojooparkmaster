@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { CHANNEL_LABELS, CATEGORY_LABELS, PRIORITY_LABELS, getTeamRecommendation } from "@/types/complaint";
 import { ArrowLeft, AlertTriangle, Sparkles } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { callAI } from "@/lib/ai-service";
 
@@ -35,7 +36,7 @@ export default function ComplaintNew() {
     title: "", content: "", location_detail: "", incident_date: "", incident_time: "",
     vehicle_number: "", complainant_name: "", complainant_phone: "", complainant_email: "",
     complainant_address: "", is_anonymous: false, lot_id: "", assigned_team: "", assigned_to: "",
-    saeol_ref: "", privacy_agreed: false,
+    saeol_ref: "", privacy_agreed: false, author_name: "",
   });
 
   const { data: lots } = useQuery({
@@ -111,6 +112,7 @@ export default function ComplaintNew() {
         saeol_ref: form.saeol_ref || null,
         status,
         created_by: profile?.id,
+        author_name: form.author_name || profile?.name || null,
       };
 
       const { data, error } = await supabase.from("complaints").insert(insertData).select().single();
@@ -137,7 +139,7 @@ export default function ComplaintNew() {
           title: "", content: "", location_detail: "", incident_date: "", incident_time: "",
           vehicle_number: "", complainant_name: "", complainant_phone: "", complainant_email: "",
           complainant_address: "", is_anonymous: false, lot_id: "", assigned_team: "", assigned_to: "",
-          saeol_ref: "", privacy_agreed: false,
+          saeol_ref: "", privacy_agreed: false, author_name: "",
         });
       } else {
         navigate(`/complaints/${data.id}`);
@@ -357,6 +359,7 @@ export default function ComplaintNew() {
                     </SelectContent>
                   </Select>
                 </div>
+                <AuthorField value={form.author_name || ""} onChange={v => update("author_name", v)} />
               </CardContent>
             </Card>
           </div>

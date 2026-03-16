@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import type { SurveySensorPlan } from "@/types/survey";
 import { Save } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 interface Props {
   data: SurveySensorPlan | null | undefined;
@@ -66,6 +67,8 @@ export function StepSensorPlan({ data, onSave, readOnly }: Props) {
           <Input placeholder="사유" value={form.portal_note || ""} onChange={e => set("portal_note", e.target.value)} disabled={readOnly} className="w-60 mt-1" />
         )}
       </div>
+
+      <AuthorField value={(form as any).author_name || ""} onChange={v => set("author_name", v)} readOnly={readOnly} />
 
       {!readOnly && (
         <div className="flex justify-end">

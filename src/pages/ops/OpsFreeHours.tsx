@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "@/hooks/use-toast";
 import { DAY_TYPE_LABELS } from "@/types/operations";
 import { Plus, Trash2, Search } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 export default function OpsFreeHoursPage() {
   const queryClient = useQueryClient();
@@ -130,6 +131,7 @@ export default function OpsFreeHoursPage() {
             </div>
             <div className="space-y-1.5"><Label className="text-xs">사유</Label><Input value={form.reason || ""} onChange={e => set("reason", e.target.value)} /></div>
             <div className="space-y-1.5"><Label className="text-xs">시행일</Label><Input type="date" value={form.effective_from || ""} onChange={e => set("effective_from", e.target.value)} /></div>
+            <AuthorField value={form.author_name || ""} onChange={v => set("author_name", v)} />
           </div>
           <DialogFooter className="flex justify-between">
             {editing && <Button variant="destructive" size="sm" onClick={handleDelete}><Trash2 className="h-3.5 w-3.5 mr-1" />삭제</Button>}

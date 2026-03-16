@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import type { SurveyOperation } from "@/types/survey";
 import { Save } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 interface Props {
   data: SurveyOperation | null | undefined;
@@ -90,6 +91,8 @@ export function StepOperation({ data, onSave, readOnly }: Props) {
           </div>
         </div>
       </div>
+
+      <AuthorField value={(form as any).author_name || ""} onChange={v => set("author_name", v)} readOnly={readOnly} />
 
       {!readOnly && (
         <div className="flex justify-end">

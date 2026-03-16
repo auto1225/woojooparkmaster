@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, CheckCircle, Download } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { formatWon, DATA_SOURCE_LABELS } from "@/types/revenue";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -330,6 +331,7 @@ export default function RevenueDaily() {
                 <div><Label className="text-xs">감면 금액</Label><Input type="number" value={form.exemption_amount} onChange={e => setForm(f => ({ ...f, exemption_amount: Number(e.target.value) || 0 }))} /></div>
               </div>
               <div><Label className="text-xs">비고</Label><Input value={form.discrepancy_note} onChange={e => setForm(f => ({ ...f, discrepancy_note: e.target.value }))} placeholder="특이사항" /></div>
+              <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(f => ({ ...f, author_name: v } as any))} />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>

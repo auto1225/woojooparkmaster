@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { VIOLATION_TYPE_LABELS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS } from "@/types/operations";
 import { Plus, Search } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 export default function OpsEnforcementPage() {
   const queryClient = useQueryClient();
@@ -156,6 +157,7 @@ export default function OpsEnforcementPage() {
               <div className="space-y-1.5"><Label className="text-xs">납부기한</Label><Input type="date" value={form.fine_due_date || ""} onChange={e => set("fine_due_date", e.target.value)} /></div>
             </div>
             <div className="space-y-1.5"><Label className="text-xs">위반장소</Label><Input value={form.violation_location || ""} onChange={e => set("violation_location", e.target.value)} /></div>
+            <AuthorField value={form.author_name || ""} onChange={v => set("author_name", v)} />
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button><Button onClick={handleSave} disabled={saving}>등록</Button></DialogFooter>
         </DialogContent>

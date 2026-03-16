@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { STAFF_TYPE_LABELS } from "@/types/operations";
 import { Plus, Search, Trash2 } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 export default function OpsStaffPage() {
   const queryClient = useQueryClient();
@@ -139,6 +140,7 @@ export default function OpsStaffPage() {
               <div className="space-y-1.5"><Label className="text-xs">입사일</Label><Input type="date" value={form.hire_date || ""} onChange={e => set("hire_date", e.target.value)} /></div>
             </div>
             <div className="space-y-1.5"><Label className="text-xs">비고</Label><Textarea value={form.notes || ""} onChange={e => set("notes", e.target.value)} rows={2} /></div>
+            <AuthorField value={form.author_name || ""} onChange={v => set("author_name", v)} />
           </div>
           <DialogFooter className="flex justify-between">
             {editing && <Button variant="destructive" size="sm" onClick={handleDelete}><Trash2 className="h-3.5 w-3.5 mr-1" />삭제</Button>}
