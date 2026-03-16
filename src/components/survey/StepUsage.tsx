@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import type { SurveyUsage } from "@/types/survey";
 import { Save } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 interface Props {
   data: SurveyUsage | null | undefined;
