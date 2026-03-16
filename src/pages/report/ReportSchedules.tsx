@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Plus, Play, Edit, Trash2, Calendar, Clock, Users } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { FREQUENCY_LABELS, type ReportTemplate } from "@/types/report";
 
 export default function ReportSchedules() {
