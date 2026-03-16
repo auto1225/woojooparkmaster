@@ -67,6 +67,7 @@ export default function LotNewPage() {
       longitude: data.longitude || null,
       surface_type: data.surface_type || null,
       power_status: data.power_status || null,
+      author_name: authorName || profile?.name || null,
     } as any]).select("id, name").single();
 
     setSaving(false);
