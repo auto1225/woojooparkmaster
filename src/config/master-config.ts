@@ -50,6 +50,8 @@ const CONGESTION: Record<string, { label: string; color: string }> = {
 };
 
 const SITE_STATUS: Record<string, { label: string; color: string }> = {
+  pending: { label: '대기', color: 'bg-muted text-muted-foreground' },
+  evaluation: { label: '평가중', color: 'bg-blue-100 text-blue-700' },
   candidate: { label: '후보', color: 'bg-blue-100 text-blue-700' },
   selected: { label: '선정', color: 'bg-green-100 text-green-700' },
   rejected: { label: '탈락', color: 'bg-red-100 text-red-700' },
