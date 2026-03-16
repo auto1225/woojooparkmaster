@@ -87,6 +87,9 @@ async function batchInsert(supabase: any, table: string, rows: any[], batchSize 
 //  SEED – 전체 모듈 데모 데이터
 // ══════════════════════════════════════════════════════════════════
 async function runSeed(supabase: any, userId: string) {
+  // 매번 재생성 전에 기존 데모 데이터 정리
+  await runCleanup(supabase);
+
   // ── 0. 주차장 목록 ──
   const { data: lots } = await supabase.from("parking_lots").select("id, code, name, total_spaces").order("code");
   if (!lots || lots.length === 0) throw new Error("주차장 데이터가 없습니다. 먼저 주차장을 등록하세요.");
