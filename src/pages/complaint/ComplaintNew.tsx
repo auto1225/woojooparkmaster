@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { CHANNEL_LABELS, CATEGORY_LABELS, PRIORITY_LABELS, getTeamRecommendation } from "@/types/complaint";
 import { ArrowLeft, AlertTriangle, Sparkles } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { callAI } from "@/lib/ai-service";
 

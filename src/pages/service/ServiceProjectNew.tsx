@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { SERVICE_TYPE_LABELS, MILESTONE_TYPE_LABELS } from "@/types/service";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 interface MilestoneRow {
   milestone_number: number; milestone_type: string; title: string;

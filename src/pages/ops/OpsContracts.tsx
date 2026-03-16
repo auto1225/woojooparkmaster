@@ -163,6 +163,7 @@ export default function OpsContractsPage() {
               <Select value={form.status || "active"} onValueChange={v => set("status", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(CONTRACT_STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select>
             </div>
             <div className="space-y-1.5"><Label className="text-xs">비고</Label><Textarea value={form.notes || ""} onChange={e => set("notes", e.target.value)} rows={2} /></div>
+            <AuthorField value={form.author_name || ""} onChange={v => set("author_name", v)} />
           </div>
           <DialogFooter className="flex justify-between">
             {editing && <Button variant="destructive" size="sm" onClick={handleDelete}><Trash2 className="h-3.5 w-3.5 mr-1" />삭제</Button>}

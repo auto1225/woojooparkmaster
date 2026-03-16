@@ -16,6 +16,8 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { LOT_TYPE_LABELS, OPERATOR_LABELS, SURFACE_LABELS, POWER_LABELS, LOT_STATUS_LABELS } from "@/types/database";
 import { Loader2 } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
+import { useAuth } from "@/hooks/useAuth";
 
 const schema = z.object({
   name: z.string().min(1, "주차장명을 입력하세요"),

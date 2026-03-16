@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { logActivity } from "@/lib/activity-logger";
 import { BID_TYPE_LABELS, CONTRACT_TYPE_LABELS, EVAL_METHOD_LABELS } from "@/types/procurement";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 const bidTypeDescriptions: Record<string, string> = {
   open: '2인 이상 경쟁 입찰 — 가장 일반적', limited: '특정 자격 제한 경쟁',

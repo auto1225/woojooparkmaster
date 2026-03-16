@@ -187,6 +187,7 @@ export default function OpsPassesPage() {
             <div className="flex items-center gap-3">
               <Switch checked={!!form.auto_renew} onCheckedChange={v => set("auto_renew", v)} /><Label className="text-sm">자동갱신</Label>
             </div>
+            <AuthorField value={form.author_name || ""} onChange={v => set("author_name", v)} />
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button><Button onClick={handleSave} disabled={saving}>저장</Button></DialogFooter>
         </DialogContent>

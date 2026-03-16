@@ -133,6 +133,7 @@ export default function OpsExemptionsPage() {
             {form.discount_type === "amount" && <div className="space-y-1.5"><Label className="text-xs">감면액(원)</Label><Input type="number" value={form.discount_amount ?? ""} onChange={e => set("discount_amount", Number(e.target.value))} /></div>}
             <div className="space-y-1.5"><Label className="text-xs">필요 증빙서류</Label><Input value={form.required_documents || ""} onChange={e => set("required_documents", e.target.value)} /></div>
             <div className="space-y-1.5"><Label className="text-xs">법적 근거</Label><Input value={form.legal_basis || ""} onChange={e => set("legal_basis", e.target.value)} /></div>
+            <AuthorField value={form.author_name || ""} onChange={v => set("author_name", v)} />
           </div>
           <DialogFooter className="flex justify-between">
             {editing && <Button variant="destructive" size="sm" onClick={handleDelete}><Trash2 className="h-3.5 w-3.5 mr-1" />삭제</Button>}
