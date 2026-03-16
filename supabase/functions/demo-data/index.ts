@@ -549,7 +549,99 @@ async function runSeed(supabase: any, userId: string) {
       }
     }
     await batchInsert(supabase, "bid_submissions", subRows);
+    // Bid evaluations (for each submission)
+    const { data: insertedSubs } = await supabase.from("bid_submissions").select("id, bid_project_id, bid_amount, company_name").like("notes", "[DEMO]%");
+    if (insertedSubs && insertedSubs.length > 0) {
+      const evalRows: any[] = [];
+      for (const sub of insertedSubs) {
+        const techScore = rnd(60, 95);
+        const priceScore = rnd(70, 100);
+        const totalScore = Math.round(techScore * 0.6 + priceScore * 0.4);
+        evalRows.push({
+          bid_project_id: sub.bid_project_id,
+          submission_id: sub.id,
+          technical_score: techScore,
+          price_score: priceScore,
+          business_score: rnd(60, 90),
+          total_score: totalScore,
+          rank: null,
+          is_qualified: totalScore >= 70,
+          evaluation_date: daysAgo(rnd(5, 30)),
+          evaluator_name: pick(staffNames.slice(0, 5)),
+          strengths: pick(["기술력 우수", "실적 다수", "가격 경쟁력", "인력 구성 우수"]),
+          weaknesses: pick(["납기 일정 촉박", "유사실적 부족", "인력 교체 우려", "가격 다소 높음"]),
+          comments: "[DEMO] 데모 평가",
+        });
+      }
+      await batchInsert(supabase, "bid_evaluations", evalRows);
+
+      // Bid contracts (1 per bid project - winner)
+      const bidProjectMap: Record<string, any[]> = {};
+      for (const sub of insertedSubs) {
+        if (!bidProjectMap[sub.bid_project_id]) bidProjectMap[sub.bid_project_id] = [];
+        bidProjectMap[sub.bid_project_id].push(sub);
+      }
+      const bContractRows: any[] = [];
+      for (const [bidProjId, subs] of Object.entries(bidProjectMap)) {
+        const winner = subs[0];
+        bContractRows.push({
+          bid_project_id: bidProjId,
+          submission_id: winner.id,
+          contract_number: `BC-DEMO-${String(bContractRows.length + 1).padStart(4, "0")}`,
+          contract_date: daysAgo(rnd(10, 60)),
+          contract_amount: winner.bid_amount || rnd(50000000, 200000000),
+          vat_amount: Math.floor((winner.bid_amount || 100000000) * 0.1),
+          total_amount: Math.floor((winner.bid_amount || 100000000) * 1.1),
+          contractor_name: winner.company_name,
+          contractor_representative: pick(staffNames),
+          contractor_business_number: `${rnd(100, 999)}-${rnd(10, 99)}-${rnd(10000, 99999)}`,
+          contract_start: daysAgo(rnd(1, 30)),
+          contract_end: daysFromNow(rnd(90, 365)),
+          performance_bond_rate: 10,
+          performance_bond_amount: Math.floor((winner.bid_amount || 100000000) * 0.1),
+          status: pick(["signed", "signed", "in_progress"]),
+          special_conditions: "[DEMO] 데모 계약 특약사항",
+        });
+      }
+      await batchInsert(supabase, "bid_contracts", bContractRows);
+    }
+
+    // Bid documents (3 per project)
+    const bidDocRows: any[] = [];
+    for (const bid of insertedBids) {
+      const docs = [
+        { title: "입찰공고문", doc_type: "announcement", doc_category: "bid" },
+        { title: "설계서", doc_type: "specification", doc_category: "bid" },
+        { title: "과업지시서", doc_type: "scope_of_work", doc_category: "bid" },
+      ];
+      for (const doc of docs) {
+        bidDocRows.push({
+          bid_project_id: bid.id,
+          ...doc,
+          file_path: `/demo/${doc.doc_type}.pdf`,
+          is_public: true,
+          is_current: true,
+          version: "1.0",
+        });
+      }
+    }
+    await batchInsert(supabase, "bid_documents", bidDocRows);
   }
+
+  // Free hours settings (for top lots)
+  const freeHoursRows = topLots.slice(0, 8).flatMap((lot: any) => [
+    {
+      lot_id: lot.id, day_type: "weekday", free_minutes: 30,
+      start_time: "00:00", end_time: "23:59", is_active: true,
+      notes: "[DEMO] 데모 무료시간",
+    },
+    {
+      lot_id: lot.id, day_type: "weekend", free_minutes: 60,
+      start_time: "00:00", end_time: "23:59", is_active: true,
+      notes: "[DEMO] 데모 무료시간",
+    },
+  ]);
+  await batchInsert(supabase, "free_hours_settings", freeHoursRows);
 
   // ══════════════════════════════════════════
   //  7. 용역사업관리 – service_projects, milestones, issues, inspections, payments, deliverables
