@@ -112,6 +112,7 @@ function PlanList() {
                 </div>
               </div>
               <div><Label>제목</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="예: 2026년 본예산" /></div>
+              <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(f => ({ ...f, author_name: v } as any))} />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCreateOpen(false)}>취소</Button>
