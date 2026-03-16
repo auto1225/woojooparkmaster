@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import type { SurveySensorPlan } from "@/types/survey";
 import { Save } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 interface Props {
   data: SurveySensorPlan | null | undefined;
