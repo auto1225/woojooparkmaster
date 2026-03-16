@@ -1090,11 +1090,11 @@ async function runSeed(supabase: any, userId: string) {
     board_name: `${lot.name} ${pick(["입구 안내판", "출구 안내판", "내부 안내판"])}`,
     lot_id: lot.id,
     display_type: pick(["led", "lcd"]),
-    location_type: pick(["entrance", "exit", "internal"]),
-    status: pick(["online", "online", "offline"]),
+    location_type: pick(["entrance", "exit", "indoor"]),
+    status: pick(["active", "active", "offline"]),
     ip_address: `192.168.${rnd(1, 10)}.${rnd(100, 200)}`,
     current_message: `주차가능 ${rnd(5, 100)}면`,
-    protocol: pick(["http", "serial"]),
+    protocol: pick(["http", "serial_rs232"]),
     notes: "[DEMO] 데모 전광판",
   }));
   await batchInsert(supabase, "display_boards", displayRows);
