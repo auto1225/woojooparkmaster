@@ -356,8 +356,56 @@ async function runSeed(supabase: any, userId: string) {
   });
   await batchInsert(supabase, "complaints", compRows);
 
-  // ══════════════════════════════════════════
-  //  4. 수입관리 – revenue_daily (top 20 × 90 days)
+  // Complaint comments (2~3 per complaint)
+  const { data: insertedComplaints } = await supabase.from("complaints").select("id, title, status, complaint_number").like("notes", "[DEMO]%");
+  if (insertedComplaints && insertedComplaints.length > 0) {
+    const commentRows: any[] = [];
+    for (const comp of insertedComplaints) {
+      // Initial receipt comment
+      commentRows.push({
+        complaint_id: comp.id,
+        author_id: userId,
+        author_name: "관리자",
+        content: `${comp.complaint_number} 민원이 접수되었습니다. 담당부서에서 확인 후 처리하겠습니다.`,
+        comment_type: "internal",
+        is_system: true,
+        created_at: new Date(Date.now() - rnd(60, 180) * 86400000).toISOString(),
+      });
+      // Processing comment
+      if (["responded", "closed"].includes(comp.status)) {
+        commentRows.push({
+          complaint_id: comp.id,
+          author_id: userId,
+          author_name: "관리자",
+          content: pick([
+            "현장 확인 완료하였습니다. 시설팀에 보수 요청하였습니다.",
+            "해당 건에 대해 조치 완료하였습니다.",
+            "관련 부서와 협의하여 처리 중입니다.",
+            "민원인에게 전화 회신 완료하였습니다.",
+          ]),
+          comment_type: "internal",
+          created_at: new Date(Date.now() - rnd(30, 59) * 86400000).toISOString(),
+        });
+      }
+      // Response comment
+      if (comp.status === "closed") {
+        commentRows.push({
+          complaint_id: comp.id,
+          author_id: userId,
+          author_name: "관리자",
+          content: pick([
+            "조치 완료되어 민원 종결합니다.",
+            "시설 보수 완료 후 민원인 확인 받았습니다.",
+            "요금 관련 안내 완료하여 종결합니다.",
+          ]),
+          comment_type: "external",
+          created_at: new Date(Date.now() - rnd(1, 29) * 86400000).toISOString(),
+        });
+      }
+    }
+    await batchInsert(supabase, "complaint_comments", commentRows);
+  }
+
   // ══════════════════════════════════════════
   const revLots = bigLots.slice(0, 20);
   for (const lot of revLots) {
