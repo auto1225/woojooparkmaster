@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Check, X, ArrowRight } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { TRANSFER_TYPE_LABELS, TRANSFER_TYPE_COLORS, BUDGET_STATUS_LABELS, BUDGET_STATUS_COLORS } from "@/types/budget";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
