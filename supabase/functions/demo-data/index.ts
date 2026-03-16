@@ -1004,16 +1004,15 @@ async function runSeed(supabase: any, userId: string) {
   //  9. 실시간 – sensor_devices, gateway_devices, lot_realtime_status, display_boards, parking_spaces, sensor_readings
   // ══════════════════════════════════════════
   const gwRows = topLots.slice(0, 5).map((lot: any, i: number) => ({
-    gateway_id: `GW-DEMO-${String(i + 1).padStart(3, "0")}`,
-    gateway_name: `${lot.name} 게이트웨이`,
+    device_id: `GW-DEMO-${String(i + 1).padStart(3, "0")}`,
+    device_name: `${lot.name} 게이트웨이`,
     lot_id: lot.id,
     ip_address: `192.168.${rnd(1, 10)}.${rnd(1, 254)}`,
-    status: pick(["online", "online", "online", "offline"]),
+    status: pick(["active", "active", "active", "offline"]),
     protocol: pick(["lorawan", "nb-iot"]),
-    manufacturer: pick(["파킹클라우드", "한국IoT"]),
-    model: pick(["GW-100", "GW-200"]),
     connected_sensors: rnd(5, 30),
     max_sensors: 50,
+    firmware_version: "v1.2.0",
     notes: "[DEMO] 데모 게이트웨이",
   }));
   const { data: insertedGws } = await supabase.from("gateway_devices").insert(gwRows).select("id, lot_id");
@@ -1031,12 +1030,13 @@ async function runSeed(supabase: any, userId: string) {
           gateway_id: gw.id,
           zone: pick(["A", "B", "C"]),
           floor: pick([0, 1, -1]),
-          status: pick(["active", "active", "active", "warning", "offline"]),
+          status: pick(["active", "active", "active", "low_battery", "offline"]),
           battery_level: rnd(20, 100),
           rssi: -rnd(40, 100),
           firmware_version: "v2.1.3",
           last_reading: new Date().toISOString(),
           total_readings: rnd(1000, 50000),
+          error_count: rnd(0, 10),
           notes: "[DEMO] 데모 센서",
         });
       }
@@ -1090,29 +1090,33 @@ async function runSeed(supabase: any, userId: string) {
     board_name: `${lot.name} ${pick(["입구 안내판", "출구 안내판", "내부 안내판"])}`,
     lot_id: lot.id,
     display_type: pick(["led", "lcd"]),
-    location_type: pick(["entrance", "exit", "internal"]),
-    status: pick(["online", "online", "offline"]),
+    location_type: pick(["entrance", "exit", "indoor"]),
+    status: pick(["active", "active", "offline"]),
     ip_address: `192.168.${rnd(1, 10)}.${rnd(100, 200)}`,
     current_message: `주차가능 ${rnd(5, 100)}면`,
-    protocol: pick(["http", "serial"]),
+    protocol: pick(["http", "serial_rs232"]),
     notes: "[DEMO] 데모 전광판",
   }));
   await batchInsert(supabase, "display_boards", displayRows);
 
-  // Lot realtime status
-  const rtRows = topLots.slice(0, 10).map((lot: any) => ({
-    lot_id: lot.id,
-    total_spaces: lot.total_spaces,
-    occupied_spaces: rnd(Math.floor(lot.total_spaces * 0.3), lot.total_spaces),
-    congestion_level: pick(["empty", "normal", "crowded", "full"]),
-    status: "normal",
-    today_total_in: rnd(50, 500),
-    today_total_out: rnd(40, 480),
-    today_peak_occupied: rnd(Math.floor(lot.total_spaces * 0.7), lot.total_spaces),
-    today_peak_time: `${rnd(10, 15)}:${rnd(0, 59).toString().padStart(2, "0")}`,
-    last_updated: new Date().toISOString(),
-    notes: "[DEMO]",
-  }));
+  // Lot realtime status (no notes column - use status for cleanup)
+  const rtRows = topLots.slice(0, 10).map((lot: any) => {
+    const occupied = rnd(Math.floor(lot.total_spaces * 0.3), lot.total_spaces);
+    return {
+      lot_id: lot.id,
+      total_spaces: lot.total_spaces,
+      occupied_spaces: occupied,
+      available_spaces: lot.total_spaces - occupied,
+      occupancy_rate: Math.round(occupied / lot.total_spaces * 100),
+      congestion_level: pick(["empty", "normal", "crowded", "full"]),
+      status: "normal",
+      today_total_in: rnd(50, 500),
+      today_total_out: rnd(40, 480),
+      today_peak_occupied: rnd(Math.floor(lot.total_spaces * 0.7), lot.total_spaces),
+      today_peak_time: `${rnd(10, 15)}:${rnd(0, 59).toString().padStart(2, "0")}`,
+      last_updated: new Date().toISOString(),
+    };
+  });
   for (const rt of rtRows) {
     await supabase.from("lot_realtime_status").upsert(rt, { onConflict: "lot_id" });
   }
@@ -1141,12 +1145,32 @@ async function runSeed(supabase: any, userId: string) {
   await batchInsert(supabase, "fee_policies", feePolicyRows);
 
   // ══════════════════════════════════════════
-  //  11. 수입 – revenue_reconciliation (정산대사)
+  //  11-a. 무료개방 – free_hours_settings
+  // ══════════════════════════════════════════
+  const freeHoursRows = topLots.slice(0, 8).flatMap((lot: any) => [
+    {
+      lot_id: lot.id, setting_name: `${lot.name} 야간 무료시간`,
+      day_type: "weekday", start_time: "20:00", end_time: "08:00",
+      reason: "[DEMO] 야간 무료 개방 (주민 편의)",
+      is_active: true, effective_from: `${currentYear}-01-01`,
+    },
+    {
+      lot_id: lot.id, setting_name: `${lot.name} 공휴일 무료시간`,
+      day_type: "holiday", start_time: "00:00", end_time: "23:59",
+      reason: "[DEMO] 공휴일 전일 무료 개방",
+      is_active: true, effective_from: `${currentYear}-01-01`,
+    },
+  ]);
+  await batchInsert(supabase, "free_hours_settings", freeHoursRows);
+
+  // ══════════════════════════════════════════
+  //  11-b. 수입 – revenue_reconciliation (정산대사)
   // ══════════════════════════════════════════
   const reconRows = revLots.slice(0, 10).flatMap((lot: any, i: number) => {
     const rows: any[] = [];
     for (let m = 1; m <= 3; m++) {
-      const monthStr = String(new Date().getMonth() + 1 - m).padStart(2, "0");
+      const rawMonth = new Date().getMonth() + 1 - m;
+      const monthStr = String(rawMonth < 1 ? rawMonth + 12 : rawMonth).padStart(2, "0");
       const sysCash = rnd(2000000, 8000000);
       const sysCard = rnd(8000000, 25000000);
       const sysMobile = rnd(3000000, 10000000);
@@ -1165,7 +1189,7 @@ async function runSeed(supabase: any, userId: string) {
         reported_total: repCash + repCard + repMobile,
         diff_amount: (repCash + repCard + repMobile) - (sysCash + sysCard + sysMobile),
         diff_analysis: "[DEMO] 시스템 매출과 정산 보고서 비교 데이터",
-        status: m === 1 ? "pending" : pick(["confirmed", "adjusted"]),
+        status: m === 1 ? "pending" : pick(["matched", "resolved", "discrepancy"]),
         company_name: pick(["(주)제주파킹", "(주)그린주차", "스마트주차관리"]),
         created_by: userId,
       });
@@ -1468,8 +1492,6 @@ async function runCleanup(supabase: any) {
   await supabase.from("sensor_devices").delete().like("notes", "[DEMO]%");
   await supabase.from("gateway_devices").delete().like("notes", "[DEMO]%");
 
-  // Revenue reconciliation
-  await supabase.from("revenue_reconciliation").delete().like("notes", "[DEMO]%");
 
   // Fee policies
   await supabase.from("fee_policies").delete().like("notes", "[DEMO]%");
@@ -1531,7 +1553,7 @@ async function runCleanup(supabase: any) {
   await supabase.from("complaints").delete().like("notes", "[DEMO]%");
 
   // Operations
-  await supabase.from("free_hours_settings").delete().like("setting_name", "%무료시간");
+  await supabase.from("free_hours_settings").delete().like("reason", "[DEMO]%");
   await supabase.from("fee_exemptions").delete().in("exemption_name", ["장애인 감면", "국가유공자 감면", "경차 감면", "전기차 감면", "다자녀 감면", "임산부 감면", "공무 차량", "30분 무료"]);
   await supabase.from("outsourcing_contracts").delete().like("notes", "[DEMO]%");
   await supabase.from("monthly_passes").delete().like("notes", "[DEMO]%");
