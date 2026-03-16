@@ -1221,7 +1221,7 @@ async function runSeed(supabase: any, userId: string) {
     { template_code: "RPT-DEMO-ANNUAL", name: "연간 종합 보고서", report_type: "annual", report_category: "comprehensive", is_system: true },
     { template_code: "RPT-DEMO-SAFETY", name: "안전점검 결과 보고서", report_type: "event", report_category: "safety", is_system: true },
     { template_code: "RPT-DEMO-COMPLAINT", name: "민원 처리현황 보고서", report_type: "monthly", report_category: "complaint", is_system: true },
-  })).map(t => ({
+  ].map(t => ({
     ...t,
     description: `[DEMO] ${t.name}`,
     target_audience: "internal",
