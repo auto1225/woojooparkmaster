@@ -1002,29 +1002,32 @@ async function runCleanup(supabase: any) {
   await supabase.from("gateway_devices").delete().like("notes", "[DEMO]%");
   // lot_realtime_status doesn't have notes, clean by checking demo display boards were deleted
 
-  // Planning
+  // Planning - design docs first, then construction projects
+  const { data: demoConstProjects } = await supabase.from("construction_projects").select("id").like("notes", "[DEMO]%");
+  if (demoConstProjects && demoConstProjects.length > 0) {
+    await supabase.from("design_documents").delete().in("project_id", demoConstProjects.map((p: any) => p.id));
+  }
   await supabase.from("construction_projects").delete().like("notes", "[DEMO]%");
   await supabase.from("site_candidates").delete().like("notes", "[DEMO]%");
 
-  // Service - milestones first (FK), then projects
+  // Service - all child tables first, then projects
   const { data: demoSvcProjects } = await supabase.from("service_projects").select("id").like("notes", "[DEMO]%");
   if (demoSvcProjects && demoSvcProjects.length > 0) {
     const svcIds = demoSvcProjects.map((p: any) => p.id);
-    await supabase.from("service_milestones").delete().in("project_id", svcIds);
-    await supabase.from("service_inspections").delete().in("project_id", svcIds);
-    await supabase.from("service_payments").delete().in("project_id", svcIds);
-    await supabase.from("service_deliverables").delete().in("project_id", svcIds);
     await supabase.from("service_issues").delete().in("project_id", svcIds);
+    await supabase.from("service_payments").delete().in("project_id", svcIds);
+    await supabase.from("service_inspections").delete().in("project_id", svcIds);
+    await supabase.from("service_deliverables").delete().in("project_id", svcIds);
+    await supabase.from("service_milestones").delete().in("project_id", svcIds);
   }
   await supabase.from("service_projects").delete().like("notes", "[DEMO]%");
 
-  // Procurement - submissions first, then projects
+  // Procurement - evaluations, contracts, documents, submissions, then projects
   const { data: demoBids } = await supabase.from("bid_projects").select("id").like("notes", "[DEMO]%");
   if (demoBids && demoBids.length > 0) {
     const bidIds = demoBids.map((b: any) => b.id);
-    await supabase.from("bid_evaluations").delete().in("bid_project_id", bidIds);
     await supabase.from("bid_documents").delete().in("bid_project_id", bidIds);
-    // Get submission ids for contract cleanup
+    await supabase.from("bid_evaluations").delete().in("bid_project_id", bidIds);
     const { data: demoSubs } = await supabase.from("bid_submissions").select("id").in("bid_project_id", bidIds);
     if (demoSubs && demoSubs.length > 0) {
       await supabase.from("bid_contracts").delete().in("submission_id", demoSubs.map((s: any) => s.id));
@@ -1046,7 +1049,7 @@ async function runCleanup(supabase: any) {
   // Revenue
   await supabase.from("revenue_daily").delete().like("notes", "[DEMO]%");
 
-  // Complaints
+  // Complaints - comments first
   const { data: demoComplaints } = await supabase.from("complaints").select("id").like("notes", "[DEMO]%");
   if (demoComplaints && demoComplaints.length > 0) {
     await supabase.from("complaint_comments").delete().in("complaint_id", demoComplaints.map((c: any) => c.id));
@@ -1054,6 +1057,7 @@ async function runCleanup(supabase: any) {
   await supabase.from("complaints").delete().like("notes", "[DEMO]%");
 
   // Operations
+  await supabase.from("free_hours_settings").delete().like("notes", "[DEMO]%");
   await supabase.from("fee_exemptions").delete().like("notes", "[DEMO]%");
   await supabase.from("outsourcing_contracts").delete().like("notes", "[DEMO]%");
   await supabase.from("monthly_passes").delete().like("notes", "[DEMO]%");
