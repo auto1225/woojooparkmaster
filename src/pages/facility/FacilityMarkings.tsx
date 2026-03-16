@@ -174,6 +174,7 @@ export default function FacilityMarkings() {
                     <Label>법적 의무 표시</Label>
                   </div>
                   {form.is_regulatory && <div><Label>관련 규정</Label><Input value={form.regulation_ref} onChange={(event) => setForm((prev) => ({ ...prev, regulation_ref: event.target.value }))} /></div>}
+                  <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
                   <Button className="w-full" disabled={!form.marking_type || !form.marking_name || createMutation.isPending} onClick={() => createMutation.mutate()}>
                     {createMutation.isPending ? "등록 중..." : "등록"}
                   </Button>
