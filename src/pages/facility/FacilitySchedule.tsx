@@ -192,7 +192,7 @@ export default function FacilitySchedule() {
                       <TableCell>{s.parking_lots?.name || '-'}</TableCell>
                       <TableCell>{s.equipment?.name || '-'}</TableCell>
                       <TableCell><Badge className={`text-white ${SCHEDULE_TYPE_COLORS[s.schedule_type] || 'bg-gray-400'}`}>{SCHEDULE_TYPE_LABELS[s.schedule_type] || s.schedule_type}</Badge></TableCell>
-                      <TableCell>{s.profiles?.name || '-'}</TableCell>
+                      <TableCell>{s.assignee?.name || '-'}</TableCell>
                       <TableCell>{s.next_due_date}</TableCell>
                       <TableCell><Badge variant={s.is_active ? 'default' : 'secondary'}>{s.is_active ? '활성' : '비활성'}</Badge></TableCell>
                     </TableRow>

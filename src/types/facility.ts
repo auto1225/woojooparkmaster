@@ -65,7 +65,7 @@ export interface MaintenanceSchedule {
   updated_at: string;
   parking_lots?: { code: string; name: string };
   equipment?: { name: string; equipment_type: string };
-  profiles?: { name: string };
+  assignee?: { name: string };
 }
 
 export type MaintenanceLogStatus = 'reported' | 'assigned' | 'in_progress' | 'pending_parts' | 'completed' | 'verified' | 'cancelled';
