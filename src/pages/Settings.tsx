@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSystemConfig, useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -14,11 +14,46 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Settings, Shield, Package, Save, MessageSquare, GitBranch, Sparkles, Database, Info, HardDrive, CheckCircle2, XCircle, Trash2, PlayCircle, Lock } from "lucide-react";
+import { Settings, Shield, Package, Save, MessageSquare, GitBranch, Sparkles, Database, Info, HardDrive, CheckCircle2, XCircle, Trash2, PlayCircle, Lock, Loader2 } from "lucide-react";
 import MessageManagement from "@/pages/settings/MessageManagement";
 import ApprovalLineManagement from "@/pages/settings/ApprovalLineManagement";
 import SecurityManagement from "@/pages/settings/SecurityManagement";
+
+const DEMO_SEED_STEPS = [
+  "기존 데모 데이터 정리 중...",
+  "주차장 데이터 보강 중...",
+  "시설관리 데이터 생성 중...",
+  "운영관리 데이터 생성 중...",
+  "민원 데이터 생성 중...",
+  "수입 데이터 생성 중...",
+  "예산 데이터 생성 중...",
+  "입찰 데이터 생성 중...",
+  "용역사업 데이터 생성 중...",
+  "신설기획 데이터 생성 중...",
+  "요금정책 데이터 생성 중...",
+  "정산대사 데이터 생성 중...",
+  "보고서 데이터 생성 중...",
+  "결재/알림 데이터 생성 중...",
+  "현황조사 데이터 생성 중...",
+  "실시간 데이터 생성 중...",
+  "API 데이터 생성 중...",
+  "완료!",
+];
+const DEMO_CLEANUP_STEPS = [
+  "API 데이터 삭제 중...",
+  "활동로그 삭제 중...",
+  "결재 데이터 삭제 중...",
+  "보고서 삭제 중...",
+  "현황조사 삭제 중...",
+  "실시간 데이터 삭제 중...",
+  "기획/용역/입찰 삭제 중...",
+  "예산/수입 삭제 중...",
+  "민원/운영 삭제 중...",
+  "시설 데이터 삭제 중...",
+  "완료!",
+];
 
 export default function SettingsPage() {
   const { profile } = useAuth();
@@ -29,9 +64,29 @@ export default function SettingsPage() {
   const [demoGenDialog, setDemoGenDialog] = useState(false);
   const [demoCleanDialog, setDemoCleanDialog] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
+  const [demoProgress, setDemoProgress] = useState(0);
+  const [demoStepLabel, setDemoStepLabel] = useState("");
+  const progressRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => { if (progressRef.current) clearInterval(progressRef.current); };
+  }, []);
 
   const runDemoAction = async (action: "seed" | "cleanup") => {
     setDemoLoading(true);
+    setDemoProgress(0);
+    const steps = action === "seed" ? DEMO_SEED_STEPS : DEMO_CLEANUP_STEPS;
+    let step = 0;
+    setDemoStepLabel(steps[0]);
+
+    // Simulate progress since edge function doesn't stream
+    progressRef.current = setInterval(() => {
+      step++;
+      const pct = Math.min(Math.floor((step / steps.length) * 100), 95);
+      setDemoProgress(pct);
+      setDemoStepLabel(steps[Math.min(step, steps.length - 2)]);
+    }, action === "seed" ? 1500 : 800);
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("로그인이 필요합니다"); return; }
@@ -40,12 +95,18 @@ export default function SettingsPage() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      if (progressRef.current) clearInterval(progressRef.current);
+      setDemoProgress(100);
+      setDemoStepLabel(steps[steps.length - 1]);
       toast.success(data?.message || "완료");
       queryClient.invalidateQueries();
+      setTimeout(() => { setDemoLoading(false); setDemoProgress(0); setDemoStepLabel(""); }, 1500);
     } catch (e: any) {
-      toast.error(e.message || "처리 중 오류가 발생했습니다");
-    } finally {
+      if (progressRef.current) clearInterval(progressRef.current);
       setDemoLoading(false);
+      setDemoProgress(0);
+      setDemoStepLabel("");
+      toast.error(e.message || "처리 중 오류가 발생했습니다");
     }
   };
 
