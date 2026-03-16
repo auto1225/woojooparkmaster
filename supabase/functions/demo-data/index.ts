@@ -168,53 +168,129 @@ async function runSeed(supabase: any, userId: string) {
   if (equipmentRows.length > 0) await batchInsert(supabase, "equipment", equipmentRows);
 
   // Get inserted equipment IDs
-  const { data: demoEq } = await supabase.from("equipment").select("id, lot_id, name, equipment_type").like("notes", "[DEMO]%");
+  const { data: demoEq } = await supabase
+    .from("equipment")
+    .select("id, lot_id, name, equipment_type")
+    .like("notes", "[DEMO]%");
 
-  // Maintenance logs (25)
+  // Maintenance schedules (12)
   if (demoEq && demoEq.length > 0) {
-    const maintRows = demoEq.slice(0, 25).map((eq: any, i: number) => ({
-      log_number: `ML-DEMO-${String(i + 1).padStart(4, "0")}`,
-      lot_id: eq.lot_id, equipment_id: eq.id,
-      maintenance_type: pick(["scheduled", "scheduled", "emergency", "repair"]),
-      priority: pick(["low", "medium", "high"]),
-      title: `${eq.name} ${pick(["정기점검", "수리", "부품교체"])}`,
-      parts_cost: rnd(0, 500000), labor_cost: rnd(50000, 300000), other_cost: 0,
-      total_cost: rnd(50000, 800000),
-      status: pick(["completed", "completed", "completed", "in_progress", "reported"]),
-      notes: "[DEMO] 데모 유지보수",
+    const scheduleRows = demoEq.slice(0, 12).map((eq: any, i: number) => ({
+      lot_id: eq.lot_id,
+      equipment_id: eq.id,
+      schedule_name: `${eq.name} ${pick(["월간 정기점검", "분기 예방정비", "반기 기능점검", "연간 교체점검"])}`,
+      schedule_type: pick(["monthly", "quarterly", "semi_annual", "yearly"]),
+      description: `[DEMO] ${eq.name}에 대한 예방정비 일정입니다.`,
+      checklist: [
+        { item: "외관 점검", required: true },
+        { item: "전원/통신 상태 확인", required: true },
+        { item: "작동 테스트", required: true },
+      ],
+      assigned_team: pick(["시설관리팀", "운영관리팀"]),
+      assigned_to: userId,
+      vendor_name: pick(["파킹클라우드", "한화비전", "아마노코리아"]),
+      estimated_cost: rnd(100000, 700000),
+      estimated_hours: rnd(1, 6),
+      last_completed: daysAgo(rnd(10, 90)),
+      next_due_date: daysFromNow(rnd(1, 90)),
+      recurrence_rule: { interval: 1, unit: "month" },
+      advance_notice_days: pick([3, 7, 14]),
+      is_active: true,
+      created_by: userId,
     }));
+    await batchInsert(supabase, "maintenance_schedules", scheduleRows);
+  }
+
+  const { data: demoSchedules } = await supabase
+    .from("maintenance_schedules")
+    .select("id, lot_id, equipment_id, schedule_name")
+    .like("description", "[DEMO]%");
+
+  // Maintenance logs (30)
+  if (demoEq && demoEq.length > 0) {
+    const maintRows = demoEq.slice(0, 30).map((eq: any, i: number) => {
+      const linkedSchedule = demoSchedules?.find((s: any) => s.equipment_id === eq.id) ?? null;
+      const status = pick(["reported", "assigned", "in_progress", "pending_parts", "completed", "verified"]);
+      const reportedAt = new Date(Date.now() - rnd(3, 120) * 86400000).toISOString();
+      const assignedAt = ["assigned", "in_progress", "pending_parts", "completed", "verified"].includes(status)
+        ? new Date(Date.now() - rnd(2, 90) * 86400000).toISOString()
+        : null;
+      const startedAt = ["in_progress", "pending_parts", "completed", "verified"].includes(status)
+        ? new Date(Date.now() - rnd(1, 60) * 86400000).toISOString()
+        : null;
+      const completedAt = ["completed", "verified"].includes(status)
+        ? new Date(Date.now() - rnd(0, 30) * 86400000).toISOString()
+        : null;
+      return {
+        log_number: `ML-DEMO-${String(i + 1).padStart(4, "0")}`,
+        lot_id: eq.lot_id,
+        equipment_id: eq.id,
+        schedule_id: linkedSchedule?.id ?? null,
+        maintenance_type: linkedSchedule ? "scheduled" : pick(["emergency", "repair", "replacement", "inspection"]),
+        priority: pick(["low", "medium", "high", "critical"]),
+        title: `${eq.name} ${pick(["정기점검", "오류 조치", "부품 교체", "작동 불량 수리"])}`,
+        description: `[DEMO] ${eq.name} 관련 유지보수 작업 내역입니다.`,
+        symptom: pick(["통신 끊김", "전원 불안정", "영상 품질 저하", "결제 응답 지연", "센서 오작동"]),
+        cause: pick(["노후 부품", "배선 접촉 불량", "소프트웨어 오류", "외부 충격", "정기점검 대상"]),
+        resolution: ["completed", "verified"].includes(status) ? pick(["부품 교체 완료", "재부팅 및 펌웨어 업데이트", "배선 정비 완료", "센서 재보정 완료"]) : null,
+        reported_by: userId,
+        reported_at: reportedAt,
+        assigned_to: assignedAt ? userId : null,
+        assigned_at: assignedAt,
+        vendor_name: pick(["파킹클라우드", "한화비전", "제주시설관리"]),
+        vendor_contact: `010-${rnd(1000, 9999)}-${rnd(1000, 9999)}`,
+        parts_used: ["completed", "verified"].includes(status) ? [{ name: pick(["전원모듈", "카메라렌즈", "통신보드", "센서배터리"]), qty: 1, unit_cost: rnd(30000, 250000) }] : [],
+        labor_hours: rnd(1, 8),
+        parts_cost: rnd(0, 400000),
+        labor_cost: rnd(50000, 300000),
+        other_cost: rnd(0, 100000),
+        downtime_hours: status === "verified" || status === "completed" ? rnd(1, 12) : null,
+        started_at: startedAt,
+        completed_at: completedAt,
+        checklist_results: linkedSchedule ? [{ item: "외관 점검", result: "pass" }, { item: "작동 테스트", result: status === "pending_parts" ? "pending" : "pass" }] : [],
+        status,
+        closed_by: ["verified"].includes(status) ? userId : null,
+        closed_at: ["verified"].includes(status) ? completedAt : null,
+        satisfaction_score: ["verified"].includes(status) ? rnd(4, 5) : null,
+        notes: "[DEMO] 데모 유지보수",
+      };
+    });
     await batchInsert(supabase, "maintenance_logs", maintRows);
   }
 
-  // Maintenance schedules (10)
-  const scheduleRows = topLots.slice(0, 10).map((lot: any, i: number) => ({
-    lot_id: lot.id,
-    schedule_name: `${lot.name} ${pick(["월간 정기점검", "분기 안전점검", "소방 점검"])}`,
-    schedule_type: pick(["monthly", "quarterly", "biannual"]),
-    next_due_date: daysFromNow(rnd(1, 90)),
-    is_active: true,
-    notes: "[DEMO] 데모 일정",
-  }));
-  await batchInsert(supabase, "maintenance_schedules", scheduleRows);
-
-  // Safety inspections (10)
-  const grades = ["A", "A", "A", "B", "B", "B", "C", "C", "D", "B"];
-  const inspRows = topLots.slice(0, 10).map((lot: any, i: number) => {
+  // Safety inspections (12)
+  const grades = ["A", "A", "B", "B", "B", "C", "C", "D", "A", "B", "C", "F"];
+  const inspRows = topLots.slice(0, 12).map((lot: any, i: number) => {
     const grade = grades[i];
-    const passItems = grade === "A" ? 9 : grade === "B" ? 7 : grade === "C" ? 5 : 4;
+    const failItems = grade === "A" ? 0 : grade === "B" ? 1 : grade === "C" ? 3 : grade === "D" ? 5 : 6;
+    const passItems = 17 - failItems;
     return {
       inspection_number: `SI-DEMO-${String(i + 1).padStart(4, "0")}`,
       lot_id: lot.id,
-      inspection_type: pick(["quarterly", "monthly"]),
+      inspection_type: pick(["monthly", "quarterly", "semi_annual", "special"]),
       inspection_date: daysAgo(rnd(1, 180)),
+      inspector_id: userId,
+      inspector_name: pick(["관리자", "김점검", "이안전", "박시설"]),
+      inspector_org: pick(["시설관리팀", "외부안전진단기관", "운영관리팀"]),
+      checklist_template: "facility-default",
       checklist_results: [
-        { category: "구조안전", item: "바닥 균열", result: "pass" },
-        { category: "소방", item: "소화기 비치", result: "pass" },
-        { category: "전기", item: "배선 상태", result: grade === "D" ? "fail" : "pass" },
+        { category: "구조안전", item: "바닥 균열/파손", result: grade === "F" ? "fail" : "pass", severity: grade === "F" ? "high" : undefined },
+        { category: "전기안전", item: "조명 작동", result: ["D", "F"].includes(grade) ? "fail" : "pass", severity: ["D", "F"].includes(grade) ? "medium" : undefined },
+        { category: "소방안전", item: "소화기 비치/유효기한", result: grade === "C" ? "fail" : "pass", severity: grade === "C" ? "low" : undefined },
       ],
-      total_items: 10, pass_items: passItems, fail_items: 10 - passItems, na_items: 0,
-      overall_grade: grade, status: "completed",
+      total_items: 17,
+      pass_items: passItems,
+      fail_items: failItems,
+      na_items: 0,
+      overall_grade: grade,
+      issues_found: failItems > 0 ? `[DEMO] ${lot.name} 현장에 시정 필요 항목 ${failItems}건 발견` : null,
+      corrective_actions: failItems > 0 ? "조명 교체, 소화기 재배치, 노면 미끄럼 구간 보수" : null,
+      correction_deadline: failItems > 0 ? daysFromNow(rnd(7, 30)) : null,
+      follow_up_required: failItems > 0,
+      follow_up_date: failItems > 0 ? daysFromNow(rnd(10, 40)) : null,
+      status: "completed",
       notes: "[DEMO] 데모 안전점검",
+      created_by: userId,
     };
   });
   await batchInsert(supabase, "safety_inspections", inspRows);
