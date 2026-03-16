@@ -1780,6 +1780,41 @@ async function runSeed(supabase: any, userId: string) {
     }, { onConflict: "lot_id" });
   }
 
+  // ══════════════════════════════════════════
+  //  19. API 키 관리 – api_keys, api_call_logs
+  // ══════════════════════════════════════════
+  const apiKeyRows = [
+    { key_name: "카카오맵 연동", api_key: `pk_live_${crypto.randomUUID().replace(/-/g, "")}`, key_prefix: "pk_live_...", description: "카카오맵 주차장 실시간 연동", status: "active", rate_limit_per_minute: 60, expires_at: daysFromNow(365), total_calls: rnd(5000, 20000), monthly_calls: rnd(500, 3000), created_by: userId, notes: "[DEMO] 데모 API키" },
+    { key_name: "네이버맵 연동", api_key: `pk_live_${crypto.randomUUID().replace(/-/g, "")}`, key_prefix: "pk_live_...", description: "네이버맵 실시간 주차 정보 제공", status: "active", rate_limit_per_minute: 120, expires_at: daysFromNow(300), total_calls: rnd(3000, 15000), monthly_calls: rnd(300, 2000), created_by: userId, notes: "[DEMO] 데모 API키" },
+    { key_name: "주차포털 연동", api_key: `pk_live_${crypto.randomUUID().replace(/-/g, "")}`, key_prefix: "pk_live_...", description: "공영주차장 포털 데이터 연계", status: "active", rate_limit_per_minute: 60, expires_at: daysFromNow(180), total_calls: rnd(1000, 8000), monthly_calls: rnd(100, 1000), created_by: userId, notes: "[DEMO] 데모 API키" },
+    { key_name: "구 시스템 연동", api_key: `pk_live_${crypto.randomUUID().replace(/-/g, "")}`, key_prefix: "pk_live_...", description: "레거시 시스템 (만료됨)", status: "revoked", rate_limit_per_minute: 30, expires_at: daysAgo(30), total_calls: rnd(10000, 50000), monthly_calls: 0, created_by: userId, notes: "[DEMO] 데모 API키" },
+  ];
+  const { data: insertedApiKeys } = await supabase.from("api_keys").insert(apiKeyRows).select("id");
+
+  // API 호출 로그 생성 (최근 14일)
+  if (insertedApiKeys && insertedApiKeys.length > 0) {
+    const activeKeyIds = insertedApiKeys.slice(0, 3).map((k: any) => k.id);
+    const endpoints = ["/api/v1/lots", "/api/v1/lots/:id", "/api/v1/lots/:id/history", "/ws/realtime"];
+    const methods = ["GET", "GET", "GET", "WS"];
+    const callLogRows: any[] = [];
+    for (let day = 0; day < 14; day++) {
+      const callsPerDay = rnd(30, 120);
+      for (let c = 0; c < callsPerDay; c++) {
+        const epIdx = Math.random() < 0.6 ? 0 : Math.random() < 0.7 ? 1 : Math.random() < 0.9 ? 2 : 3;
+        callLogRows.push({
+          api_key_id: pick(activeKeyIds),
+          endpoint: endpoints[epIdx],
+          method: methods[epIdx],
+          status_code: Math.random() > 0.02 ? 200 : pick([400, 401, 429, 500]),
+          response_time_ms: rnd(10, 500),
+          ip_address: `${rnd(1, 255)}.${rnd(0, 255)}.${rnd(0, 255)}.${rnd(1, 255)}`,
+          called_at: new Date(Date.now() - day * 86400000 - rnd(0, 86400) * 1000).toISOString(),
+        });
+      }
+    }
+    await batchInsert(supabase, "api_call_logs", callLogRows);
+  }
+
   console.log("✅ Demo data seed completed for ALL modules (5-depth)");
 }
 
