@@ -158,8 +158,8 @@ export default function FacilityAnalysis() {
             { key: 'status', label: '상태' },
           ],
           data: agingEquip.map((e: any) => ({
-            name: e.equipment_name, type: e.equipment_type, lotName: e.lotName,
-            installed_date: e.installed_date, useful_life_years: e.useful_life_years,
+            name: e.name, type: e.equipment_type, lotName: e.lotName,
+            installed_date: e.install_date, useful_life_years: e.useful_life_years,
             ratio: e.ratio, status: STATUS_LABELS[e.status] || e.status,
           })),
           autoFilter: true, freezePane: { row: 1, col: 0 },
