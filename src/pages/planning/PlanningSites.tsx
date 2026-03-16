@@ -398,6 +398,7 @@ export default function PlanningSites() {
                 <div className="flex items-center gap-2"><Switch checked={form.traffic_impact_review || false} onCheckedChange={v => updateForm('traffic_impact_review', v)} /><Label>교통영향평가 필요</Label></div>
                 <div className="flex items-center gap-2"><Switch checked={form.cultural_heritage_review || false} onCheckedChange={v => updateForm('cultural_heritage_review', v)} /><Label>문화재조사 필요</Label></div>
               </div>
+              <AuthorField value={form.author_name || ""} onChange={v => updateForm('author_name', v)} />
             </div>
           )}
 
