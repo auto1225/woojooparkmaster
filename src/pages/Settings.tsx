@@ -357,7 +357,7 @@ export default function SettingsPage() {
                       <p className="text-xs text-muted-foreground">생성 항목: 장비, 유지보수, 안전점검, 민원, 수입 데이터 등</p>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setDemoGenDialog(false)}>취소</Button>
-                        <Button onClick={() => { setDemoGenDialog(false); toast.info("데모 데이터 SQL은 src/demo-data/demo_seed.sql을 참고하세요. SQL Editor에서 직접 실행해주세요."); }}>확인</Button>
+                        <Button disabled={demoLoading} onClick={() => { setDemoGenDialog(false); runDemoAction("seed"); }}>{demoLoading ? "처리중..." : "확인"}</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
