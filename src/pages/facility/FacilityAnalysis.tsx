@@ -38,7 +38,10 @@ export default function FacilityAnalysis() {
   const { data: maintenance = [] } = useQuery({
     queryKey: ['maint-analysis'],
     queryFn: async () => {
-      const { data } = await supabase.from('maintenance_logs').select('*').order('scheduled_date', { ascending: false });
+      const { data } = await supabase
+        .from('maintenance_logs')
+        .select('id, title, status, reported_at, completed_at, created_at, total_cost')
+        .order('reported_at', { ascending: false });
       return data || [];
     },
   });
