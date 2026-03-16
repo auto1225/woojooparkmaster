@@ -170,6 +170,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <header className="h-14 flex items-center gap-3 border-b border-border/60 bg-card px-4 sm:px-6 shrink-0 shadow-xs">
             <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
 
+            {/* Back button */}
+            {location.pathname !== "/" && (
+              <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-8 w-8 rounded-lg hover:bg-sunken shrink-0" title="뒤로가기">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
             {/* Breadcrumb */}
             <nav className="flex items-center gap-1 min-w-0">
               {breadcrumbs.map((crumb, i) => (
