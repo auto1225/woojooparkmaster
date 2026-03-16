@@ -287,10 +287,10 @@ export default function FacilityAnalysis() {
                 <TableBody>
                   {agingEquip.slice(0, 20).map((e: any) => (
                     <TableRow key={e.id}>
-                      <TableCell className="text-xs font-medium">{e.equipment_name}</TableCell>
+                      <TableCell className="text-xs font-medium">{e.name}</TableCell>
                       <TableCell className="text-xs">{e.equipment_type}</TableCell>
                       <TableCell className="text-xs">{e.lotName}</TableCell>
-                      <TableCell className="text-xs">{e.installed_date}</TableCell>
+                      <TableCell className="text-xs">{e.install_date}</TableCell>
                       <TableCell className="text-xs">{e.useful_life_years}년</TableCell>
                       <TableCell className="text-xs">
                         <div className="flex items-center gap-2">
