@@ -137,6 +137,7 @@ export default function ServiceProjectNew() {
         warranty_months: warrantyMonths || null,
         warranty_end: warrantyEnd || null,
         created_by: profile?.id,
+        author_name: form.author_name || profile?.name || null,
       } as any).select().single();
 
       if (error) throw error;
