@@ -891,9 +891,9 @@ async function runSeed(supabase: any, userId: string) {
           deliverable_number: `DEL-DEMO-${String(delNum).padStart(4, "0")}`,
           project_id: proj.id,
           ...del,
+          description: `[DEMO] ${proj.title} ${del.title}`,
           required_copies: rnd(3, 10),
           format_required: "PDF + 한글",
-          notes: "[DEMO] 데모 산출물",
         });
       }
     }
