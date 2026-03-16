@@ -1221,16 +1221,17 @@ async function runSeed(supabase: any, userId: string) {
     { template_code: "RPT-DEMO-ANNUAL", name: "연간 종합 보고서", report_type: "annual", report_category: "comprehensive", is_system: true },
     { template_code: "RPT-DEMO-SAFETY", name: "안전점검 결과 보고서", report_type: "event", report_category: "safety", is_system: true },
     { template_code: "RPT-DEMO-COMPLAINT", name: "민원 처리현황 보고서", report_type: "monthly", report_category: "complaint", is_system: true },
-  ].map(t => ({
+  })).map(t => ({
     ...t,
     description: `[DEMO] ${t.name}`,
-    target_audience: ["admin", "manager"],
-    required_modules: ["facility", "revenue"],
+    target_audience: "internal",
+    required_modules: ["CORE", "OPS"],
     data_sources: [{ table: "parking_lots" }],
-    parameters: { period: t.report_type },
+    parameters: [{ name: "period", type: t.report_type, label: "기간", required: true }],
     page_size: "A4",
     page_orientation: "portrait",
     template_format: "pdf",
+    sort_order: rnd(20, 30),
   }));
   await batchInsert(supabase, "report_templates", templateRows);
 
