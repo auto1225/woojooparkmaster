@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Settings, Trash2, Eye, Edit3, GripVertical, BarChart3, PieChart as PieChartIcon } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import { WIDGET_TYPE_LABELS, type DashboardWidget } from "@/types/report";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 
