@@ -276,6 +276,9 @@ export default function RealtimeSensors() {
                 <Label>상세 위치</Label>
                 <Input value={form.location_detail || ''} onChange={e => updateForm('location_detail', e.target.value)} />
               </div>
+              <div className="col-span-2">
+                <AuthorField value={form.author_name || ""} onChange={v => updateForm('author_name', v)} />
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowRegister(false)}>취소</Button>
