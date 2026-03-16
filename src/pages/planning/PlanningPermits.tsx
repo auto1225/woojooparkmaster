@@ -235,6 +235,7 @@ export default function PlanningPermits() {
               <div className="flex items-center gap-2 pt-6"><Switch checked={form.fee_paid || false} onCheckedChange={v => updateForm('fee_paid', v)} /><Label>납부완료</Label></div>
             </div>
             <div><Label>비고</Label><Textarea value={form.notes || ''} onChange={e => updateForm('notes', e.target.value)} /></div>
+            <AuthorField value={form.author_name || ""} onChange={v => updateForm('author_name', v)} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNew(false)}>취소</Button>
