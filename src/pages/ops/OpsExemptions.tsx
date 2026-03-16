@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "@/hooks/use-toast";
 import { EXEMPTION_TYPE_LABELS, DISCOUNT_TYPE_LABELS } from "@/types/operations";
 import { Plus, Trash2 } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 
 export default function OpsExemptionsPage() {
   const queryClient = useQueryClient();
