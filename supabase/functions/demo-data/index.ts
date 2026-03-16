@@ -377,24 +377,65 @@ async function runSeed(supabase: any, userId: string) {
   await batchInsert(supabase, "safety_inspections", inspRows);
 
   // Surface markings (20)
-  const markingTypes = ["lane_line", "parking_line", "arrow", "text", "crosswalk", "speed_bump", "disabled_sign", "ev_sign"];
-  const markingRows = topLots.slice(0, 10).flatMap((lot: any, li: number) => [
-    {
-      lot_id: lot.id, marking_name: `${lot.name} 주차구획선`, marking_type: "parking_line",
-      color: "white", condition: pick(["good", "good", "fair", "poor"]),
-      quantity: rnd(20, lot.total_spaces), material: "도료",
-      last_repainted: daysAgo(rnd(30, 365)), repaint_cycle_months: 12,
-      notes: "[DEMO] 데모 노면표시",
-    },
-    {
-      lot_id: lot.id, marking_name: `${lot.name} ${pick(["진행방향 화살표", "과속방지턱", "횡단보도"])}`,
-      marking_type: pick(markingTypes),
-      color: pick(["white", "yellow"]), condition: pick(["good", "fair"]),
-      quantity: rnd(2, 8), material: "도료",
-      last_repainted: daysAgo(rnd(30, 365)), repaint_cycle_months: 12,
-      notes: "[DEMO] 데모 노면표시",
-    },
-  ]);
+  const markingTypes = [
+    "parking_line",
+    "arrow",
+    "number",
+    "disabled_sign",
+    "ev_sign",
+    "entrance_sign",
+    "exit_sign",
+    "speed_limit",
+    "height_limit",
+    "fire_lane",
+    "info_board",
+  ];
+
+  const markingRows = topLots.slice(0, 10).flatMap((lot: any) => {
+    const primaryPaintedAt = daysAgo(rnd(30, 365));
+    const primaryNextDue = (() => {
+      const d = new Date(primaryPaintedAt);
+      d.setMonth(d.getMonth() + 12);
+      return d.toISOString().split("T")[0];
+    })();
+
+    const secondaryPaintedAt = daysAgo(rnd(30, 365));
+    const secondaryCycleMonths = pick([6, 12, 18]);
+    const secondaryNextDue = (() => {
+      const d = new Date(secondaryPaintedAt);
+      d.setMonth(d.getMonth() + secondaryCycleMonths);
+      return d.toISOString().split("T")[0];
+    })();
+
+    return [
+      {
+        lot_id: lot.id,
+        marking_name: `${lot.name} 주차구획선`,
+        marking_type: "parking_line",
+        color: "white",
+        condition: pick(["good", "good", "fair", "poor"]),
+        quantity: rnd(20, lot.total_spaces),
+        material: "도료",
+        last_repainted: primaryPaintedAt,
+        repaint_cycle_months: 12,
+        next_due: primaryNextDue,
+        notes: "[DEMO] 데모 노면표시",
+      },
+      {
+        lot_id: lot.id,
+        marking_name: `${lot.name} ${pick(["진행방향 화살표", "출입구 안내", "속도 제한 표시"])}`,
+        marking_type: pick(markingTypes),
+        color: pick(["white", "yellow"]),
+        condition: pick(["good", "fair"]),
+        quantity: rnd(2, 8),
+        material: "도료",
+        last_repainted: secondaryPaintedAt,
+        repaint_cycle_months: secondaryCycleMonths,
+        next_due: secondaryNextDue,
+        notes: "[DEMO] 데모 노면표시",
+      },
+    ];
+  });
   await batchInsert(supabase, "surface_markings", markingRows);
 
   // ══════════════════════════════════════════
