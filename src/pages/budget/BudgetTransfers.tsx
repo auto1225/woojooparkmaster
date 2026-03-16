@@ -200,6 +200,7 @@ export default function BudgetTransfers() {
               </div>
               <div><Label>사유 *</Label><Textarea value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} /></div>
               <div><Label>근거 법령/조례</Label><Input value={form.legal_basis} onChange={e => setForm(f => ({ ...f, legal_basis: e.target.value }))} placeholder="예: 지방재정법 제47조" /></div>
+              <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(f => ({ ...f, author_name: v } as any))} />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCreateOpen(false)}>취소</Button>
