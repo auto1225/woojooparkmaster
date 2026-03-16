@@ -168,53 +168,129 @@ async function runSeed(supabase: any, userId: string) {
   if (equipmentRows.length > 0) await batchInsert(supabase, "equipment", equipmentRows);
 
   // Get inserted equipment IDs
-  const { data: demoEq } = await supabase.from("equipment").select("id, lot_id, name, equipment_type").like("notes", "[DEMO]%");
+  const { data: demoEq } = await supabase
+    .from("equipment")
+    .select("id, lot_id, name, equipment_type")
+    .like("notes", "[DEMO]%");
 
-  // Maintenance logs (25)
+  // Maintenance schedules (12)
   if (demoEq && demoEq.length > 0) {
-    const maintRows = demoEq.slice(0, 25).map((eq: any, i: number) => ({
-      log_number: `ML-DEMO-${String(i + 1).padStart(4, "0")}`,
-      lot_id: eq.lot_id, equipment_id: eq.id,
-      maintenance_type: pick(["scheduled", "scheduled", "emergency", "repair"]),
-      priority: pick(["low", "medium", "high"]),
-      title: `${eq.name} ${pick(["정기점검", "수리", "부품교체"])}`,
-      parts_cost: rnd(0, 500000), labor_cost: rnd(50000, 300000), other_cost: 0,
-      total_cost: rnd(50000, 800000),
-      status: pick(["completed", "completed", "completed", "in_progress", "reported"]),
-      notes: "[DEMO] 데모 유지보수",
+    const scheduleRows = demoEq.slice(0, 12).map((eq: any, i: number) => ({
+      lot_id: eq.lot_id,
+      equipment_id: eq.id,
+      schedule_name: `${eq.name} ${pick(["월간 정기점검", "분기 예방정비", "반기 기능점검", "연간 교체점검"])}`,
+      schedule_type: pick(["monthly", "quarterly", "semi_annual", "yearly"]),
+      description: `[DEMO] ${eq.name}에 대한 예방정비 일정입니다.`,
+      checklist: [
+        { item: "외관 점검", required: true },
+        { item: "전원/통신 상태 확인", required: true },
+        { item: "작동 테스트", required: true },
+      ],
+      assigned_team: pick(["시설관리팀", "운영관리팀"]),
+      assigned_to: userId,
+      vendor_name: pick(["파킹클라우드", "한화비전", "아마노코리아"]),
+      estimated_cost: rnd(100000, 700000),
+      estimated_hours: rnd(1, 6),
+      last_completed: daysAgo(rnd(10, 90)),
+      next_due_date: daysFromNow(rnd(1, 90)),
+      recurrence_rule: { interval: 1, unit: "month" },
+      advance_notice_days: pick([3, 7, 14]),
+      is_active: true,
+      created_by: userId,
     }));
+    await batchInsert(supabase, "maintenance_schedules", scheduleRows);
+  }
+
+  const { data: demoSchedules } = await supabase
+    .from("maintenance_schedules")
+    .select("id, lot_id, equipment_id, schedule_name")
+    .like("description", "[DEMO]%");
+
+  // Maintenance logs (30)
+  if (demoEq && demoEq.length > 0) {
+    const maintRows = demoEq.slice(0, 30).map((eq: any, i: number) => {
+      const linkedSchedule = demoSchedules?.find((s: any) => s.equipment_id === eq.id) ?? null;
+      const status = pick(["reported", "assigned", "in_progress", "pending_parts", "completed", "verified"]);
+      const reportedAt = new Date(Date.now() - rnd(3, 120) * 86400000).toISOString();
+      const assignedAt = ["assigned", "in_progress", "pending_parts", "completed", "verified"].includes(status)
+        ? new Date(Date.now() - rnd(2, 90) * 86400000).toISOString()
+        : null;
+      const startedAt = ["in_progress", "pending_parts", "completed", "verified"].includes(status)
+        ? new Date(Date.now() - rnd(1, 60) * 86400000).toISOString()
+        : null;
+      const completedAt = ["completed", "verified"].includes(status)
+        ? new Date(Date.now() - rnd(0, 30) * 86400000).toISOString()
+        : null;
+      return {
+        log_number: `ML-DEMO-${String(i + 1).padStart(4, "0")}`,
+        lot_id: eq.lot_id,
+        equipment_id: eq.id,
+        schedule_id: linkedSchedule?.id ?? null,
+        maintenance_type: linkedSchedule ? "scheduled" : pick(["emergency", "repair", "replacement", "inspection"]),
+        priority: pick(["low", "medium", "high", "critical"]),
+        title: `${eq.name} ${pick(["정기점검", "오류 조치", "부품 교체", "작동 불량 수리"])}`,
+        description: `[DEMO] ${eq.name} 관련 유지보수 작업 내역입니다.`,
+        symptom: pick(["통신 끊김", "전원 불안정", "영상 품질 저하", "결제 응답 지연", "센서 오작동"]),
+        cause: pick(["노후 부품", "배선 접촉 불량", "소프트웨어 오류", "외부 충격", "정기점검 대상"]),
+        resolution: ["completed", "verified"].includes(status) ? pick(["부품 교체 완료", "재부팅 및 펌웨어 업데이트", "배선 정비 완료", "센서 재보정 완료"]) : null,
+        reported_by: userId,
+        reported_at: reportedAt,
+        assigned_to: assignedAt ? userId : null,
+        assigned_at: assignedAt,
+        vendor_name: pick(["파킹클라우드", "한화비전", "제주시설관리"]),
+        vendor_contact: `010-${rnd(1000, 9999)}-${rnd(1000, 9999)}`,
+        parts_used: ["completed", "verified"].includes(status) ? [{ name: pick(["전원모듈", "카메라렌즈", "통신보드", "센서배터리"]), qty: 1, unit_cost: rnd(30000, 250000) }] : [],
+        labor_hours: rnd(1, 8),
+        parts_cost: rnd(0, 400000),
+        labor_cost: rnd(50000, 300000),
+        other_cost: rnd(0, 100000),
+        downtime_hours: status === "verified" || status === "completed" ? rnd(1, 12) : null,
+        started_at: startedAt,
+        completed_at: completedAt,
+        checklist_results: linkedSchedule ? [{ item: "외관 점검", result: "pass" }, { item: "작동 테스트", result: status === "pending_parts" ? "pending" : "pass" }] : [],
+        status,
+        closed_by: ["verified"].includes(status) ? userId : null,
+        closed_at: ["verified"].includes(status) ? completedAt : null,
+        satisfaction_score: ["verified"].includes(status) ? rnd(4, 5) : null,
+        notes: "[DEMO] 데모 유지보수",
+      };
+    });
     await batchInsert(supabase, "maintenance_logs", maintRows);
   }
 
-  // Maintenance schedules (10)
-  const scheduleRows = topLots.slice(0, 10).map((lot: any, i: number) => ({
-    lot_id: lot.id,
-    schedule_name: `${lot.name} ${pick(["월간 정기점검", "분기 안전점검", "소방 점검"])}`,
-    schedule_type: pick(["monthly", "quarterly", "biannual"]),
-    next_due_date: daysFromNow(rnd(1, 90)),
-    is_active: true,
-    notes: "[DEMO] 데모 일정",
-  }));
-  await batchInsert(supabase, "maintenance_schedules", scheduleRows);
-
-  // Safety inspections (10)
-  const grades = ["A", "A", "A", "B", "B", "B", "C", "C", "D", "B"];
-  const inspRows = topLots.slice(0, 10).map((lot: any, i: number) => {
+  // Safety inspections (12)
+  const grades = ["A", "A", "B", "B", "B", "C", "C", "D", "A", "B", "C", "F"];
+  const inspRows = topLots.slice(0, 12).map((lot: any, i: number) => {
     const grade = grades[i];
-    const passItems = grade === "A" ? 9 : grade === "B" ? 7 : grade === "C" ? 5 : 4;
+    const failItems = grade === "A" ? 0 : grade === "B" ? 1 : grade === "C" ? 3 : grade === "D" ? 5 : 6;
+    const passItems = 17 - failItems;
     return {
       inspection_number: `SI-DEMO-${String(i + 1).padStart(4, "0")}`,
       lot_id: lot.id,
-      inspection_type: pick(["quarterly", "monthly"]),
+      inspection_type: pick(["monthly", "quarterly", "semi_annual", "special"]),
       inspection_date: daysAgo(rnd(1, 180)),
+      inspector_id: userId,
+      inspector_name: pick(["관리자", "김점검", "이안전", "박시설"]),
+      inspector_org: pick(["시설관리팀", "외부안전진단기관", "운영관리팀"]),
+      checklist_template: "facility-default",
       checklist_results: [
-        { category: "구조안전", item: "바닥 균열", result: "pass" },
-        { category: "소방", item: "소화기 비치", result: "pass" },
-        { category: "전기", item: "배선 상태", result: grade === "D" ? "fail" : "pass" },
+        { category: "구조안전", item: "바닥 균열/파손", result: grade === "F" ? "fail" : "pass", severity: grade === "F" ? "high" : undefined },
+        { category: "전기안전", item: "조명 작동", result: ["D", "F"].includes(grade) ? "fail" : "pass", severity: ["D", "F"].includes(grade) ? "medium" : undefined },
+        { category: "소방안전", item: "소화기 비치/유효기한", result: grade === "C" ? "fail" : "pass", severity: grade === "C" ? "low" : undefined },
       ],
-      total_items: 10, pass_items: passItems, fail_items: 10 - passItems, na_items: 0,
-      overall_grade: grade, status: "completed",
+      total_items: 17,
+      pass_items: passItems,
+      fail_items: failItems,
+      na_items: 0,
+      overall_grade: grade,
+      issues_found: failItems > 0 ? `[DEMO] ${lot.name} 현장에 시정 필요 항목 ${failItems}건 발견` : null,
+      corrective_actions: failItems > 0 ? "조명 교체, 소화기 재배치, 노면 미끄럼 구간 보수" : null,
+      correction_deadline: failItems > 0 ? daysFromNow(rnd(7, 30)) : null,
+      follow_up_required: failItems > 0,
+      follow_up_date: failItems > 0 ? daysFromNow(rnd(10, 40)) : null,
+      status: "completed",
       notes: "[DEMO] 데모 안전점검",
+      created_by: userId,
     };
   });
   await batchInsert(supabase, "safety_inspections", inspRows);
@@ -323,14 +399,14 @@ async function runSeed(supabase: any, userId: string) {
 
   // Fee exemptions (8)
   const exemptionRows = [
-    { exemption_name: "장애인 감면", exemption_type: "disabled", discount_type: "rate", discount_rate: 50, legal_basis: "주차장법 제10조", notes: "[DEMO]" },
-    { exemption_name: "국가유공자 감면", exemption_type: "veteran", discount_type: "rate", discount_rate: 50, legal_basis: "국가유공자법", notes: "[DEMO]" },
-    { exemption_name: "경차 감면", exemption_type: "compact_car", discount_type: "rate", discount_rate: 50, legal_basis: "주차장법", notes: "[DEMO]" },
-    { exemption_name: "전기차 감면", exemption_type: "ev", discount_type: "rate", discount_rate: 50, legal_basis: "환경부 고시", notes: "[DEMO]" },
-    { exemption_name: "다자녀 감면", exemption_type: "multi_child", discount_type: "rate", discount_rate: 50, legal_basis: "지자체 조례", notes: "[DEMO]" },
-    { exemption_name: "임산부 감면", exemption_type: "pregnant", discount_type: "rate", discount_rate: 50, legal_basis: "지자체 조례", notes: "[DEMO]" },
-    { exemption_name: "공무 차량", exemption_type: "official", discount_type: "full", discount_rate: 100, legal_basis: "지자체 내규", notes: "[DEMO]" },
-    { exemption_name: "30분 무료", exemption_type: "free_time", discount_type: "time", max_hours: 0.5, legal_basis: "주차장 조례", notes: "[DEMO]" },
+    { exemption_name: "장애인 감면", exemption_type: "disabled", discount_type: "rate", discount_rate: 50, legal_basis: "주차장법 제10조" },
+    { exemption_name: "국가유공자 감면", exemption_type: "veteran", discount_type: "rate", discount_rate: 50, legal_basis: "국가유공자법" },
+    { exemption_name: "경차 감면", exemption_type: "compact_car", discount_type: "rate", discount_rate: 50, legal_basis: "주차장법" },
+    { exemption_name: "전기차 감면", exemption_type: "ev", discount_type: "rate", discount_rate: 50, legal_basis: "환경부 고시" },
+    { exemption_name: "다자녀 감면", exemption_type: "multi_child", discount_type: "rate", discount_rate: 50, legal_basis: "지자체 조례" },
+    { exemption_name: "임산부 감면", exemption_type: "pregnant", discount_type: "rate", discount_rate: 50, legal_basis: "지자체 조례" },
+    { exemption_name: "공무 차량", exemption_type: "official", discount_type: "full", discount_rate: 100, legal_basis: "지자체 내규" },
+    { exemption_name: "30분 무료", exemption_type: "free_time", discount_type: "time", max_hours: 0.5, legal_basis: "주차장 조례" },
   ].map(r => ({ ...r, is_active: true }));
   await batchInsert(supabase, "fee_exemptions", exemptionRows);
 
@@ -419,14 +495,25 @@ async function runSeed(supabase: any, userId: string) {
       const weekday = new Date(dateStr).getDay();
       const factor = (weekday === 0 || weekday === 6) ? 0.6 : 1.0;
       revRows.push({
-        lot_id: lot.id, revenue_date: dateStr,
+        lot_id: lot.id,
+        revenue_date: dateStr,
         cash_amount: Math.floor(dailyBase * 0.15 * factor * (0.8 + Math.random() * 0.4)),
         card_amount: Math.floor(dailyBase * 0.6 * factor * (0.8 + Math.random() * 0.4)),
         mobile_amount: Math.floor(dailyBase * 0.25 * factor * (0.8 + Math.random() * 0.4)),
+        monthly_pass_amount: Math.floor(dailyBase * 0.18 * factor * (0.8 + Math.random() * 0.3)),
+        other_amount: Math.floor(dailyBase * 0.05 * factor * (0.7 + Math.random() * 0.3)),
         total_amount: Math.floor(dailyBase * factor * (0.8 + Math.random() * 0.4)),
         total_vehicles: Math.floor(lot.total_spaces * factor * (0.5 + Math.random() * 1.5)),
+        peak_hour_vehicles: Math.floor(lot.total_spaces * factor * (0.08 + Math.random() * 0.08)),
+        peak_hour: `${rnd(8, 19)}:00`,
+        avg_parking_minutes: rnd(35, 180),
+        turnover_rate: rnd(80, 260),
+        exemption_count: rnd(0, 20),
+        exemption_amount: rnd(0, 300000),
+        exemption_detail: { disabled: rnd(0, 5), veteran: rnd(0, 4), compact: rnd(0, 8) },
+        data_source: "demo_seed",
+        source_detail: "[DEMO] generated revenue",
         verified: d > 30,
-        notes: "[DEMO] 데모 수입",
       });
     }
     await batchInsert(supabase, "revenue_daily", revRows);
@@ -634,14 +721,24 @@ async function runSeed(supabase: any, userId: string) {
   // Free hours settings (for top lots)
   const freeHoursRows = topLots.slice(0, 8).flatMap((lot: any) => [
     {
-      lot_id: lot.id, day_type: "weekday", free_minutes: 30,
-      start_time: "00:00", end_time: "23:59", is_active: true,
-      notes: "[DEMO] 데모 무료시간",
+      lot_id: lot.id,
+      setting_name: `${lot.name} 평일 무료시간`,
+      day_type: "weekday",
+      start_time: "00:00",
+      end_time: "23:59",
+      reason: "입차 후 30분 무료",
+      effective_from: `${currentYear}-01-01`,
+      is_active: true,
     },
     {
-      lot_id: lot.id, day_type: "weekend", free_minutes: 60,
-      start_time: "00:00", end_time: "23:59", is_active: true,
-      notes: "[DEMO] 데모 무료시간",
+      lot_id: lot.id,
+      setting_name: `${lot.name} 주말 무료시간`,
+      day_type: "weekend",
+      start_time: "00:00",
+      end_time: "23:59",
+      reason: "주말/공휴일 60분 무료",
+      effective_from: `${currentYear}-01-01`,
+      is_active: true,
     },
   ]);
   await batchInsert(supabase, "free_hours_settings", freeHoursRows);
@@ -764,7 +861,9 @@ async function runSeed(supabase: any, userId: string) {
           request_date: seq === 1 ? daysAgo(rnd(30, 60)) : daysAgo(rnd(1, 29)),
           title: `${proj.title} ${seq === 1 ? "기성금" : "준공금"}`,
           gross_amount: grossAmt,
-          net_amount: Math.floor(grossAmt * 0.97),
+          advance_deduction: 0,
+          other_deduction: Math.floor(grossAmt * 0.03),
+          deduction_detail: { retention: Math.floor(grossAmt * 0.03) },
           status: seq === 1 ? "paid" : pick(["requested", "reviewing", "approved"]),
           paid_amount: seq === 1 ? Math.floor(grossAmt * 0.97) : null,
           paid_date: seq === 1 ? daysAgo(rnd(10, 30)) : null,
@@ -792,9 +891,9 @@ async function runSeed(supabase: any, userId: string) {
           deliverable_number: `DEL-DEMO-${String(delNum).padStart(4, "0")}`,
           project_id: proj.id,
           ...del,
+          description: `[DEMO] ${proj.title} ${del.title}`,
           required_copies: rnd(3, 10),
           format_required: "PDF + 한글",
-          notes: "[DEMO] 데모 산출물",
         });
       }
     }
@@ -858,11 +957,11 @@ async function runSeed(supabase: any, userId: string) {
           title: `${proj.project_name} ${doc.title}`,
           doc_type: doc.doc_type,
           category: doc.category,
+          description: `[DEMO] ${proj.project_name} ${doc.title}`,
           version: "1.0",
           file_path: `/demo/design/${doc.doc_type}.pdf`,
-          status: pick(["approved", "approved", "reviewing", "draft"]),
+          review_status: pick(["approved", "approved", "reviewing", "draft"]),
           is_current: true,
-          notes: "[DEMO] 데모 설계문서",
         });
       }
     }
@@ -1065,9 +1164,10 @@ async function runSeed(supabase: any, userId: string) {
         reported_cash: repCash, reported_card: repCard, reported_mobile: repMobile, reported_other: 0,
         reported_total: repCash + repCard + repMobile,
         diff_amount: (repCash + repCard + repMobile) - (sysCash + sysCard + sysMobile),
+        diff_analysis: "[DEMO] 시스템 매출과 정산 보고서 비교 데이터",
         status: m === 1 ? "pending" : pick(["confirmed", "adjusted"]),
         company_name: pick(["(주)제주파킹", "(주)그린주차", "스마트주차관리"]),
-        notes: "[DEMO] 데모 정산",
+        created_by: userId,
       });
     }
     return rows;
@@ -1086,9 +1186,13 @@ async function runSeed(supabase: any, userId: string) {
   ].map(t => ({
     ...t,
     description: `[DEMO] ${t.name}`,
-    sections: [{ title: "개요", type: "summary" }, { title: "상세", type: "table" }],
+    target_audience: ["admin", "manager"],
+    required_modules: ["facility", "revenue"],
     data_sources: [{ table: "parking_lots" }],
-    page_size: "A4", page_orientation: "portrait",
+    parameters: { period: t.report_type },
+    page_size: "A4",
+    page_orientation: "portrait",
+    template_format: "pdf",
   }));
   await batchInsert(supabase, "report_templates", templateRows);
 
@@ -1265,30 +1369,39 @@ async function runSeed(supabase: any, userId: string) {
   // ══════════════════════════════════════════
   //  17. 현황조사 – surveys, survey_basic_info
   // ══════════════════════════════════════════
-  const surveyRows = topLots.slice(0, 5).map((lot: any, i: number) => ({
+  const surveyRows = topLots.slice(0, 5).map((lot: any) => ({
     lot_id: lot.id,
-    survey_number: `SRV-DEMO-${String(i + 1).padStart(4, "0")}`,
-    title: `${lot.name} 현황조사`,
+    survey_type: "facility_status",
     status: pick(["draft", "in_progress", "submitted", "approved"]),
     surveyor_id: userId,
-    surveyor_name: "관리자",
     survey_date: daysAgo(rnd(10, 90)),
     notes: "[DEMO] 데모 현황조사",
   }));
   const { data: insertedSurveys } = await supabase.from("surveys").insert(surveyRows).select("id, lot_id");
 
   if (insertedSurveys && insertedSurveys.length > 0) {
-    const basicInfoRows = insertedSurveys.map((srv: any, i: number) => {
+    const basicInfoRows = insertedSurveys.map((srv: any) => {
       const lot = topLots.find((l: any) => l.id === srv.lot_id) || topLots[0];
       return {
         survey_id: srv.id,
         lot_name: lot.name,
-        lot_code: lot.code,
+        address: `제주시 ${pick(["연동", "노형동", "이도동"])} ${rnd(1, 200)}`,
         lot_type: pick(["offstreet", "onstreet", "multilevel"]),
-        address_road: `제주시 ${pick(["연동", "노형동", "이도동"])} ${rnd(1, 200)}`,
-        total_spaces: lot.total_spaces,
+        lot_type_floor: pick(["지상", "지하", "복층"]),
         operator_type: pick(["direct", "outsourced"]),
-        status: pick(["active", "inactive"]),
+        total_spaces: lot.total_spaces,
+        disabled_spaces: rnd(1, 6),
+        ev_spaces: rnd(0, 5),
+        compact_spaces: rnd(0, 12),
+        pregnant_spaces: rnd(0, 3),
+        other_spaces: rnd(0, 2),
+        other_spaces_desc: "임시차량",
+        entry_count: rnd(1, 4),
+        exit_count: rnd(1, 4),
+        entry_exit_same: Math.random() > 0.5,
+        surface_type: pick(["ascon", "block", "concrete"]),
+        gps_lat: 33.49 + Math.random() * 0.04,
+        gps_lng: 126.51 + Math.random() * 0.06,
       };
     });
     await batchInsert(supabase, "survey_basic_info", basicInfoRows);
@@ -1407,7 +1520,8 @@ async function runCleanup(supabase: any) {
   await supabase.from("budget_plans").delete().like("notes", "[DEMO]%");
 
   // Revenue
-  await supabase.from("revenue_daily").delete().like("notes", "[DEMO]%");
+  await supabase.from("revenue_daily").delete().eq("data_source", "demo_seed");
+  await supabase.from("revenue_reconciliation").delete().like("diff_analysis", "[DEMO]%");
 
   // Complaints
   const { data: demoComplaints } = await supabase.from("complaints").select("id").like("notes", "[DEMO]%");
@@ -1417,8 +1531,8 @@ async function runCleanup(supabase: any) {
   await supabase.from("complaints").delete().like("notes", "[DEMO]%");
 
   // Operations
-  await supabase.from("free_hours_settings").delete().like("notes", "[DEMO]%");
-  await supabase.from("fee_exemptions").delete().like("notes", "[DEMO]%");
+  await supabase.from("free_hours_settings").delete().like("setting_name", "%무료시간");
+  await supabase.from("fee_exemptions").delete().in("exemption_name", ["장애인 감면", "국가유공자 감면", "경차 감면", "전기차 감면", "다자녀 감면", "임산부 감면", "공무 차량", "30분 무료"]);
   await supabase.from("outsourcing_contracts").delete().like("notes", "[DEMO]%");
   await supabase.from("monthly_passes").delete().like("notes", "[DEMO]%");
   await supabase.from("enforcement_records").delete().like("notes", "[DEMO]%");
@@ -1426,7 +1540,7 @@ async function runCleanup(supabase: any) {
 
   // Facility
   await supabase.from("surface_markings").delete().like("notes", "[DEMO]%");
-  await supabase.from("maintenance_schedules").delete().like("notes", "[DEMO]%");
+  await supabase.from("maintenance_schedules").delete().like("description", "[DEMO]%");
   await supabase.from("safety_inspections").delete().like("notes", "[DEMO]%");
   await supabase.from("maintenance_logs").delete().like("notes", "[DEMO]%");
   await supabase.from("equipment").delete().like("notes", "[DEMO]%");
