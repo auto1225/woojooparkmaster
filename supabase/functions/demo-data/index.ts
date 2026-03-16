@@ -1493,7 +1493,7 @@ async function runCleanup(supabase: any) {
   await supabase.from("gateway_devices").delete().like("notes", "[DEMO]%");
 
   // Revenue reconciliation
-  await supabase.from("revenue_reconciliation").delete().like("notes", "[DEMO]%");
+  await supabase.from("revenue_reconciliation").delete().like("diff_analysis", "[DEMO]%");
 
   // Fee policies
   await supabase.from("fee_policies").delete().like("notes", "[DEMO]%");
