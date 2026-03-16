@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { Plus } from "lucide-react";
+import { AuthorField } from "@/components/common/AuthorField";
 import {
   PROJECT_TYPE_LABELS, PHASE_LABELS, CONSTRUCTION_STATUS_LABELS, CONSTRUCTION_STATUS_COLORS,
   formatBudgetWon,
