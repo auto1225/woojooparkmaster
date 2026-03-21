@@ -250,7 +250,7 @@ export function AppSidebar() {
 
         {(simpleModules.length > 0 || opsActive || facilityActive) && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/30 px-3 mb-1">모듈</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/40 px-3 mb-1">모듈</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="space-y-0.5">
                 {simpleModules.map(renderLink)}
