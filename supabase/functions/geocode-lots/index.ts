@@ -8,6 +8,9 @@ const corsHeaders = {
 };
 
 const GEOCODE_URL = "https://maps.apigw.ntruss.com/map-geocode/v2/geocode";
+const DEFAULT_BATCH_SIZE = 20;
+const MAX_BATCH_SIZE = 25;
+const REQUEST_DELAY_MS = 150;
 
 type GeocodeResult = {
   lat: number;
@@ -16,6 +19,12 @@ type GeocodeResult = {
   jibunAddress?: string;
   query: string;
   score: number;
+};
+
+type GeocodeLotsRequest = {
+  cursor?: number;
+  batchSize?: number;
+  lotIds?: string[];
 };
 
 function sanitizeAddress(address: string): string {
@@ -80,6 +89,33 @@ function scoreAddressMatch(query: string, roadAddress?: string, jibunAddress?: s
   return score;
 }
 
+async function parseRequestPayload(req: Request): Promise<GeocodeLotsRequest> {
+  if (req.method !== "POST") return {};
+
+  try {
+    const raw = await req.text();
+    if (!raw.trim()) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeBatchSize(value?: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_BATCH_SIZE;
+  return Math.min(Math.max(Math.trunc(value as number), 1), MAX_BATCH_SIZE);
+}
+
+function normalizeCursor(value?: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(Math.trunc(value as number), 0);
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function geocodeAddress(
   addresses: Array<string | null | undefined>,
   clientId: string,
@@ -94,6 +130,7 @@ async function geocodeAddress(
         headers: {
           "X-NCP-APIGW-API-KEY-ID": clientId,
           "X-NCP-APIGW-API-KEY": clientSecret,
+          Accept: "application/json",
         },
       });
 
@@ -120,15 +157,10 @@ async function geocodeAddress(
         }
       }
 
-      if (bestMatch && bestMatch.score >= 8) {
-        break;
-      }
+      if (bestMatch && bestMatch.score >= 8) break;
     }
 
-    if (bestMatch && bestMatch.score >= 6) {
-      return bestMatch;
-    }
-
+    if (bestMatch && bestMatch.score >= 6) return bestMatch;
     return null;
   } catch (e) {
     console.error("Geocode error:", e);
@@ -142,7 +174,6 @@ serve(async (req) => {
   }
 
   try {
-    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -169,9 +200,6 @@ serve(async (req) => {
     const clientId = Deno.env.get("NAVER_MAP_CLIENT_ID");
     const clientSecret = Deno.env.get("NAVER_MAP_CLIENT_SECRET");
 
-    console.log(`[DEBUG] clientId present: ${!!clientId}, length: ${clientId?.length}, prefix: ${clientId?.substring(0, 4)}`);
-    console.log(`[DEBUG] clientSecret present: ${!!clientSecret}, length: ${clientSecret?.length}, prefix: ${clientSecret?.substring(0, 4)}`);
-
     if (!clientId || !clientSecret) {
       return new Response(
         JSON.stringify({ error: "NAVER_MAP credentials not configured" }),
@@ -179,30 +207,60 @@ serve(async (req) => {
       );
     }
 
-    // Service account client for updates
+    const payload = await parseRequestPayload(req);
+    const cursor = normalizeCursor(payload.cursor);
+    const batchSize = normalizeBatchSize(payload.batchSize);
+    const lotIds = Array.isArray(payload.lotIds)
+      ? payload.lotIds.filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
+
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    // Fetch all lots with address but needing geocoding
-    const { data: lots, error: lotsError } = await adminClient
-      .from("parking_lots")
-      .select("id, name, address_jibun, address_road")
-      .or("address_jibun.not.is.null,address_road.not.is.null")
-      .order("name");
+    let lots:
+      | Array<{ id: string; name: string; address_jibun: string | null; address_road: string | null }>
+      | null = null;
+    let total = 0;
 
-    if (lotsError) throw lotsError;
+    if (lotIds.length > 0) {
+      const { data, error } = await adminClient
+        .from("parking_lots")
+        .select("id, name, address_jibun, address_road")
+        .in("id", lotIds)
+        .order("name");
+
+      if (error) throw error;
+      lots = data;
+      total = data?.length || 0;
+    } else {
+      const { count, error: countError } = await adminClient
+        .from("parking_lots")
+        .select("id", { count: "exact", head: true })
+        .or("address_jibun.not.is.null,address_road.not.is.null");
+
+      if (countError) throw countError;
+      total = count || 0;
+
+      const { data, error } = await adminClient
+        .from("parking_lots")
+        .select("id, name, address_jibun, address_road")
+        .or("address_jibun.not.is.null,address_road.not.is.null")
+        .order("name")
+        .range(cursor, cursor + batchSize - 1);
+
+      if (error) throw error;
+      lots = data;
+    }
 
     let updated = 0;
     let failed = 0;
     const failures: string[] = [];
 
-    for (const lot of lots || []) {
+    for (let index = 0; index < (lots || []).length; index++) {
+      const lot = lots![index];
       if (!lot.address_jibun?.trim() && !lot.address_road?.trim()) continue;
 
-      const result = await geocodeAddress([
-        lot.address_road,
-        lot.address_jibun,
-      ], clientId, clientSecret);
+      const result = await geocodeAddress([lot.address_road, lot.address_jibun], clientId, clientSecret);
 
       if (result) {
         const { error: updateError } = await adminClient
@@ -225,17 +283,28 @@ serve(async (req) => {
         failures.push(`${lot.name} (${lot.address_road || lot.address_jibun})`);
       }
 
-      // Rate limit: ~5 req/s
-      await new Promise((r) => setTimeout(r, 200));
+      if (index < (lots?.length || 0) - 1) {
+        await sleep(REQUEST_DELAY_MS);
+      }
     }
+
+    const processed = lots?.length || 0;
+    const nextCursor = lotIds.length > 0 || cursor + processed >= total ? null : cursor + processed;
+    const hasMore = nextCursor !== null;
 
     return new Response(
       JSON.stringify({
-        message: `좌표 변환 완료: ${updated}건 성공, ${failed}건 실패`,
+        message: hasMore
+          ? `좌표 변환 진행 중: ${updated}건 성공, ${failed}건 실패`
+          : `좌표 변환 완료: ${updated}건 성공, ${failed}건 실패`,
         updated,
         failed,
         failures: failures.slice(0, 20),
-        total: lots?.length || 0,
+        processed,
+        total,
+        cursor,
+        nextCursor,
+        hasMore,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
