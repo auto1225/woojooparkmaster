@@ -113,7 +113,7 @@ export default function Index() {
                 <CardTitle className="text-[13px] font-medium text-muted-foreground">주차장 위치 현황</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <KakaoMap
+                <NaverMap
                   height="380px"
                   enableCluster
                   markers={
