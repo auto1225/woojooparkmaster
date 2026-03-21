@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Settings, Shield, Package, Save, MessageSquare, GitBranch, Sparkles, Database, Info, HardDrive, CheckCircle2, XCircle, Trash2, PlayCircle, Lock, Loader2 } from "lucide-react";
+import { Settings, Shield, Package, Save, MessageSquare, GitBranch, Sparkles, Database, Info, HardDrive, CheckCircle2, XCircle, Trash2, PlayCircle, Lock, Loader2, MapPin } from "lucide-react";
 import MessageManagement from "@/pages/settings/MessageManagement";
 import ApprovalLineManagement from "@/pages/settings/ApprovalLineManagement";
 import SecurityManagement from "@/pages/settings/SecurityManagement";
@@ -216,7 +216,27 @@ export default function SettingsPage() {
                     <Input className="col-span-3" value={configValue(f.key)} onChange={e => setEditedConfig({ ...editedConfig, [f.key]: e.target.value })} />
                   </div>
                 ))}
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        toast.info("주차장 좌표 변환을 시작합니다. 약 30초 소요됩니다...");
+                        const { data, error } = await supabase.functions.invoke("geocode-lots");
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        toast.success(data?.message || "좌표 변환 완료");
+                        if (data?.failures?.length > 0) {
+                          toast.warning(`실패 목록: ${data.failures.slice(0, 5).join(", ")}${data.failures.length > 5 ? " 외 " + (data.failures.length - 5) + "건" : ""}`);
+                        }
+                        queryClient.invalidateQueries();
+                      } catch (e: any) {
+                        toast.error(e.message || "좌표 변환 실패");
+                      }
+                    }}
+                  >
+                    <MapPin className="h-4 w-4 mr-1" />주소→좌표 변환
+                  </Button>
                   <Button onClick={() => saveMutation.mutate()} disabled={Object.keys(editedConfig).length === 0 || saveMutation.isPending}>
                     <Save className="h-4 w-4 mr-1" />저장
                   </Button>
