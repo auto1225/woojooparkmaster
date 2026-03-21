@@ -292,8 +292,8 @@ export function AppSidebar() {
           <NavLink to={item.url} end={item.end}
             className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-2.5 px-3"
             activeClassName="bg-primary/20 !text-[hsl(var(--sidebar-primary))] border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.15)] font-semibold">
-            <item.icon className="mr-2.5 h-[18px] w-[18px] shrink-0" />
-            <span className="text-[15px]">{item.title}</span>
+            <item.icon className="mr-2.5 h-[20px] w-[20px] shrink-0" />
+            <span className="text-[16px]">{item.title}</span>
           </NavLink>
         )}
       </SidebarMenuButton>
@@ -311,10 +311,10 @@ export function AppSidebar() {
           <CollapsibleTrigger asChild>
             <SidebarMenuButton className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg w-full justify-between py-2.5 px-3 transition-all duration-150">
               <div className="flex items-center">
-                <Icon className="mr-2.5 h-[18px] w-[18px] shrink-0" />
-                <span className="text-[15px]">{mod.label}</span>
+                <Icon className="mr-2.5 h-[20px] w-[20px] shrink-0" />
+                <span className="text-[16px]">{mod.label}</span>
               </div>
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+              <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
             </SidebarMenuButton>
           </CollapsibleTrigger>
           <CollapsibleContent>
@@ -325,7 +325,7 @@ export function AppSidebar() {
                     <NavLink to={item.url} end={item.end}
                      className="text-sidebar-foreground hover:text-white hover:bg-white/[0.06] rounded-lg py-2 px-2.5 transition-all duration-150"
                       activeClassName="!text-[hsl(var(--sidebar-primary))] bg-primary/10 border-l-2 border-l-primary font-semibold">
-                      <span className="text-[14px]">{item.title}</span>
+                      <span className="text-[15px]">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -360,13 +360,13 @@ export function AppSidebar() {
       {/* Scrollable menu area */}
       <SidebarContent ref={scrollRef} onScroll={handleScroll} className="px-2 pt-3">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/70 px-3 mb-1">메인</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[13px] font-bold uppercase tracking-[0.1em] text-sidebar-foreground px-3 mb-1">메인</SidebarGroupLabel>
           <SidebarGroupContent><SidebarMenu className="space-y-0.5">{coreMenuItems.map(renderLink)}</SidebarMenu></SidebarGroupContent>
         </SidebarGroup>
 
         {orderedModules.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/70 px-3 mb-1">모듈</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[13px] font-bold uppercase tracking-[0.1em] text-sidebar-foreground px-3 mb-1">모듈</SidebarGroupLabel>
             <SidebarGroupContent>
               {collapsed ? (
                 <SidebarMenu className="space-y-0.5">
@@ -397,7 +397,7 @@ export function AppSidebar() {
 
         {isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/70 px-3 mb-1">시스템</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[13px] font-bold uppercase tracking-[0.1em] text-sidebar-foreground px-3 mb-1">시스템</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="space-y-0.5">{renderLink({ title: "시스템 설정", url: "/settings", icon: Settings })}</SidebarMenu>
             </SidebarGroupContent>
