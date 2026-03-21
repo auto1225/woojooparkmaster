@@ -113,8 +113,8 @@ export default function Index() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">주차장 위치 현황</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <NaverMap
-                  height="520px"
+                 <NaverMap
+                  height="680px"
                   enableCluster
                   markers={
                     lots?.filter((l) => l.latitude && l.longitude && l.status === "active").map((l) => ({
