@@ -195,7 +195,7 @@ export function NaverMap({
   useEffect(() => {
     if (!mapRef.current || !sdkLoaded) return;
 
-    markersRef.current.forEach((m) => m.setMap(null));
+    markersRef.current.forEach((m) => { try { m.setMap(null); } catch {} });
     markersRef.current = [];
 
     const naverMarkers = markers.map((m) => {
