@@ -42,6 +42,15 @@ const MARKER_COLORS: Record<string, string> = {
   gray: "hsl(220,10%,60%)",
 };
 
+function getNaverSdkScript() {
+  return document.querySelector<HTMLScriptElement>(NAVER_SCRIPT_SELECTOR);
+}
+
+function resetNaverSdk() {
+  document.querySelectorAll<HTMLScriptElement>(NAVER_SCRIPT_SELECTOR).forEach((script) => script.remove());
+  window.naver = undefined;
+}
+
 function createMarkerSVG(color: string, label?: string, size: "small" | "normal" | "large" = "normal"): string {
   const sizes = { small: { w: 24, h: 30, r: 8 }, normal: { w: 32, h: 40, r: 11 }, large: { w: 40, h: 50, r: 14 } };
   const s = sizes[size];
@@ -74,7 +83,7 @@ export function NaverMap({
   const infoWindowRef = useRef<any>(null);
   const clusterRef = useRef<any>(null);
   const { data: config } = useSystemConfig();
-  const [sdkStatus, setSdkStatus] = useState<SdkStatus>(window.naver?.maps ? "ready" : "idle");
+  const [sdkStatus, setSdkStatus] = useState<SdkStatus>("idle");
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const sdkLoaded = sdkStatus === "ready";
@@ -85,26 +94,44 @@ export function NaverMap({
     lat: parseFloat(config?.map_center_lat || "35.1796"),
     lng: parseFloat(config?.map_center_lng || "129.0756"),
   };
-  const defaultZoom = parseInt(config?.map_default_zoom || "13", 10);
+  const defaultZoom = parseInt(config?.map_default_zoom || config?.map_zoom || "13", 10);
 
   // Load SDK
   useEffect(() => {
-    if (window.naver?.maps) {
+    if (!clientId) {
+      setSdkStatus("idle");
+      setLoadError(null);
+      return;
+    }
+
+    const existingScript = getNaverSdkScript();
+    const existingClientId = existingScript?.dataset.clientId;
+
+    if (window.naver?.maps && existingClientId === clientId) {
       setSdkStatus("ready");
       setLoadError(null);
       return;
     }
-    if (!clientId) return;
+
+    if (existingClientId && existingClientId !== clientId) {
+      resetNaverSdk();
+    } else if (window.naver?.maps && existingClientId !== clientId) {
+      resetNaverSdk();
+    }
 
     setSdkStatus("loading");
     setLoadError(null);
 
+    let disposed = false;
+
     const handleError = () => {
+      if (disposed) return;
       setSdkStatus("error");
       setLoadError("지도를 불러오지 못했습니다. Client ID와 허용 도메인 설정을 확인해주세요.");
     };
 
     const handleLoad = () => {
+      if (disposed) return;
       if (!window.naver?.maps) {
         handleError();
         return;
@@ -117,18 +144,20 @@ export function NaverMap({
       if (!window.naver?.maps) handleError();
     }, 10000);
 
-    const existingScript = document.querySelector<HTMLScriptElement>(NAVER_SCRIPT_SELECTOR);
-    if (existingScript) {
-      if (existingScript.dataset.loaded === "true") {
+    const activeScript = getNaverSdkScript();
+    if (activeScript && activeScript.dataset.clientId === clientId) {
+      if (activeScript.dataset.loaded === "true") {
         handleLoad();
       } else {
-        existingScript.addEventListener("load", handleLoad);
-        existingScript.addEventListener("error", handleError);
+        activeScript.addEventListener("load", handleLoad);
+        activeScript.addEventListener("error", handleError);
       }
+
       return () => {
+        disposed = true;
         window.clearTimeout(timeoutId);
-        existingScript.removeEventListener("load", handleLoad);
-        existingScript.removeEventListener("error", handleError);
+        activeScript.removeEventListener("load", handleLoad);
+        activeScript.removeEventListener("error", handleError);
       };
     }
 
@@ -138,15 +167,17 @@ export function NaverMap({
       handleLoad();
     };
 
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}&submodules=geocoder`;
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${encodeURIComponent(clientId)}&submodules=geocoder`;
     script.async = true;
     script.defer = true;
     script.dataset.naverMapsSdk = "true";
+    script.dataset.clientId = clientId;
     script.addEventListener("load", handleScriptLoad);
     script.addEventListener("error", handleError);
     document.head.appendChild(script);
 
     return () => {
+      disposed = true;
       window.clearTimeout(timeoutId);
       script.removeEventListener("load", handleScriptLoad);
       script.removeEventListener("error", handleError);
