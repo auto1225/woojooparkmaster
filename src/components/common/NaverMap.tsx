@@ -177,10 +177,13 @@ export function NaverMap({
       }
 
       return () => {
-        markersRef.current.forEach((m) => m.setMap(null));
-        markersRef.current = [];
-        if (infoWindowRef.current) infoWindowRef.current.close();
-        if (clusterRef.current) clusterRef.current.setMap(null);
+        try {
+          markersRef.current.forEach((m) => { try { m.setMap(null); } catch {} });
+          markersRef.current = [];
+          if (infoWindowRef.current) { try { infoWindowRef.current.close(); } catch {} }
+          if (clusterRef.current) { try { clusterRef.current.setMap(null); } catch {} }
+        } catch {}
+        mapRef.current = null;
       };
     } catch {
       setSdkStatus("error");
@@ -192,7 +195,7 @@ export function NaverMap({
   useEffect(() => {
     if (!mapRef.current || !sdkLoaded) return;
 
-    markersRef.current.forEach((m) => m.setMap(null));
+    markersRef.current.forEach((m) => { try { m.setMap(null); } catch {} });
     markersRef.current = [];
 
     const naverMarkers = markers.map((m) => {
