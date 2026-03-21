@@ -323,9 +323,9 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} end={item.end}
-                     className="text-sidebar-foreground hover:text-white hover:bg-white/[0.06] rounded-lg py-2 px-2.5 transition-all duration-150"
+                     className="text-sidebar-foreground hover:text-white hover:bg-white/[0.06] rounded-lg py-2.5 px-2.5 transition-all duration-150"
                       activeClassName="!text-[hsl(var(--sidebar-primary))] bg-primary/10 border-l-2 border-l-primary font-semibold">
-                      <span className="text-[15px]">{item.title}</span>
+                      <span className="text-[16px]">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
