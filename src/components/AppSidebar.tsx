@@ -163,7 +163,7 @@ export function AppSidebar() {
           <Tooltip>
             <TooltipTrigger asChild>
               <NavLink to={item.url} end={item.end}
-                className="text-sidebar-foreground hover:bg-white/[0.06] hover:text-white/90 rounded-lg transition-all duration-150"
+                className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150"
                 activeClassName="bg-primary/15 text-white border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.1)]">
                 <item.icon className="h-[18px] w-[18px] shrink-0" />
               </NavLink>
