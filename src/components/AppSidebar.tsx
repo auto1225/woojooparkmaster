@@ -309,10 +309,10 @@ export function AppSidebar() {
       <Collapsible open={isOpen} onOpenChange={() => toggleOpen(mod.id)}>
         <SidebarMenuItem>
           <CollapsibleTrigger asChild>
-            <SidebarMenuButton className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg w-full justify-between py-2.5 px-3 transition-all duration-150">
+            <SidebarMenuButton className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg w-full justify-between py-3 px-3 transition-all duration-150">
               <div className="flex items-center">
                 <Icon className="mr-2.5 h-[20px] w-[20px] shrink-0" />
-                <span className="text-[16px]">{mod.label}</span>
+                <span className="text-[17px]">{mod.label}</span>
               </div>
               <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
             </SidebarMenuButton>
