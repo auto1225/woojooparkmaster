@@ -98,7 +98,8 @@ async function geocodeAddress(
       });
 
       if (!resp.ok) {
-        console.error(`Geocode HTTP error ${resp.status} for "${query}"`);
+        const errBody = await resp.text();
+        console.error(`Geocode HTTP error ${resp.status} for "${query}" — body: ${errBody}`);
         continue;
       }
 
