@@ -127,9 +127,9 @@ export default function Index() {
               </CardContent>
             </Card>
 
-            <Card className="lg:col-span-5 border border-border/60 shadow-xs">
+            <Card className="lg:col-span-4 border border-border/60 shadow-xs">
               <CardHeader className="pb-2">
-                <CardTitle className="text-[13px] font-medium text-muted-foreground">유형별 현황</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">유형별 현황</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={260}>
