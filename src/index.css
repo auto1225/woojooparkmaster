@@ -216,7 +216,28 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Force table cell font sizes - override inline text-xs/text-sm */
+  /* Force minimum font sizes globally - override inline text-xs/text-sm everywhere */
+  .text-xs {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+  .text-sm {
+    font-size: 17px !important;
+    line-height: 1.5 !important;
+  }
+  .text-\[10px\],
+  .text-\[11px\],
+  .text-\[12px\] {
+    font-size: 15px !important;
+    line-height: 1.5 !important;
+  }
+  .text-\[13px\],
+  .text-\[14px\] {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Table cells even larger */
   table td,
   table th {
     font-size: 18px !important;
