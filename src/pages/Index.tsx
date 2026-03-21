@@ -108,13 +108,13 @@ export default function Index() {
 
           {/* Map + Pie */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <Card className="lg:col-span-7 border border-border/60 shadow-xs overflow-hidden">
+            <Card className="lg:col-span-8 border border-border/60 shadow-xs overflow-hidden">
               <CardHeader className="pb-2">
-                <CardTitle className="text-[13px] font-medium text-muted-foreground">주차장 위치 현황</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">주차장 위치 현황</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <NaverMap
-                  height="380px"
+                  height="520px"
                   enableCluster
                   markers={
                     lots?.filter((l) => l.latitude && l.longitude && l.status === "active").map((l) => ({
@@ -127,9 +127,9 @@ export default function Index() {
               </CardContent>
             </Card>
 
-            <Card className="lg:col-span-5 border border-border/60 shadow-xs">
+            <Card className="lg:col-span-4 border border-border/60 shadow-xs">
               <CardHeader className="pb-2">
-                <CardTitle className="text-[13px] font-medium text-muted-foreground">유형별 현황</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">유형별 현황</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={260}>
@@ -162,7 +162,7 @@ export default function Index() {
           {/* Recent activity - timeline style */}
           <Card className="border border-border/60 shadow-xs">
             <CardHeader className="pb-3">
-              <CardTitle className="text-[13px] font-medium text-muted-foreground">최근 활동</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">최근 활동</CardTitle>
             </CardHeader>
             <CardContent>
               {(!recentLogs || recentLogs.length === 0) ? (

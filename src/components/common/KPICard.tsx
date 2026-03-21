@@ -25,15 +25,15 @@ export function KPICard({ title, value, sub, icon: Icon, color, trend, trendDire
     <Card className="hover-lift border border-border/60 shadow-xs hover:shadow-premium-md">
       <CardContent className="p-5">
         {/* Top row: label + icon + change badge */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${color}`}>
-              <Icon className="h-4 w-4" />
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${color}`}>
+              <Icon className="h-[18px] w-[18px]" />
             </div>
-            <span className="text-[13px] text-muted-foreground font-medium">{title}</span>
+            <span className="text-sm text-muted-foreground font-medium">{title}</span>
           </div>
           {changePercent !== undefined && (
-            <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${trendColor} ${trendBg}`}>
+            <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${trendColor} ${trendBg}`}>
               {trendDirection === "up" && <TrendingUp className="h-3 w-3" />}
               {trendDirection === "down" && <TrendingDown className="h-3 w-3" />}
               {trendDirection === "flat" && <Minus className="h-3 w-3" />}
@@ -48,7 +48,7 @@ export function KPICard({ title, value, sub, icon: Icon, color, trend, trendDire
             <div className="font-display text-kpi text-foreground tabular-nums">
               <CountUp end={value} suffix={suffix} />
             </div>
-            {sub && <p className="text-caption text-muted-foreground mt-1.5">{sub}</p>}
+            {sub && <p className="text-caption text-muted-foreground mt-2">{sub}</p>}
           </div>
           {trend && trend.length > 1 && (
             <ResponsiveContainer width={64} height={28}>

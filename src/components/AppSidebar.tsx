@@ -163,7 +163,7 @@ export function AppSidebar() {
           <Tooltip>
             <TooltipTrigger asChild>
               <NavLink to={item.url} end={item.end}
-                className="text-sidebar-foreground hover:bg-white/[0.06] hover:text-white/90 rounded-lg transition-all duration-150"
+                className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150"
                 activeClassName="bg-primary/15 text-white border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.1)]">
                 <item.icon className="h-[18px] w-[18px] shrink-0" />
               </NavLink>
@@ -172,10 +172,10 @@ export function AppSidebar() {
           </Tooltip>
         ) : (
           <NavLink to={item.url} end={item.end}
-            className="text-sidebar-foreground hover:bg-white/[0.06] hover:text-white/90 rounded-lg transition-all duration-150 py-2.5 px-3"
+            className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-2.5 px-3"
             activeClassName="bg-primary/15 text-white border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.1)] font-medium">
             <item.icon className="mr-2.5 h-[18px] w-[18px] shrink-0" />
-            <span className="text-[13px]">{item.title}</span>
+            <span className="text-sm">{item.title}</span>
           </NavLink>
         )}
       </SidebarMenuButton>
@@ -193,10 +193,10 @@ export function AppSidebar() {
       <Collapsible open={isOpen} onOpenChange={setOpen}>
         <SidebarMenuItem>
           <CollapsibleTrigger asChild>
-            <SidebarMenuButton className="text-sidebar-foreground hover:bg-white/[0.06] hover:text-white/90 rounded-lg w-full justify-between py-2.5 px-3 transition-all duration-150">
+            <SidebarMenuButton className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg w-full justify-between py-2.5 px-3 transition-all duration-150">
               <div className="flex items-center">
                 <Icon className="mr-2.5 h-[18px] w-[18px] shrink-0" />
-                <span className="text-[13px]">{label}</span>
+                <span className="text-sm">{label}</span>
               </div>
               <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
             </SidebarMenuButton>
@@ -207,9 +207,9 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} end={item.end}
-                      className="text-sidebar-foreground/70 hover:text-white/90 hover:bg-white/[0.04] rounded-lg py-2 px-2.5 transition-all duration-150"
+                     className="text-sidebar-foreground/80 hover:text-white hover:bg-white/[0.06] rounded-lg py-2 px-2.5 transition-all duration-150"
                       activeClassName="text-white bg-primary/10 border-l-2 border-l-primary font-medium">
-                      <span className="text-[12.5px]">{item.title}</span>
+                      <span className="text-[13px]">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -244,13 +244,13 @@ export function AppSidebar() {
       {/* Scrollable menu area */}
       <SidebarContent ref={scrollRef} onScroll={handleScroll} className="px-2 pt-3">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/30 px-3 mb-1">메인</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/40 px-3 mb-1">메인</SidebarGroupLabel>
           <SidebarGroupContent><SidebarMenu className="space-y-0.5">{coreMenuItems.map(renderLink)}</SidebarMenu></SidebarGroupContent>
         </SidebarGroup>
 
         {(simpleModules.length > 0 || opsActive || facilityActive) && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/30 px-3 mb-1">모듈</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/40 px-3 mb-1">모듈</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="space-y-0.5">
                 {simpleModules.map(renderLink)}
@@ -271,7 +271,7 @@ export function AppSidebar() {
 
         {isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/30 px-3 mb-1">시스템</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/40 px-3 mb-1">시스템</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="space-y-0.5">{renderLink({ title: "시스템 설정", url: "/settings", icon: Settings })}</SidebarMenu>
             </SidebarGroupContent>
