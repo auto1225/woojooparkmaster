@@ -244,7 +244,7 @@ export function AppSidebar() {
       {/* Scrollable menu area */}
       <SidebarContent ref={scrollRef} onScroll={handleScroll} className="px-2 pt-3">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/30 px-3 mb-1">메인</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/40 px-3 mb-1">메인</SidebarGroupLabel>
           <SidebarGroupContent><SidebarMenu className="space-y-0.5">{coreMenuItems.map(renderLink)}</SidebarMenu></SidebarGroupContent>
         </SidebarGroup>
 
