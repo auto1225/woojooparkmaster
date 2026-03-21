@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     const { action } = await req.json();
 
     if (action === "seed") {
-      await runSeed(supabase, user.id);
+      await runSeed(supabase, userId!);
       return new Response(JSON.stringify({ success: true, message: "전체 모듈 데모 데이터가 생성되었습니다" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
