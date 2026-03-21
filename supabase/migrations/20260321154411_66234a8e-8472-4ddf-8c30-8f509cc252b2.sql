@@ -1,0 +1,1 @@
+UPDATE system_config SET config_value = 'd40667854f0927bb8cf3059bfa26a1d5' WHERE config_key = 'kakao_map_appkey';
