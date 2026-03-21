@@ -203,13 +203,23 @@ export function AppSidebar() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const [openStates, setOpenStates] = useState<Record<string, boolean>>({
-    OPS: true, FACILITY: true, REVENUE: true, BUDGET: true,
-    PROCUREMENT: true, SERVICE: true, COMPLAINT: true, PLANNING: true,
-    REALTIME: true, REPORT: true,
+  const [openStates, setOpenStates] = useState<Record<string, boolean>>(() => {
+    try {
+      const stored = localStorage.getItem("parkmaster-menu-open");
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return {
+      OPS: true, FACILITY: true, REVENUE: true, BUDGET: true,
+      PROCUREMENT: true, SERVICE: true, COMPLAINT: true, PLANNING: true,
+      REALTIME: true, REPORT: true,
+    };
   });
 
-  const toggleOpen = (id: string) => setOpenStates((prev) => ({ ...prev, [id]: !prev[id] }));
+  const toggleOpen = (id: string) => setOpenStates((prev) => {
+    const next = { ...prev, [id]: !prev[id] };
+    try { localStorage.setItem("parkmaster-menu-open", JSON.stringify(next)); } catch {}
+    return next;
+  });
 
   // Active modules
   const activeModuleIds = useMemo(() => {
