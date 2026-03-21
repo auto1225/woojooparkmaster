@@ -290,10 +290,10 @@ export function AppSidebar() {
           </Tooltip>
         ) : (
           <NavLink to={item.url} end={item.end}
-            className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-2.5 px-3"
+            className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-3 px-3"
             activeClassName="bg-primary/20 !text-[hsl(var(--sidebar-primary))] border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.15)] font-semibold">
             <item.icon className="mr-2.5 h-[20px] w-[20px] shrink-0" />
-            <span className="text-[16px]">{item.title}</span>
+            <span className="text-[17px]">{item.title}</span>
           </NavLink>
         )}
       </SidebarMenuButton>
