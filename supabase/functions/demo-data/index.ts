@@ -18,9 +18,10 @@ Deno.serve(async (req) => {
     // Allow service-role key auth for internal/build-time calls
     const authHeader = req.headers.get("Authorization");
     const apiKeyHeader = req.headers.get("apikey");
+    const token = authHeader?.replace("Bearer ", "") || "";
     let userId: string | null = null;
 
-    if (apiKeyHeader === serviceKey) {
+    if (apiKeyHeader === serviceKey || token === serviceKey) {
       // Internal call with service role key - skip user auth
       userId = "system";
     } else {
@@ -30,7 +31,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      const token = authHeader.replace("Bearer ", "");
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       if (authError || !user) {
         return new Response(JSON.stringify({ error: "인증 실패" }), {
