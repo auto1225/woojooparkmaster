@@ -237,9 +237,13 @@
     line-height: 1.5 !important;
   }
 
-  /* Table cells even larger */
-  table td,
+  /* Table header must be >= body text */
   table th {
+    font-size: 20px !important;
+    font-weight: 600 !important;
+    line-height: 1.5 !important;
+  }
+  table td {
     font-size: 18px !important;
     line-height: 1.5 !important;
   }
@@ -251,6 +255,10 @@
   table .text-\[13px\],
   table .text-\[14px\] {
     font-size: 18px !important;
+  }
+  table th .text-xs,
+  table th .text-sm {
+    font-size: 20px !important;
   }
   table .font-mono {
     font-size: 17px !important;
