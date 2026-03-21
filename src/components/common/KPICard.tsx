@@ -48,7 +48,7 @@ export function KPICard({ title, value, sub, icon: Icon, color, trend, trendDire
             <div className="font-display text-kpi text-foreground tabular-nums">
               <CountUp end={value} suffix={suffix} />
             </div>
-            {sub && <p className="text-caption text-muted-foreground mt-1.5">{sub}</p>}
+            {sub && <p className="text-caption text-muted-foreground mt-2">{sub}</p>}
           </div>
           {trend && trend.length > 1 && (
             <ResponsiveContainer width={64} height={28}>

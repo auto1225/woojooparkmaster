@@ -271,7 +271,7 @@ export function AppSidebar() {
 
         {isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/30 px-3 mb-1">시스템</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/40 px-3 mb-1">시스템</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="space-y-0.5">{renderLink({ title: "시스템 설정", url: "/settings", icon: Settings })}</SidebarMenu>
             </SidebarGroupContent>

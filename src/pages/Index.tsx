@@ -162,7 +162,7 @@ export default function Index() {
           {/* Recent activity - timeline style */}
           <Card className="border border-border/60 shadow-xs">
             <CardHeader className="pb-3">
-              <CardTitle className="text-[13px] font-medium text-muted-foreground">최근 활동</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">최근 활동</CardTitle>
             </CardHeader>
             <CardContent>
               {(!recentLogs || recentLogs.length === 0) ? (
