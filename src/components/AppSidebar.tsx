@@ -196,7 +196,7 @@ export function AppSidebar() {
             <SidebarMenuButton className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg w-full justify-between py-2.5 px-3 transition-all duration-150">
               <div className="flex items-center">
                 <Icon className="mr-2.5 h-[18px] w-[18px] shrink-0" />
-                <span className="text-sm">{label}</span>
+                <span className="text-[15px]">{label}</span>
               </div>
               <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
             </SidebarMenuButton>
