@@ -167,7 +167,7 @@ export function NaverMap({
       handleLoad();
     };
 
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${encodeURIComponent(clientId)}&submodules=geocoder`;
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(clientId)}&submodules=geocoder`;
     script.async = true;
     script.defer = true;
     script.dataset.naverMapsSdk = "true";
