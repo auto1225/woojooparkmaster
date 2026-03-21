@@ -33,7 +33,7 @@ export function KPICard({ title, value, sub, icon: Icon, color, trend, trendDire
             <span className="text-sm text-muted-foreground font-medium">{title}</span>
           </div>
           {changePercent !== undefined && (
-            <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${trendColor} ${trendBg}`}>
+            <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${trendColor} ${trendBg}`}>
               {trendDirection === "up" && <TrendingUp className="h-3 w-3" />}
               {trendDirection === "down" && <TrendingDown className="h-3 w-3" />}
               {trendDirection === "flat" && <Minus className="h-3 w-3" />}
