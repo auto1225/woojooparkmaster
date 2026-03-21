@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useLayoutEffect } from "react";
-import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText, Radio, Cpu, Server, Monitor, Key, FileBarChart, CalendarClock, LayoutTemplate, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { useState, useRef, useCallback, useLayoutEffect, useMemo } from "react";
+import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText, Radio, Cpu, Server, Monitor, Key, FileBarChart, CalendarClock, LayoutTemplate, PanelLeftClose, PanelLeftOpen, GripVertical } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -10,6 +10,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
+  useSortable, arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const coreMenuItems = [
   { title: "대시보드", url: "/", icon: LayoutDashboard, end: true },
@@ -109,6 +118,69 @@ const simpleModuleMap: Record<string, { title: string; url: string; icon: any }>
   REPORT: { title: "보고서/통계", url: "/reports", icon: FileBarChart },
 };
 
+// Module definitions with stable IDs for DnD
+type ModuleDef = {
+  id: string;
+  type: "simple" | "collapsible";
+  label: string;
+  icon: any;
+  url?: string;
+  subMenu?: Array<{ title: string; url: string; icon: any; end?: boolean }>;
+  licenseKey: string;
+};
+
+const ALL_MODULES: ModuleDef[] = [
+  { id: "SURVEY", type: "simple", label: "현황조사", icon: ClipboardCheck, url: "/surveys", licenseKey: "SURVEY" },
+  { id: "OPS", type: "collapsible", label: "운영관리", icon: Building2, subMenu: opsSubMenu, licenseKey: "OPS" },
+  { id: "FACILITY", type: "collapsible", label: "시설관리", icon: Wrench, subMenu: facilitySubMenu, licenseKey: "FACILITY" },
+  { id: "REVENUE", type: "collapsible", label: "수입관리", icon: Banknote, subMenu: revenueSubMenu, licenseKey: "REVENUE" },
+  { id: "BUDGET", type: "collapsible", label: "예산관리", icon: Wallet, subMenu: budgetSubMenu, licenseKey: "BUDGET" },
+  { id: "PROCUREMENT", type: "collapsible", label: "입찰관리", icon: Gavel, subMenu: procurementSubMenu, licenseKey: "PROCUREMENT" },
+  { id: "SERVICE", type: "collapsible", label: "용역사업관리", icon: Briefcase, subMenu: serviceSubMenu, licenseKey: "SERVICE" },
+  { id: "COMPLAINT", type: "collapsible", label: "민원관리", icon: Megaphone, subMenu: complaintSubMenu, licenseKey: "COMPLAINT" },
+  { id: "PLANNING", type: "collapsible", label: "신설기획", icon: Compass, subMenu: planningSubMenu, licenseKey: "PLANNING" },
+  { id: "REALTIME", type: "collapsible", label: "실시간 정보", icon: Radio, subMenu: realtimeSubMenu, licenseKey: "REALTIME" },
+  { id: "REPORT", type: "collapsible", label: "보고서/통계", icon: FileBarChart, subMenu: reportSubMenu, licenseKey: "REPORT" },
+];
+
+const STORAGE_KEY = "parkmaster-module-order";
+
+function getStoredOrder(): string[] | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setStoredOrder(order: string[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
+  } catch {}
+}
+
+// Sortable wrapper component
+function SortableModuleItem({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: "relative" as const,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} className="group/sortable">
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 opacity-0 group-hover/sortable:opacity-60 transition-opacity cursor-grab z-10" {...listeners}>
+        <GripVertical className="h-3.5 w-3.5 text-sidebar-foreground/50" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 let sidebarScrollTop = 0;
 
 export function AppSidebar() {
@@ -131,29 +203,65 @@ export function AppSidebar() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const [opsOpen, setOpsOpen] = useState(true);
-  const [facilityOpen, setFacilityOpen] = useState(true);
-  const [revenueOpen, setRevenueOpen] = useState(true);
-  const [budgetOpen, setBudgetOpen] = useState(true);
-  const [procurementOpen, setProcurementOpen] = useState(true);
-  const [serviceOpen, setServiceOpen] = useState(true);
-  const [complaintOpen, setComplaintOpen] = useState(true);
-  const [planningOpen, setPlanningOpen] = useState(true);
-  const [realtimeOpen, setRealtimeOpen] = useState(true);
-  const [reportOpen, setReportOpen] = useState(true);
+  const [openStates, setOpenStates] = useState<Record<string, boolean>>({
+    OPS: true, FACILITY: true, REVENUE: true, BUDGET: true,
+    PROCUREMENT: true, SERVICE: true, COMPLAINT: true, PLANNING: true,
+    REALTIME: true, REPORT: true,
+  });
 
-  const activeModules = (licenses ?? []).filter((m) => m.is_active && !["CORE", "OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT", "PLANNING", "REALTIME", "REPORT"].includes(m.module_code));
-  const opsActive = (licenses ?? []).some((m) => m.module_code === "OPS" && m.is_active);
-  const facilityActive = (licenses ?? []).some((m) => m.module_code === "FACILITY" && m.is_active);
-  const revenueActive = (licenses ?? []).some((m) => m.module_code === "REVENUE" && m.is_active);
-  const budgetActive = (licenses ?? []).some((m) => m.module_code === "BUDGET" && m.is_active);
-  const procurementActive = (licenses ?? []).some((m) => m.module_code === "PROCUREMENT" && m.is_active);
-  const serviceActive = (licenses ?? []).some((m) => m.module_code === "SERVICE" && m.is_active);
-  const complaintActive = (licenses ?? []).some((m) => m.module_code === "COMPLAINT" && m.is_active);
-  const planningActive = (licenses ?? []).some((m) => m.module_code === "PLANNING" && m.is_active);
-  const realtimeActive = (licenses ?? []).some((m) => m.module_code === "REALTIME" && m.is_active);
-  const reportActive = (licenses ?? []).some((m) => m.module_code === "REPORT" && m.is_active);
-  const simpleModules = activeModules.map((m) => simpleModuleMap[m.module_code]).filter(Boolean);
+  const toggleOpen = (id: string) => setOpenStates((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  // Active modules
+  const activeModuleIds = useMemo(() => {
+    const set = new Set<string>();
+    (licenses ?? []).forEach((m) => {
+      if (m.is_active) set.add(m.module_code);
+    });
+    return set;
+  }, [licenses]);
+
+  // Module order with DnD
+  const [moduleOrder, setModuleOrder] = useState<string[]>(() => {
+    const stored = getStoredOrder();
+    if (stored) return stored;
+    return ALL_MODULES.map((m) => m.id);
+  });
+
+  const orderedModules = useMemo(() => {
+    const moduleMap = new Map(ALL_MODULES.map((m) => [m.id, m]));
+    const ordered: ModuleDef[] = [];
+    // First add items in stored order
+    for (const id of moduleOrder) {
+      const mod = moduleMap.get(id);
+      if (mod && activeModuleIds.has(mod.licenseKey)) {
+        ordered.push(mod);
+      }
+    }
+    // Then add any new modules not in stored order
+    for (const mod of ALL_MODULES) {
+      if (activeModuleIds.has(mod.licenseKey) && !moduleOrder.includes(mod.id)) {
+        ordered.push(mod);
+      }
+    }
+    return ordered;
+  }, [moduleOrder, activeModuleIds]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = orderedModules.findIndex((m) => m.id === active.id);
+      const newIndex = orderedModules.findIndex((m) => m.id === over.id);
+      const newOrder = arrayMove(orderedModules.map((m) => m.id), oldIndex, newIndex);
+      setModuleOrder(newOrder);
+      setStoredOrder(newOrder);
+    }
+  };
+
   const isAdmin = profile?.role === "admin";
 
   const renderLink = (item: { title: string; url: string; icon: any; end?: boolean }) => (
@@ -164,7 +272,7 @@ export function AppSidebar() {
             <TooltipTrigger asChild>
               <NavLink to={item.url} end={item.end}
                 className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150"
-                activeClassName="bg-primary/15 text-white border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.1)]">
+                activeClassName="bg-primary/20 text-primary-foreground border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.15)]">
                 <item.icon className="h-[18px] w-[18px] shrink-0" />
               </NavLink>
             </TooltipTrigger>
@@ -173,7 +281,7 @@ export function AppSidebar() {
         ) : (
           <NavLink to={item.url} end={item.end}
             className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-2.5 px-3"
-            activeClassName="bg-primary/15 text-white border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.1)] font-medium">
+            activeClassName="bg-primary/20 !text-[hsl(var(--sidebar-primary))] border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.15)] font-semibold">
             <item.icon className="mr-2.5 h-[18px] w-[18px] shrink-0" />
             <span className="text-[15px]">{item.title}</span>
           </NavLink>
@@ -182,33 +290,31 @@ export function AppSidebar() {
     </SidebarMenuItem>
   );
 
-  const renderCollapsible = (
-    label: string, icon: any, isOpen: boolean, setOpen: (v: boolean) => void,
-    subMenu: Array<{ title: string; url: string; icon: any; end?: boolean }>, isActive: boolean,
-  ) => {
-    if (!isActive) return null;
-    if (collapsed) return renderLink({ title: label, url: subMenu[0].url, icon });
-    const Icon = icon;
+  const renderCollapsible = (mod: ModuleDef) => {
+    if (!mod.subMenu) return null;
+    if (collapsed) return renderLink({ title: mod.label, url: mod.subMenu[0].url, icon: mod.icon });
+    const Icon = mod.icon;
+    const isOpen = openStates[mod.id] ?? true;
     return (
-      <Collapsible open={isOpen} onOpenChange={setOpen}>
+      <Collapsible open={isOpen} onOpenChange={() => toggleOpen(mod.id)}>
         <SidebarMenuItem>
           <CollapsibleTrigger asChild>
             <SidebarMenuButton className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg w-full justify-between py-2.5 px-3 transition-all duration-150">
               <div className="flex items-center">
                 <Icon className="mr-2.5 h-[18px] w-[18px] shrink-0" />
-                <span className="text-[15px]">{label}</span>
+                <span className="text-[15px]">{mod.label}</span>
               </div>
               <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
             </SidebarMenuButton>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <SidebarMenu className="ml-[18px] border-l border-white/[0.08] pl-3 mt-1 space-y-0.5">
-              {subMenu.map((item) => (
+              {mod.subMenu.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} end={item.end}
                      className="text-sidebar-foreground hover:text-white hover:bg-white/[0.06] rounded-lg py-2 px-2.5 transition-all duration-150"
-                      activeClassName="text-white bg-primary/10 border-l-2 border-l-primary font-medium">
+                      activeClassName="!text-[hsl(var(--sidebar-primary))] bg-primary/10 border-l-2 border-l-primary font-semibold">
                       <span className="text-[14px]">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
@@ -244,34 +350,44 @@ export function AppSidebar() {
       {/* Scrollable menu area */}
       <SidebarContent ref={scrollRef} onScroll={handleScroll} className="px-2 pt-3">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/40 px-3 mb-1">메인</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/70 px-3 mb-1">메인</SidebarGroupLabel>
           <SidebarGroupContent><SidebarMenu className="space-y-0.5">{coreMenuItems.map(renderLink)}</SidebarMenu></SidebarGroupContent>
         </SidebarGroup>
 
-        {(simpleModules.length > 0 || opsActive || facilityActive) && (
+        {orderedModules.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/40 px-3 mb-1">모듈</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/70 px-3 mb-1">모듈</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu className="space-y-0.5">
-                {simpleModules.map(renderLink)}
-                {renderCollapsible("운영관리", Building2, opsOpen, setOpsOpen, opsSubMenu, opsActive)}
-                {renderCollapsible("시설관리", Wrench, facilityOpen, setFacilityOpen, facilitySubMenu, facilityActive)}
-                {renderCollapsible("수입관리", Banknote, revenueOpen, setRevenueOpen, revenueSubMenu, revenueActive)}
-                {renderCollapsible("예산관리", Wallet, budgetOpen, setBudgetOpen, budgetSubMenu, budgetActive)}
-                {renderCollapsible("입찰관리", Gavel, procurementOpen, setProcurementOpen, procurementSubMenu, procurementActive)}
-                {renderCollapsible("용역사업관리", Briefcase, serviceOpen, setServiceOpen, serviceSubMenu, serviceActive)}
-                {renderCollapsible("민원관리", Megaphone, complaintOpen, setComplaintOpen, complaintSubMenu, complaintActive)}
-                {renderCollapsible("신설기획", Compass, planningOpen, setPlanningOpen, planningSubMenu, planningActive)}
-                {renderCollapsible("실시간 정보", Radio, realtimeOpen, setRealtimeOpen, realtimeSubMenu, realtimeActive)}
-                {renderCollapsible("보고서/통계", FileBarChart, reportOpen, setReportOpen, reportSubMenu, reportActive)}
-              </SidebarMenu>
+              {collapsed ? (
+                <SidebarMenu className="space-y-0.5">
+                  {orderedModules.map((mod) =>
+                    mod.type === "simple"
+                      ? renderLink({ title: mod.label, url: mod.url!, icon: mod.icon })
+                      : renderCollapsible(mod)
+                  )}
+                </SidebarMenu>
+              ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={orderedModules.map((m) => m.id)} strategy={verticalListSortingStrategy}>
+                    <SidebarMenu className="space-y-0.5">
+                      {orderedModules.map((mod) => (
+                        <SortableModuleItem key={mod.id} id={mod.id}>
+                          {mod.type === "simple"
+                            ? renderLink({ title: mod.label, url: mod.url!, icon: mod.icon })
+                            : renderCollapsible(mod)}
+                        </SortableModuleItem>
+                      ))}
+                    </SidebarMenu>
+                  </SortableContext>
+                </DndContext>
+              )}
             </SidebarGroupContent>
           </SidebarGroup>
         )}
 
         {isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/40 px-3 mb-1">시스템</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/70 px-3 mb-1">시스템</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="space-y-0.5">{renderLink({ title: "시스템 설정", url: "/settings", icon: Settings })}</SidebarMenu>
             </SidebarGroupContent>
