@@ -174,7 +174,7 @@ export default function SettingsPage() {
     { key: "org_address", label: "기관 주소" }, { key: "org_phone", label: "전화번호" },
     { key: "admin_email", label: "관리자 이메일" }, { key: "map_center_lat", label: "지도 중심 위도" },
     { key: "map_center_lng", label: "지도 중심 경도" }, { key: "map_zoom", label: "지도 줌 레벨" },
-    { key: "kakao_map_appkey", label: "카카오 맵 API 키" },
+    { key: "naver_map_client_id", label: "네이버 지도 Client ID" },
   ];
 
   const MODULE_LABELS: Record<string, string> = {

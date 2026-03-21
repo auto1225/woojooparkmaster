@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, Car, LayoutGrid, Activity } from "lucide-react";
 import { LOT_TYPE_LABELS, LOT_STATUS_LABELS } from "@/types/database";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { KakaoMap } from "@/components/common/KakaoMap";
+import { NaverMap } from "@/components/common/NaverMap";
 import { KPICard } from "@/components/common/KPICard";
 import { AnimatedPage, StaggerContainer, StaggerItem } from "@/components/common/AnimatedPage";
 import { useNavigate } from "react-router-dom";
