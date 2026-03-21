@@ -13,7 +13,9 @@ export function useSystemConfig() {
       data?.forEach((row) => { map[row.config_key] = row.config_value; });
       return map;
     },
-    staleTime: 1000 * 60 * 30, // 30 minutes
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 }
 
