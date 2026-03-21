@@ -221,14 +221,37 @@ export default function SettingsPage() {
                     variant="outline"
                     onClick={async () => {
                       try {
-                        toast.info("주차장 좌표 변환을 시작합니다. 약 30초 소요됩니다...");
-                        const { data, error } = await supabase.functions.invoke("geocode-lots");
-                        if (error) throw error;
-                        if (data?.error) throw new Error(data.error);
-                        toast.success(data?.message || "좌표 변환 완료");
-                        if (data?.failures?.length > 0) {
-                          toast.warning(`실패 목록: ${data.failures.slice(0, 5).join(", ")}${data.failures.length > 5 ? " 외 " + (data.failures.length - 5) + "건" : ""}`);
+                        toast.info("주차장 좌표 재계산을 시작합니다. 잠시만 기다려주세요...");
+
+                        let cursor = 0;
+                        let hasMore = true;
+                        let totalUpdated = 0;
+                        let totalFailed = 0;
+                        const allFailures: string[] = [];
+
+                        while (hasMore) {
+                          const { data, error } = await supabase.functions.invoke("geocode-lots", {
+                            body: { cursor, batchSize: 20 },
+                          });
+
+                          if (error) throw error;
+                          if (data?.error) throw new Error(data.error);
+
+                          totalUpdated += data?.updated || 0;
+                          totalFailed += data?.failed || 0;
+                          if (Array.isArray(data?.failures)) {
+                            allFailures.push(...data.failures);
+                          }
+
+                          hasMore = Boolean(data?.hasMore);
+                          cursor = data?.nextCursor || 0;
                         }
+
+                        toast.success(`좌표 변환 완료: ${totalUpdated}건 성공, ${totalFailed}건 실패`);
+                        if (allFailures.length > 0) {
+                          toast.warning(`실패 목록: ${allFailures.slice(0, 5).join(", ")}${allFailures.length > 5 ? " 외 " + (allFailures.length - 5) + "건" : ""}`);
+                        }
+                        queryClient.invalidateQueries({ queryKey: ["dashboard-lots"] });
                         queryClient.invalidateQueries();
                       } catch (e: any) {
                         toast.error(e.message || "좌표 변환 실패");
