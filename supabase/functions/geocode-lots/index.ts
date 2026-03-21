@@ -169,6 +169,9 @@ serve(async (req) => {
     const clientId = Deno.env.get("NAVER_MAP_CLIENT_ID");
     const clientSecret = Deno.env.get("NAVER_MAP_CLIENT_SECRET");
 
+    console.log(`[DEBUG] clientId present: ${!!clientId}, length: ${clientId?.length}, prefix: ${clientId?.substring(0, 4)}`);
+    console.log(`[DEBUG] clientSecret present: ${!!clientSecret}, length: ${clientSecret?.length}, prefix: ${clientSecret?.substring(0, 4)}`);
+
     if (!clientId || !clientSecret) {
       return new Response(
         JSON.stringify({ error: "NAVER_MAP credentials not configured" }),
