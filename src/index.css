@@ -215,6 +215,25 @@
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Force table cell font sizes - override inline text-xs/text-sm */
+  table td,
+  table th {
+    font-size: 18px !important;
+    line-height: 1.5 !important;
+  }
+  table .text-xs,
+  table .text-sm,
+  table .text-\[10px\],
+  table .text-\[11px\],
+  table .text-\[12px\],
+  table .text-\[13px\],
+  table .text-\[14px\] {
+    font-size: 18px !important;
+  }
+  table .font-mono {
+    font-size: 17px !important;
+  }
 }
 
 /* Print: force light mode */
