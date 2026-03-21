@@ -366,7 +366,7 @@ export function AppSidebar() {
 
         {orderedModules.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[11px] font-mono uppercase tracking-[0.12em] text-sidebar-foreground/70 px-3 mb-1">모듈</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[13px] font-bold uppercase tracking-[0.1em] text-sidebar-foreground px-3 mb-1">모듈</SidebarGroupLabel>
             <SidebarGroupContent>
               {collapsed ? (
                 <SidebarMenu className="space-y-0.5">
