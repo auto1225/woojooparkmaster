@@ -71,7 +71,7 @@ export default function SurveyWizardPage() {
 
   const survey = data?.survey;
   const lot = survey?.parking_lots as any;
-  const isReadOnly = survey?.status === "submitted" || survey?.status === "approved";
+  const isReadOnly = false;
 
   const saveStep = useCallback(async (stepData: any, tableName: string, recordId: string) => {
     setSaving(true);
