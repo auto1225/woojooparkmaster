@@ -61,7 +61,7 @@ export default function SurveysPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("surveys")
-        .select("*, parking_lots(code, name, address_jibun, lot_type, total_spaces, fee_policy), surveyor:profiles!surveys_surveyor_id_fkey(name)")
+        .select("*, parking_lots(code, name, address_jibun, admin_dong, lot_type, total_spaces, fee_policy), surveyor:profiles!surveys_surveyor_id_fkey(name)")
         .order("survey_date", { ascending: false, nullsFirst: false });
       if (error) throw error;
       return data;
