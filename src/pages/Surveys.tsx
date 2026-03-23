@@ -42,32 +42,8 @@ const LOT_TYPE_LABEL: Record<string, string> = {
   underground: "지하",
 };
 
-// Road-name addresses that don't start with 동 name - map to their administrative dong
-const ROAD_TO_DONG: Record<string, string> = {
-  "다호북길": "도두1동",
-  "동광로": "삼도2동",
-  "동문로": "일도1동",
-  "산지로": "건입동",
-  "용두암길": "용담1동",
-  "원노형": "노형동",
-  "고마로": "이도2동",
-};
-
-function extractDong(address?: string | null): string {
-  if (!address) return "";
-  // Try jibun-style: "노형동 1234"
-  const jibunMatch = address.match(/^([가-힣]+\d*[동읍면리])/);
-  if (jibunMatch) {
-    // Normalize: 아라일동 -> 아라1동, 아라이동 -> 아라2동, etc.
-    let dong = jibunMatch[1];
-    dong = dong.replace("일동", "1동").replace("이동", "2동").replace("삼동", "3동");
-    return dong;
-  }
-  // Try road-name: "다호북길 7 외 3필지"
-  for (const [road, dong] of Object.entries(ROAD_TO_DONG)) {
-    if (address.startsWith(road) || address.includes(road)) return dong;
-  }
-  return address.split(" ")[0] || "";
+function getDong(lot: any): string {
+  return lot?.admin_dong || "";
 }
 
 export default function SurveysPage() {
