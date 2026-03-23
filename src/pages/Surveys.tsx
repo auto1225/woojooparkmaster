@@ -203,28 +203,39 @@ export default function SurveysPage() {
                 <TableBody>
                   {paged.length === 0 ? (
                     <TableRow><TableCell colSpan={10} className="text-center py-10 text-muted-foreground">조사 데이터가 없습니다</TableCell></TableRow>
-                  ) : paged.map((s: any) => {
+                  ) : paged.map((s: any, idx: number) => {
                     const lot = s.parking_lots as any;
+                    const currentDong = extractDong(lot?.address_jibun);
+                    const prevLot = idx > 0 ? (paged[idx - 1] as any).parking_lots as any : null;
+                    const prevDong = prevLot ? extractDong(prevLot?.address_jibun) : null;
+                    const showDongHeader = sortBy === "dong" && currentDong !== prevDong;
+
                     return (
-                      <TableRow key={s.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/surveys/${s.id}`)}>
-                        <TableCell className="font-mono text-xs">{lot?.code}</TableCell>
-                        <TableCell className="text-sm font-medium">
-                          {lot?.name}
-                          {sortBy === "dong" && <span className="ml-1 text-xs text-muted-foreground">({extractDong(lot?.address_jibun)})</span>}
-                        </TableCell>
-                        <TableCell className="text-xs">{SURVEY_TYPE_LABELS[s.survey_type] || s.survey_type}</TableCell>
-                        <TableCell className="text-xs">{LOT_TYPE_LABEL[lot?.lot_type] || lot?.lot_type || "-"}</TableCell>
-                        <TableCell className="text-xs text-right">{lot?.total_spaces?.toLocaleString() || "-"}</TableCell>
-                        <TableCell className="text-xs">{s.survey_date || "-"}</TableCell>
-                        <TableCell className="text-xs">{(s.surveyor as any)?.name || "-"}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={`text-[10px] ${SURVEY_STATUS_COLORS[s.status as SurveyStatus] || ""}`}>
-                            {SURVEY_STATUS_LABELS[s.status as SurveyStatus]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs">{s.submitted_at ? new Date(s.submitted_at).toLocaleDateString("ko") : "-"}</TableCell>
-                        <TableCell className="text-xs">{s.approved_at ? new Date(s.approved_at).toLocaleDateString("ko") : "-"}</TableCell>
-                      </TableRow>
+                      <>
+                        {showDongHeader && (
+                          <TableRow key={`dong-${currentDong}-${idx}`} className="bg-muted/60 hover:bg-muted/60">
+                            <TableCell colSpan={10} className="py-2 font-semibold text-sm text-primary">
+                              📍 {currentDong}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        <TableRow key={s.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/surveys/${s.id}`)}>
+                          <TableCell className="font-mono text-xs">{lot?.code}</TableCell>
+                          <TableCell className="text-sm font-medium">{lot?.name}</TableCell>
+                          <TableCell className="text-xs">{SURVEY_TYPE_LABELS[s.survey_type] || s.survey_type}</TableCell>
+                          <TableCell className="text-xs">{LOT_TYPE_LABEL[lot?.lot_type] || lot?.lot_type || "-"}</TableCell>
+                          <TableCell className="text-xs text-right">{lot?.total_spaces?.toLocaleString() || "-"}</TableCell>
+                          <TableCell className="text-xs">{s.survey_date || "-"}</TableCell>
+                          <TableCell className="text-xs">{(s.surveyor as any)?.name || "-"}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={`text-[10px] ${SURVEY_STATUS_COLORS[s.status as SurveyStatus] || ""}`}>
+                              {SURVEY_STATUS_LABELS[s.status as SurveyStatus]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs">{s.submitted_at ? new Date(s.submitted_at).toLocaleDateString("ko") : "-"}</TableCell>
+                          <TableCell className="text-xs">{s.approved_at ? new Date(s.approved_at).toLocaleDateString("ko") : "-"}</TableCell>
+                        </TableRow>
+                      </>
                     );
                   })}
                 </TableBody>
