@@ -203,9 +203,9 @@ export default function SurveysPage() {
                     <TableRow><TableCell colSpan={10} className="text-center py-10 text-muted-foreground">조사 데이터가 없습니다</TableCell></TableRow>
                   ) : paged.map((s: any, idx: number) => {
                     const lot = s.parking_lots as any;
-                    const currentDong = extractDong(lot?.address_jibun);
+                    const currentDong = getDong(lot);
                     const prevLot = idx > 0 ? (paged[idx - 1] as any).parking_lots as any : null;
-                    const prevDong = prevLot ? extractDong(prevLot?.address_jibun) : null;
+                    const prevDong = prevLot ? getDong(prevLot) : null;
                     const showDongHeader = sortBy === "dong" && currentDong !== prevDong;
 
                     return (
