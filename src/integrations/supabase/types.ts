@@ -4129,6 +4129,7 @@ export type Database = {
         Row: {
           address_jibun: string | null
           address_road: string | null
+          admin_dong: string | null
           area_sqm: number | null
           author_name: string | null
           code: string
@@ -4170,6 +4171,7 @@ export type Database = {
         Insert: {
           address_jibun?: string | null
           address_road?: string | null
+          admin_dong?: string | null
           area_sqm?: number | null
           author_name?: string | null
           code: string
@@ -4211,6 +4213,7 @@ export type Database = {
         Update: {
           address_jibun?: string | null
           address_road?: string | null
+          admin_dong?: string | null
           area_sqm?: number | null
           author_name?: string | null
           code?: string

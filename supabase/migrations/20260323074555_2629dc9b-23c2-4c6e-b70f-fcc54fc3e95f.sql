@@ -1,0 +1,1 @@
+ALTER TABLE public.parking_lots ADD COLUMN IF NOT EXISTS admin_dong TEXT;

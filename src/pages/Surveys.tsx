@@ -42,32 +42,8 @@ const LOT_TYPE_LABEL: Record<string, string> = {
   underground: "지하",
 };
 
-// Road-name addresses that don't start with 동 name - map to their administrative dong
-const ROAD_TO_DONG: Record<string, string> = {
-  "다호북길": "도두1동",
-  "동광로": "삼도2동",
-  "동문로": "일도1동",
-  "산지로": "건입동",
-  "용두암길": "용담1동",
-  "원노형": "노형동",
-  "고마로": "이도2동",
-};
-
-function extractDong(address?: string | null): string {
-  if (!address) return "";
-  // Try jibun-style: "노형동 1234"
-  const jibunMatch = address.match(/^([가-힣]+\d*[동읍면리])/);
-  if (jibunMatch) {
-    // Normalize: 아라일동 -> 아라1동, 아라이동 -> 아라2동, etc.
-    let dong = jibunMatch[1];
-    dong = dong.replace("일동", "1동").replace("이동", "2동").replace("삼동", "3동");
-    return dong;
-  }
-  // Try road-name: "다호북길 7 외 3필지"
-  for (const [road, dong] of Object.entries(ROAD_TO_DONG)) {
-    if (address.startsWith(road) || address.includes(road)) return dong;
-  }
-  return address.split(" ")[0] || "";
+function getDong(lot: any): string {
+  return lot?.admin_dong || "";
 }
 
 export default function SurveysPage() {
@@ -85,7 +61,7 @@ export default function SurveysPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("surveys")
-        .select("*, parking_lots(code, name, address_jibun, lot_type, total_spaces, fee_policy), surveyor:profiles!surveys_surveyor_id_fkey(name)")
+        .select("*, parking_lots(code, name, address_jibun, admin_dong, lot_type, total_spaces, fee_policy), surveyor:profiles!surveys_surveyor_id_fkey(name)")
         .order("survey_date", { ascending: false, nullsFirst: false });
       if (error) throw error;
       return data;
@@ -116,8 +92,8 @@ export default function SurveysPage() {
         case "spaces_desc":
           return (lotB?.total_spaces || 0) - (lotA?.total_spaces || 0);
         case "dong": {
-          const dongA = extractDong(lotA?.address_jibun);
-          const dongB = extractDong(lotB?.address_jibun);
+          const dongA = getDong(lotA);
+          const dongB = getDong(lotB);
           return dongA.localeCompare(dongB, "ko");
         }
         case "lot_type": {
@@ -227,9 +203,9 @@ export default function SurveysPage() {
                     <TableRow><TableCell colSpan={10} className="text-center py-10 text-muted-foreground">조사 데이터가 없습니다</TableCell></TableRow>
                   ) : paged.map((s: any, idx: number) => {
                     const lot = s.parking_lots as any;
-                    const currentDong = extractDong(lot?.address_jibun);
+                    const currentDong = getDong(lot);
                     const prevLot = idx > 0 ? (paged[idx - 1] as any).parking_lots as any : null;
-                    const prevDong = prevLot ? extractDong(prevLot?.address_jibun) : null;
+                    const prevDong = prevLot ? getDong(prevLot) : null;
                     const showDongHeader = sortBy === "dong" && currentDong !== prevDong;
 
                     return (
