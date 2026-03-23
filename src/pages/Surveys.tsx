@@ -92,8 +92,8 @@ export default function SurveysPage() {
         case "spaces_desc":
           return (lotB?.total_spaces || 0) - (lotA?.total_spaces || 0);
         case "dong": {
-          const dongA = extractDong(lotA?.address_jibun);
-          const dongB = extractDong(lotB?.address_jibun);
+          const dongA = getDong(lotA);
+          const dongB = getDong(lotB);
           return dongA.localeCompare(dongB, "ko");
         }
         case "lot_type": {
