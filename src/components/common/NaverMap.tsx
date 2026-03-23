@@ -231,17 +231,22 @@ export function NaverMap({
 
     const naverMarkers = markers.map((m) => {
       const colorHex = MARKER_COLORS[m.color || "blue"];
-      const imgSrc = createMarkerSVG(colorHex, m.label, m.size || "normal");
       const sizes = { small: [24, 30], normal: [32, 40], large: [40, 50] };
       const [w, h] = sizes[m.size || "normal"];
+
+      const markerHtml = `
+        <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+          <img src="${createMarkerSVG(colorHex, m.label, m.size || "normal")}" width="${w}" height="${h}" />
+          <div style="margin-top:2px;padding:1px 6px;background:rgba(255,255,255,0.92);border:1px solid rgba(0,0,0,0.15);border-radius:4px;white-space:nowrap;font-size:11px;font-weight:600;color:#222;box-shadow:0 1px 3px rgba(0,0,0,0.12);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${m.name}</div>
+        </div>
+      `;
 
       const marker = new window.naver.maps.Marker({
         position: new window.naver.maps.LatLng(m.lat, m.lng),
         map: mapRef.current,
         title: m.name,
         icon: {
-          url: imgSrc,
-          size: new window.naver.maps.Size(w, h),
+          content: markerHtml,
           anchor: new window.naver.maps.Point(w / 2, h),
         },
       });
