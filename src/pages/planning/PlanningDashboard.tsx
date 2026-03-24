@@ -118,16 +118,17 @@ export default function PlanningDashboard() {
           ))}
         </div>
 
-        {/* Map Placeholder */}
+        {/* 후보부지 지도 */}
         <Card>
-          <CardContent className="p-0">
-            <div className="h-[400px] flex items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed border-muted">
-              <div className="text-center text-muted-foreground">
-                <MapPin className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p className="text-sm font-medium">지도 영역</p>
-                <p className="text-xs mt-1">후보부지 마커 표시 예정 (Kakao Map 연동)</p>
-              </div>
-            </div>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">후보부지 위치</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 overflow-hidden rounded-b-lg">
+            <NaverMap
+              markers={mapMarkers}
+              height="400px"
+              zoom={12}
+            />
           </CardContent>
         </Card>
 
