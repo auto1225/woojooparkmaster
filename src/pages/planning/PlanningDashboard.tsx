@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MapPin, HardHat, FileSearch, Car } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { NaverMap, type MapMarker } from "@/components/common/NaverMap";
 import {
   SITE_STATUS_LABELS, SITE_STATUS_COLORS, PHASE_LABELS, PHASE_ORDER,
   CONSTRUCTION_STATUS_COLORS, PROJECT_TYPE_LABELS, getSiteGrade, getSiteGradeColor, formatBudgetWon,
