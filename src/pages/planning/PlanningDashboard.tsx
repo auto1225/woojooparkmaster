@@ -22,7 +22,7 @@ export default function PlanningDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("site_candidates")
-        .select("id, site_number, name, area_sqm, estimated_spaces, total_score, bc_ratio, status, ranking")
+        .select("id, site_number, name, area_sqm, estimated_spaces, total_score, bc_ratio, status, ranking, latitude, longitude")
         .order("total_score", { ascending: false, nullsFirst: false });
       if (error) throw error;
       return data || [];
