@@ -61,6 +61,26 @@ export default function PlanningDashboard() {
     + inProgressProjects.reduce((sum, p) => sum + 0, 0);
   const top5Sites = (sites || []).slice(0, 5);
 
+  const STATUS_MARKER_COLORS: Record<string, "blue" | "green" | "orange" | "red" | "gray"> = {
+    candidate: "blue",
+    evaluating: "orange",
+    selected: "green",
+    rejected: "red",
+    construction: "orange",
+  };
+
+  const mapMarkers: MapMarker[] = (sites || [])
+    .filter((s) => s.latitude && s.longitude)
+    .map((s) => ({
+      id: s.id,
+      lat: Number(s.latitude),
+      lng: Number(s.longitude),
+      name: s.name,
+      color: STATUS_MARKER_COLORS[s.status] || "gray",
+      label: s.total_score ? Number(s.total_score).toFixed(0) : undefined,
+      onClick: () => navigate("/planning/sites"),
+    }));
+
   const kpis = [
     { label: "후보부지", value: (sites || []).length, sub: `후보 ${sitesByStatus("candidate")} | 평가중 ${sitesByStatus("evaluating")} | 선정 ${sitesByStatus("selected")}`, icon: MapPin, color: "text-blue-600" },
     { label: "진행중 공사", value: inProgressProjects.length, sub: "현재 진행중인 공사", icon: HardHat, color: "text-orange-600" },
