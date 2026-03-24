@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MapPin, HardHat, FileSearch, Car } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { NaverMap, type MapMarker } from "@/components/common/NaverMap";
 import {
   SITE_STATUS_LABELS, SITE_STATUS_COLORS, PHASE_LABELS, PHASE_ORDER,
   CONSTRUCTION_STATUS_COLORS, PROJECT_TYPE_LABELS, getSiteGrade, getSiteGradeColor, formatBudgetWon,
@@ -21,7 +22,7 @@ export default function PlanningDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("site_candidates")
-        .select("id, site_number, name, area_sqm, estimated_spaces, total_score, bc_ratio, status, ranking")
+        .select("id, site_number, name, area_sqm, estimated_spaces, total_score, bc_ratio, status, ranking, latitude, longitude")
         .order("total_score", { ascending: false, nullsFirst: false });
       if (error) throw error;
       return data || [];
@@ -60,6 +61,26 @@ export default function PlanningDashboard() {
     + inProgressProjects.reduce((sum, p) => sum + 0, 0);
   const top5Sites = (sites || []).slice(0, 5);
 
+  const STATUS_MARKER_COLORS: Record<string, "blue" | "green" | "orange" | "red" | "gray"> = {
+    candidate: "blue",
+    evaluating: "orange",
+    selected: "green",
+    rejected: "red",
+    construction: "orange",
+  };
+
+  const mapMarkers: MapMarker[] = (sites || [])
+    .filter((s) => s.latitude && s.longitude)
+    .map((s) => ({
+      id: s.id,
+      lat: Number(s.latitude),
+      lng: Number(s.longitude),
+      name: s.name,
+      color: STATUS_MARKER_COLORS[s.status] || "gray",
+      label: s.total_score ? Number(s.total_score).toFixed(0) : undefined,
+      onClick: () => navigate("/planning/sites"),
+    }));
+
   const kpis = [
     { label: "후보부지", value: (sites || []).length, sub: `후보 ${sitesByStatus("candidate")} | 평가중 ${sitesByStatus("evaluating")} | 선정 ${sitesByStatus("selected")}`, icon: MapPin, color: "text-blue-600" },
     { label: "진행중 공사", value: inProgressProjects.length, sub: "현재 진행중인 공사", icon: HardHat, color: "text-orange-600" },
@@ -97,16 +118,17 @@ export default function PlanningDashboard() {
           ))}
         </div>
 
-        {/* Map Placeholder */}
+        {/* 후보부지 지도 */}
         <Card>
-          <CardContent className="p-0">
-            <div className="h-[400px] flex items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed border-muted">
-              <div className="text-center text-muted-foreground">
-                <MapPin className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p className="text-sm font-medium">지도 영역</p>
-                <p className="text-xs mt-1">후보부지 마커 표시 예정 (Kakao Map 연동)</p>
-              </div>
-            </div>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">후보부지 위치</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 overflow-hidden rounded-b-lg">
+            <NaverMap
+              markers={mapMarkers}
+              height="400px"
+              zoom={12}
+            />
           </CardContent>
         </Card>
 
