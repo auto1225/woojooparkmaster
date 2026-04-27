@@ -9,6 +9,7 @@ import { requireEditor, requireManager } from "../middleware/authorize.js";
 import {
   buildUpdateSet, recordAudit, listWithCount, WhereBuilder, fetchOne,
 } from "../lib/crud-helpers.js";
+import { parseExpand, buildExpand, EXPAND_FOR } from "../lib/expand.js";
 
 const TABLE = "complaints";
 const PATH = "/api/complaints";
@@ -81,8 +82,23 @@ export async function registerComplaintsRoutes(app: FastifyInstance) {
       .gte("received_at", q.date_from)
       .lte("received_at", q.date_to)
       .ilikeAny(["complaint_number", "title", "content", "complainant_name", "vehicle_number"], q.q);
-    const { sql, params } = wb.build();
-    return listWithCount(pool, TABLE, sql, params, "ORDER BY received_at DESC", q.limit, q.offset);
+    const { sql: whereSql, params } = wb.build();
+
+    const expansions = parseExpand((req.query as any).expand, EXPAND_FOR.complaints);
+    if (expansions.length > 0) {
+      const { selectClause, joinClause } = buildExpand(expansions, "m.*");
+      const totalRes = await pool.query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM ${TABLE} m ${joinClause} ${whereSql}`,
+        params,
+      );
+      const allParams = [...params, q.limit, q.offset];
+      const rows = await pool.query(
+        `SELECT ${selectClause} FROM ${TABLE} m ${joinClause} ${whereSql} ORDER BY m.received_at DESC LIMIT $${allParams.length - 1} OFFSET $${allParams.length}`,
+        allParams,
+      );
+      return { data: rows.rows, total: Number(totalRes.rows[0].count), limit: q.limit, offset: q.offset };
+    }
+    return listWithCount(pool, TABLE, whereSql, params, "ORDER BY received_at DESC", q.limit, q.offset);
   });
 
   app.get<{ Params: { id: string } }>(`${PATH}/:id`, { preHandler: [app.authenticate] }, async (req) => {

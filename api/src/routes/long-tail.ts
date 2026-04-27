@@ -23,6 +23,7 @@ import { requireEditor, requireManager } from "../middleware/authorize.js";
 import {
   buildUpdateSet, recordAudit, listWithCount, WhereBuilder, fetchOne,
 } from "../lib/crud-helpers.js";
+import { parseExpand, buildExpand } from "../lib/expand.js";
 
 const IdParam = z.object({ id: z.string().uuid() });
 
@@ -38,15 +39,43 @@ function buildCrud(opts: {
   create: { schema: z.ZodTypeAny; ownerCol?: "created_by" | "issued_by" | "registered_by" | null };
   update: { schema: z.ZodTypeAny };
   errorMsg: string;
+  /** 허용된 expand 키 목록. 비어있으면 expand 미지원 */
+  allowedExpands?: string[];
 }) {
-  const { app, table, path, list, create, update, errorMsg } = opts;
+  const { app, table, path, list, create, update, errorMsg, allowedExpands } = opts;
   const ownerCol = create.ownerCol === undefined ? "created_by" : create.ownerCol;
 
   app.get(path, { preHandler: [app.authenticate] }, async (req) => {
     const q = list.schema.parse(req.query);
     const wb = list.build(q);
-    const { sql, params } = wb.build();
-    return listWithCount(pool, table, sql, params, list.order, q.limit ?? 100, q.offset ?? 0);
+    const { sql: whereSql, params } = wb.build();
+
+    if (allowedExpands && allowedExpands.length > 0) {
+      const expansions = parseExpand((req.query as any).expand, allowedExpands);
+      if (expansions.length > 0) {
+        // expand 적용 — PG는 unqualified 컬럼을 메인 테이블로 자동 해석한다.
+        // expand alias는 e_X 형태라 메인 컬럼과 충돌 없음.
+        const { selectClause, joinClause } = buildExpand(expansions, "m.*");
+        const limit = q.limit ?? 100;
+        const offset = q.offset ?? 0;
+        const totalRes = await pool.query<{ count: string }>(
+          `SELECT COUNT(*)::text AS count FROM ${table} m ${joinClause} ${whereSql}`,
+          params,
+        );
+        const allParams = [...params, limit, offset];
+        const rows = await pool.query(
+          `SELECT ${selectClause} FROM ${table} m ${joinClause} ${whereSql} ${list.order} LIMIT $${allParams.length - 1} OFFSET $${allParams.length}`,
+          allParams,
+        );
+        return {
+          data: rows.rows,
+          total: Number(totalRes.rows[0].count),
+          limit,
+          offset,
+        };
+      }
+    }
+    return listWithCount(pool, table, whereSql, params, list.order, q.limit ?? 100, q.offset ?? 0);
   });
 
   app.get<{ Params: { id: string } }>(`${path}/:id`, { preHandler: [app.authenticate] }, async (req) => {
@@ -383,55 +412,55 @@ export async function registerLongTailRoutes(app: FastifyInstance) {
             build: q => new WhereBuilder().eq("lot_id", q.lot_id).eq("is_active", q.is_active),
             order: "ORDER BY staff_name" },
     create: { schema: z.object({}).passthrough(), ownerCol: null }, update: { schema: z.object({}).passthrough() },
-    errorMsg: "직원을 찾을 수 없습니다." });
+    errorMsg: "직원을 찾을 수 없습니다.", allowedExpands: ["parking_lots"] });
   buildCrud({ app, table: "enforcement_records", path: "/api/enforcement-records",
     list: { schema: baseList.extend({ lot_id: z.string().uuid().optional(), payment_status: z.string().optional(), q: z.string().optional() }),
             build: q => new WhereBuilder().eq("lot_id", q.lot_id).eq("payment_status", q.payment_status).ilikeAny(["enforcement_number", "vehicle_number"], q.q),
             order: "ORDER BY violation_date DESC" },
     create: { schema: z.object({}).passthrough(), ownerCol: null }, update: { schema: z.object({}).passthrough() },
-    errorMsg: "단속 기록을 찾을 수 없습니다." });
+    errorMsg: "단속 기록을 찾을 수 없습니다.", allowedExpands: ["parking_lots"] });
   buildCrud({ app, table: "budget_executions", path: "/api/budget-executions",
     list: { schema: baseList.extend({ item_id: z.string().uuid().optional(), status: z.string().optional() }),
             build: q => new WhereBuilder().eq("item_id", q.item_id).eq("status", q.status),
             order: "ORDER BY execution_date DESC" },
     create: { schema: z.object({}).passthrough(), ownerCol: "created_by" }, update: { schema: z.object({}).passthrough() },
-    errorMsg: "예산 집행을 찾을 수 없습니다." });
+    errorMsg: "예산 집행을 찾을 수 없습니다.", allowedExpands: ["budget_items", "parking_lots"] });
   buildCrud({ app, table: "bid_evaluations", path: "/api/bid-evaluations",
     list: { schema: baseList.extend({ bid_project_id: z.string().uuid().optional() }),
             build: q => new WhereBuilder().eq("bid_project_id", q.bid_project_id),
             order: "ORDER BY total_score DESC" },
     create: { schema: z.object({}).passthrough(), ownerCol: null }, update: { schema: z.object({}).passthrough() },
-    errorMsg: "평가를 찾을 수 없습니다." });
+    errorMsg: "평가를 찾을 수 없습니다.", allowedExpands: ["bid_projects"] });
   buildCrud({ app, table: "bid_contracts", path: "/api/bid-contracts",
     list: { schema: baseList.extend({ bid_project_id: z.string().uuid().optional(), status: z.string().optional() }),
             build: q => new WhereBuilder().eq("bid_project_id", q.bid_project_id).eq("status", q.status),
             order: "ORDER BY contract_date DESC" },
     create: { schema: z.object({}).passthrough(), ownerCol: null }, update: { schema: z.object({}).passthrough() },
-    errorMsg: "계약을 찾을 수 없습니다." });
+    errorMsg: "계약을 찾을 수 없습니다.", allowedExpands: ["bid_projects"] });
   buildCrud({ app, table: "survey_infra", path: "/api/survey-infra",
     list: { schema: baseList.extend({ survey_id: z.string().uuid().optional() }),
             build: q => new WhereBuilder().eq("survey_id", q.survey_id),
             order: "ORDER BY survey_id" },
     create: { schema: z.object({}).passthrough(), ownerCol: null }, update: { schema: z.object({}).passthrough() },
-    errorMsg: "기반시설 정보를 찾을 수 없습니다." });
+    errorMsg: "기반시설 정보를 찾을 수 없습니다.", allowedExpands: ["surveys"] });
   buildCrud({ app, table: "site_candidates", path: "/api/site-candidates",
     list: { schema: baseList.extend({ status: z.string().optional(), q: z.string().optional() }),
             build: q => new WhereBuilder().eq("status", q.status).ilikeAny(["site_number", "name", "address_road"], q.q),
             order: "ORDER BY created_at DESC" },
     create: { schema: z.object({}).passthrough() }, update: { schema: z.object({}).passthrough() },
-    errorMsg: "후보지를 찾을 수 없습니다." });
+    errorMsg: "후보지를 찾을 수 없습니다.", allowedExpands: [] });
   buildCrud({ app, table: "report_generated", path: "/api/report-generated",
     list: { schema: baseList.extend({ status: z.string().optional() }),
             build: q => new WhereBuilder().eq("status", q.status),
             order: "ORDER BY created_at DESC" },
     create: { schema: z.object({}).passthrough(), ownerCol: null }, update: { schema: z.object({}).passthrough() },
-    errorMsg: "리포트를 찾을 수 없습니다." });
+    errorMsg: "리포트를 찾을 수 없습니다.", allowedExpands: ["report_templates"] });
   buildCrud({ app, table: "maintenance_logs", path: "/api/maintenance-logs",
     list: { schema: baseList.extend({ lot_id: z.string().uuid().optional(), status: z.string().optional() }),
             build: q => new WhereBuilder().eq("lot_id", q.lot_id).eq("status", q.status),
             order: "ORDER BY reported_at DESC" },
     create: { schema: z.object({}).passthrough(), ownerCol: null }, update: { schema: z.object({}).passthrough() },
-    errorMsg: "정비 로그를 찾을 수 없습니다." });
+    errorMsg: "정비 로그를 찾을 수 없습니다.", allowedExpands: ["parking_lots", "equipment"] });
 
   // lot_realtime_status (lot_id가 PK)
   app.get("/api/lot-realtime-status", { preHandler: [app.authenticate] }, async (req) => {
@@ -464,25 +493,25 @@ export async function registerLongTailRoutes(app: FastifyInstance) {
 
   for (const cfg of [
     { table: "approval_lines", path: "/api/approval-lines",
-      filters: ["module", "status"], q: ["line_name"], owner: "created_by" },
+      filters: ["module", "status"], q: ["line_name"], owner: "created_by" , expands: ["assignee"]},
     { table: "approval_steps", path: "/api/approval-steps",
-      filters: ["line_id", "approver_id", "status"], owner: null },
+      filters: ["line_id", "approver_id", "status"], owner: null , expands: ["assignee"]},
     { table: "approval_records", path: "/api/approval-records",
       filters: ["step_id", "approver_id"], owner: null },
     { table: "attachments", path: "/api/attachments",
-      filters: ["module", "reference_id"], owner: "uploaded_by" },
+      filters: ["module", "reference_id"], owner: "uploaded_by" , expands: []},
     { table: "bid_documents", path: "/api/bid-documents",
-      filters: ["bid_project_id", "document_type"], owner: null },
+      filters: ["bid_project_id", "document_type"], owner: null , expands: ["bid_projects"]},
     { table: "bid_submissions", path: "/api/bid-submissions",
-      filters: ["bid_project_id"], q: ["bidder_name"], owner: null },
+      filters: ["bid_project_id"], q: ["bidder_name"], owner: null , expands: ["bid_projects"]},
     { table: "design_documents", path: "/api/design-documents",
-      filters: ["lot_id", "document_type", "status"], q: ["title"], owner: "created_by" },
+      filters: ["lot_id", "document_type", "status"], q: ["title"], owner: "created_by" , expands: ["parking_lots"]},
     { table: "budget_transfers", path: "/api/budget-transfers",
       filters: ["status"], q: ["transfer_number"], owner: "created_by" },
     { table: "complaint_comments", path: "/api/complaint-comments",
-      filters: ["complaint_id", "author_id", "is_internal"], owner: null },
+      filters: ["complaint_id", "author_id", "is_internal"], owner: null , expands: []},
     { table: "construction_projects", path: "/api/construction-projects",
-      filters: ["lot_id", "status"], q: ["title", "project_number"], owner: "created_by" },
+      filters: ["lot_id", "status"], q: ["title", "project_number"], owner: "created_by" , expands: ["parking_lots"]},
     { table: "dashboard_widgets", path: "/api/dashboard-widgets",
       filters: ["user_id", "widget_type"], owner: null },
     { table: "ip_whitelist", path: "/api/ip-whitelist",
@@ -492,39 +521,39 @@ export async function registerLongTailRoutes(app: FastifyInstance) {
     { table: "api_keys", path: "/api/api-keys",
       filters: ["is_active"], q: ["name"], owner: "created_by" },
     { table: "maintenance_schedules", path: "/api/maintenance-schedules",
-      filters: ["lot_id", "equipment_id", "is_active"], owner: null },
+      filters: ["lot_id", "equipment_id", "is_active"], owner: null , expands: ["parking_lots", "equipment", "assignee"]},
     { table: "message_logs", path: "/api/message-logs",
       filters: ["module", "channel", "status"], owner: null },
     { table: "module_licenses", path: "/api/module-licenses",
       filters: ["is_active"], q: ["module_code", "module_name"], owner: null },
     { table: "permits", path: "/api/permits",
-      filters: ["lot_id", "permit_type", "status"], q: ["permit_number", "vehicle_number"], owner: null },
+      filters: ["lot_id", "permit_type", "status"], q: ["permit_number", "vehicle_number"], owner: null , expands: ["parking_lots"]},
     { table: "report_templates", path: "/api/report-templates",
       filters: ["template_type", "is_active"], q: ["template_code", "template_name"], owner: "created_by" },
     { table: "report_schedules", path: "/api/report-schedules",
-      filters: ["template_id", "is_active"], owner: null },
+      filters: ["template_id", "is_active"], owner: null , expands: ["report_templates"]},
     { table: "revenue_reconciliation", path: "/api/revenue-reconciliation",
-      filters: ["lot_id", "status"], owner: null },
+      filters: ["lot_id", "status"], owner: null , expands: ["parking_lots"]},
     { table: "safety_inspections", path: "/api/safety-inspections",
-      filters: ["lot_id", "result", "status"], owner: null },
+      filters: ["lot_id", "result", "status"], owner: null , expands: ["parking_lots"]},
     { table: "sensor_devices", path: "/api/sensor-devices",
-      filters: ["lot_id", "gateway_id", "status", "device_type"], q: ["device_id"], owner: null },
+      filters: ["lot_id", "gateway_id", "status", "device_type"], q: ["device_id"], owner: null , expands: ["parking_lots"]},
     { table: "service_milestones", path: "/api/service-milestones",
-      filters: ["project_id", "status"], owner: null },
+      filters: ["project_id", "status"], owner: null , expands: ["service_projects"]},
     { table: "service_inspections", path: "/api/service-inspections",
-      filters: ["project_id", "milestone_id", "status"], owner: null },
+      filters: ["project_id", "milestone_id", "status"], owner: null , expands: ["service_projects"]},
     { table: "service_payments", path: "/api/service-payments",
-      filters: ["project_id", "status", "payment_type"], owner: null },
+      filters: ["project_id", "status", "payment_type"], owner: null , expands: ["service_projects"]},
     { table: "service_deliverables", path: "/api/service-deliverables",
-      filters: ["project_id", "milestone_id", "status"], owner: null },
+      filters: ["project_id", "milestone_id", "status"], owner: null , expands: ["service_projects"]},
     { table: "service_issues", path: "/api/service-issues",
-      filters: ["project_id", "status", "severity"], q: ["issue_number", "title"], owner: null },
+      filters: ["project_id", "status", "severity"], q: ["issue_number", "title"], owner: null , expands: ["service_projects"]},
     { table: "surface_markings", path: "/api/surface-markings",
-      filters: ["lot_id", "marking_type", "status"], owner: null },
+      filters: ["lot_id", "marking_type", "status"], owner: null , expands: ["parking_lots"]},
     { table: "survey_usage", path: "/api/survey-usage",
-      filters: ["survey_id"], owner: null },
+      filters: ["survey_id"], owner: null , expands: ["surveys"]},
     { table: "survey_sensor_plan", path: "/api/survey-sensor-plan",
-      filters: ["survey_id"], owner: null },
+      filters: ["survey_id"], owner: null , expands: ["surveys"]},
     { table: "security_training_logs", path: "/api/security-training-logs",
       filters: ["user_id", "training_type", "passed"], owner: null },
   ]) {
@@ -546,6 +575,7 @@ export async function registerLongTailRoutes(app: FastifyInstance) {
       create: { schema: z.object({}).passthrough(), ownerCol: cfg.owner },
       update: { schema: z.object({}).passthrough() },
       errorMsg: cfg.table + "을(를) 찾을 수 없습니다.",
+      allowedExpands: cfg.expands,
     });
   }
 }
