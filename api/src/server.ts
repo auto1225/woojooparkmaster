@@ -39,6 +39,7 @@ import { registerServiceProjectsRoutes } from "./routes/service-projects.js";
 import { registerFeeExemptionsRoutes } from "./routes/fee-exemptions.js";
 import { registerLongTailRoutes } from "./routes/long-tail.js";
 import { registerFilesRoutes } from "./routes/files.js";
+import { registerAiRoutes } from "./routes/ai.js";
 import { sendError } from "./lib/pg-errors.js";
 
 async function main() {
@@ -95,6 +96,7 @@ async function main() {
   await registerFeeExemptionsRoutes(app);
   await registerLongTailRoutes(app);
   await registerFilesRoutes(app);
+  await registerAiRoutes(app);
 
   // 헬스체크
   app.get("/api/health", async () => ({
