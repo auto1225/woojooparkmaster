@@ -7,12 +7,21 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
 *.local
+.vite
 
-# Editor directories and files
+# Environment files (NEVER commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,3 +31,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Testing
+coverage
+playwright-report
+test-results
+
+# Supabase CLI
+supabase/.temp

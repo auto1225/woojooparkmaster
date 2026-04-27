@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-typecheck-test:
+    name: Lint • Typecheck • Test • Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.app.json
+
+      - name: Test (vitest)
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          # CI 빌드용 더미 값 — 실제 빌드는 배포 환경에서 환경변수 주입
+          VITE_SUPABASE_PROJECT_ID: ci-dummy
+          VITE_SUPABASE_URL: https://ci-dummy.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: ci-dummy-anon-key
