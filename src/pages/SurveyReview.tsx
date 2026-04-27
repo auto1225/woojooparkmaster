@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
 import { useAuth } from "@/hooks/useAuth";
 import { logActivity } from "@/lib/activity-logger";
 import { toast } from "@/hooks/use-toast";

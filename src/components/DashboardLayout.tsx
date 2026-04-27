@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MobileBottomNav } from "@/components/common/MobileBottomNav";
 import { ScrollToTop } from "@/components/common/ScrollToTop";

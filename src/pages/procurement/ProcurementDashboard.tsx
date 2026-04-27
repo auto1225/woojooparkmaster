@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
 import { useQuery } from "@tanstack/react-query";
 import { Gavel, FileCheck, Banknote, TrendingDown, AlertTriangle } from "lucide-react";
 import { BID_TYPE_COLORS, BID_TYPE_LABELS, BID_STATUS_LABELS, BID_STATUS_COLORS, PIPELINE_STEPS, formatOkWon } from "@/types/procurement";

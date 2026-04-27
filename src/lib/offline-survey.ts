@@ -1,5 +1,6 @@
 // ParkMaster™ 현장조사 오프라인 모드 — IndexedDB 기반
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
+import { filesApi } from "@/integrations/api/files";
 import { toast } from "sonner";
 
 const DB_NAME = "parkmaster-offline";
@@ -109,7 +110,7 @@ export async function syncOfflineData(): Promise<{ surveys: number; photos: numb
   for (const p of photos) {
     try {
       const path = `surveys/${p.survey_id}/${p.file_name}`;
-      const { error } = await supabase.storage.from("survey-photos").upload(path, p.blob, { upsert: true });
+      const _ul = await filesApi.legacyUpload("survey-photos", path, p.blob); const error = _ul.error;
       if (!error) {
         const db = await openDB();
         const tx = db.transaction(STORE_PHOTOS, "readwrite");

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
+import { authApi } from "@/integrations/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -74,8 +75,9 @@ export default function Profile() {
   const changePasswordMutation = useMutation({
     mutationFn: async () => {
       if (newPassword !== confirmPassword) throw new Error("비밀번호가 일치하지 않습니다");
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
+      // 자체 인증: 현재 비밀번호 입력 검증 필요 (Profile UI에 currentPassword 입력 추가 필요)
+      if (!currentPassword) throw new Error("현재 비밀번호를 입력하세요");
+      await authApi.changePassword(currentPassword, newPassword);
     },
     onSuccess: () => {
       toast.success("비밀번호가 변경되었습니다");

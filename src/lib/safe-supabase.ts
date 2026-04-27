@@ -1,5 +1,5 @@
 /** SEC-WEB-1: Supabase 쿼리 래퍼 — 입력 자동 정화 */
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/api/supabase-compat';
 import { sanitizeText } from './sanitizer';
 
 /** INSERT/UPDATE 시 모든 문자열 필드를 자동 정화 */

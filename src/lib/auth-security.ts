@@ -1,5 +1,6 @@
 /** SEC-2/3: 로그인 보안 + 세션 관리 */
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/api/supabase-compat';
+import { authApi } from '@/integrations/api';
 import type { LoginResult } from '@/types/security';
 
 async function getConfig(key: string): Promise<string> {
@@ -25,7 +26,7 @@ export async function logSecurityAudit(
   options?: { success?: boolean; failureReason?: string; userId?: string; userName?: string }
 ) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await authApi.me();
     await (supabase.from('security_audit_logs') as any).insert({
       event_type: eventType,
       severity,
@@ -128,7 +129,7 @@ export async function secureLogin(
   }
 
   // 3. Success — reset counters
-  const { data: { session } } = await supabase.auth.getSession();
+  const me = await authApi.me().catch(() => null);
   await supabase.from('profiles').update({
     login_fail_count: 0,
     locked_until: null,
@@ -136,8 +137,8 @@ export async function secureLogin(
   } as any).eq('email', email);
 
   // 4. Register session
-  if (session) {
-    await registerSession(session.user.id, session.access_token);
+  if (me) {
+    await registerSession(me.id, "");
   }
 
   // 5. Check password expiry

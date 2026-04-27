@@ -1,69 +1,105 @@
+/**
+ * 인증 컨텍스트 — 자체 백엔드(/api/auth/*) 기반.
+ *
+ * Supabase의 supabase.auth.* 호출을 authApi로 교체.
+ * 핵심 차이점:
+ *   - 토큰은 httpOnly 쿠키로 백엔드가 관리. 클라이언트에서 토큰 직접 노출 안 함
+ *   - User 타입은 우리 자체 AuthUser (id, email, name, role, team)
+ *   - onAuthStateChange는 supabase가 제공하던 이벤트 모델 → 자체 Context state로 대체
+ *   - 다른 탭과의 로그아웃 동기화는 useSessionSync(BroadcastChannel)에서 처리
+ */
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@supabase/supabase-js";
-import type { Profile } from "@/types/database";
+import { authApi, type AuthUser } from "@/integrations/api";
+import { profilesApi, type ProfileRow } from "@/integrations/api/profiles";
 
 interface AuthContextType {
-  user: User | null;
-  profile: Profile | null;
+  user: AuthUser | null;
+  profile: ProfileRow | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  /** 외부에서 강제 갱신 (예: 비밀번호 변경 후) */
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// 다른 탭과 로그아웃 동기화용 채널 (한 번만 생성)
+const broadcastChannel =
+  typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("parkmaster-auth") : null;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-    if (data) {
-      setProfile(data as unknown as Profile);
+  const fetchProfile = async () => {
+    try {
+      const p = await profilesApi.me();
+      setProfile(p);
+    } catch {
+      setProfile(null);
+    }
+  };
+
+  const refresh = async () => {
+    try {
+      const u = await authApi.me();
+      setUser(u);
+      if (u) await fetchProfile();
+      else setProfile(null);
+    } catch {
+      setUser(null);
+      setProfile(null);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        setTimeout(() => fetchProfile(session.user.id), 0);
-      } else {
+    refresh();
+
+    // 다른 탭의 로그아웃 메시지 수신
+    if (!broadcastChannel) return;
+    const onMsg = (event: MessageEvent) => {
+      if (event.data?.type === "LOGOUT" || event.data?.type === "FORCE_LOGOUT") {
+        setUser(null);
         setProfile(null);
       }
-      setLoading(false);
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    };
+    broadcastChannel.addEventListener("message", onMsg);
+    return () => broadcastChannel.removeEventListener("message", onMsg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
+    try {
+      const u = await authApi.login(email, password);
+      setUser(u);
+      await fetchProfile();
+      return { error: null };
+    } catch (err) {
+      return { error: err as Error };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
+    try {
+      await authApi.logout();
+    } finally {
+      setUser(null);
+      setProfile(null);
+      // 다른 탭에 알림
+      try {
+        broadcastChannel?.postMessage({ type: "LOGOUT" });
+      } catch {
+        /* 채널 닫힘 등 — 무시 */
+      }
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signOut, refresh }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
+import { authApi } from "@/integrations/api";
 
 interface LogParams {
   module: string;
@@ -10,23 +11,19 @@ interface LogParams {
 }
 
 export async function logActivity(params: LogParams) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await authApi.me();
   if (!user) return;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("name")
-    .eq("id", user.id)
-    .single();
 
   await supabase.from("activity_logs").insert([{
     user_id: user.id,
-    user_name: profile?.name || user.email?.split("@")[0] || "Unknown",
+    user_name: user.name || user.email?.split("@")[0] || "Unknown",
     module: params.module,
     action: params.action,
     target_type: params.targetType,
     target_id: params.targetId,
     target_name: params.targetName,
     details: (params.details || null) as any,
+    user_agent: navigator.userAgent,
+    page_path: window.location.pathname,
   }]);
 }
