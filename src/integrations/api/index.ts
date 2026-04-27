@@ -30,3 +30,5 @@ export type {
 } from "./code-master";
 
 export { filesApi } from "./files";
+
+export { aiApi } from "./ai";
