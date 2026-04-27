@@ -5,7 +5,7 @@
  * 컬럼 추가/삭제/변경 시 이 파일만 수정하면 엑셀·PDF·화면에 자동 반영됩니다.
  */
 import type { MasterColumn, FilterDef } from "@/components/common/MasterDataView";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
 
 /* ────── Badge Maps (공통 상태 맵) ────── */
 const SURVEY_STATUS: Record<string, { label: string; color: string }> = {

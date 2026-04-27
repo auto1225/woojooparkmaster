@@ -1,7 +1,7 @@
 /** SEC-4: 개인정보 마스킹 훅 */
 import { useAuth } from '@/hooks/useAuth';
 import { maskField, type PIIFieldType } from '@/lib/pii-masking';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/api/supabase-compat';
 import { logSecurityAudit } from '@/lib/auth-security';
 
 export function usePIIMasking() {

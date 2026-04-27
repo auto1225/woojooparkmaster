@@ -48,6 +48,7 @@ interface FilterEntry {
 }
 
 interface BuilderState {
+  joins?: ParsedJoin[];
   table: string;
   filters: FilterEntry[];
   orderBy: { col: string; ascending: boolean }[];
@@ -59,6 +60,112 @@ interface BuilderState {
   mutation?: { type: "insert" | "update" | "upsert" | "delete"; payload?: unknown };
   /** select() 후 반환 한정 */
   selectMode?: "many" | "single" | "maybeSingle";
+}
+
+
+/**
+ * '*, parking_lots(code, name), surveyor:profiles!fk_name(name)' 같은 select 문자열을 파싱.
+ * 반환:
+ *   - mainCols: 메인 테이블 컬럼 (* 또는 id, code 등). API에서는 무시되지만 보존.
+ *   - joins: [{ alias, table, fk, cols }]
+ *
+ * 미지원 syntax는 그대로 throw하지 않고 무시 (warn) — 호출자에게 빈 객체 nested 반환.
+ */
+interface ParsedJoin {
+  alias: string;       // 응답에 부착할 키
+  table: string;       // 부모 테이블
+  fk?: string;         // 명시적 FK 컬럼명 (...!fk_name(...))
+  cols: string[];      // 가져올 컬럼 (best-effort)
+}
+function parseJoinSelect(columns: string): { mainCols: string; joins: ParsedJoin[] } {
+  const joins: ParsedJoin[] = [];
+  let depth = 0;
+  let buf = "";
+  const tokens: string[] = [];
+  for (const ch of columns) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      tokens.push(buf.trim());
+      buf = "";
+    } else {
+      buf += ch;
+    }
+  }
+  if (buf.trim()) tokens.push(buf.trim());
+
+  const mainTokens: string[] = [];
+  for (const t of tokens) {
+    // alias:table!fk(cols)  또는  table(cols)
+    const m = t.match(/^(?:([a-zA-Z_][\w]*)\s*:\s*)?([a-zA-Z_][\w]*)\s*(?:!([a-zA-Z_][\w]*))?\s*\(([^)]*)\)\s*$/);
+    if (m) {
+      const [, alias, table, fk, colsRaw] = m;
+      joins.push({
+        alias: alias || table,
+        table,
+        fk: fk || undefined,
+        cols: colsRaw.split(",").map((x) => x.trim()).filter(Boolean),
+      });
+    } else {
+      mainTokens.push(t);
+    }
+  }
+  return { mainCols: mainTokens.join(", ") || "*", joins };
+}
+
+/**
+ * 부모 테이블 fetch — 단순 단수형 외래키 추론 (parking_lots → lot_id 등).
+ * 실패하면 빈 객체 부착하고 진행 (앱 폭발 방지).
+ */
+async function fetchParents(rows: any[], join: ParsedJoin): Promise<void> {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  const fkCol = join.fk
+    ? guessFkFromFkName(join.fk, join.table)
+    : guessFkColumn(join.table);
+  if (!fkCol) return;
+  const ids = Array.from(new Set(rows.map((r) => r?.[fkCol]).filter(Boolean)));
+  if (ids.length === 0) return;
+  try {
+    const path = "/api/" + join.table.replace(/_/g, "-");
+    const url = path + "?id__in=" + encodeURIComponent(ids.join(","));
+    const r = await apiClient.get<{ data: any[] }>(url);
+    const map = new Map<string, any>();
+    for (const item of r.data ?? []) map.set(item.id, item);
+    for (const row of rows) {
+      const parentId = row?.[fkCol];
+      const parent = parentId ? map.get(parentId) : null;
+      row[join.alias] = parent ?? null;
+    }
+  } catch {
+    for (const row of rows) row[join.alias] = null;
+  }
+}
+
+function guessFkColumn(tableName: string): string {
+  // parking_lots → lot_id, profiles → profile_id (불완전), bid_projects → project_id (불완전)
+  // 가장 흔한 패턴: 마지막 단어 단수형 + _id
+  const map: Record<string, string> = {
+    parking_lots: "lot_id",
+    profiles: "user_id",
+    bid_projects: "bid_project_id",
+    bid_submissions: "submission_id",
+    service_projects: "project_id",
+    construction_projects: "project_id",
+    report_templates: "template_id",
+    equipment: "equipment_id",
+    gateway_devices: "gateway_id",
+    surveys: "survey_id",
+    budget_items: "item_id",
+    budget_plans: "plan_id",
+    approval_records: "step_id",
+  };
+  return map[tableName] ?? tableName.replace(/s$/, "") + "_id";
+}
+
+function guessFkFromFkName(fkName: string, _table: string): string | null {
+  // surveys_surveyor_id_fkey → surveyor_id
+  const m = fkName.match(/_([a-zA-Z_]+_id)_fkey$/);
+  return m ? m[1] : null;
 }
 
 function detectJoinSelect(columns: string): boolean {
@@ -131,7 +238,13 @@ async function execute<T>(state: BuilderState): Promise<ExecResult<T>> {
     if (id && state.selectMode === "single" && state.filters.length === 1) {
       // .eq('id', x).single() 최적 경로
       const r = await apiClient.get<unknown>(`${path}/${id}`);
-      return { data: r as T, error: null, count: null };
+      const obj = r as any;
+      if (state.joins?.length) {
+        for (const j of state.joins) {
+          await fetchParents([obj], j);
+        }
+      }
+      return { data: obj as T, error: null, count: null };
     }
 
     const query: Record<string, unknown> = flattenFilters(state.filters);
@@ -147,6 +260,12 @@ async function execute<T>(state: BuilderState): Promise<ExecResult<T>> {
     if (state.headOnly) query.head = "true";
 
     const list = await apiClient.get<{ data: unknown[]; total: number }>(path, query as Record<string, string | number | boolean | undefined | null>);
+    // JOIN polyfill 적용
+    if (state.joins?.length) {
+      for (const j of state.joins) {
+        await fetchParents(list.data as any[], j);
+      }
+    }
     if (state.selectMode === "single") {
       if (!list.data || list.data.length === 0) {
         return errorResult("Row not found", 404);

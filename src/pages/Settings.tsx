@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
 import { useSystemConfig, useModuleLicenses } from "@/hooks/useSystemConfig";
 import { useAuth } from "@/hooks/useAuth";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -88,13 +88,12 @@ export default function SettingsPage() {
     }, action === "seed" ? 1500 : 800);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { toast.error("로그인이 필요합니다"); return; }
-      const { data, error } = await supabase.functions.invoke("demo-data", {
-        body: { action },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // 폐쇄망 운영 정책: demo-data Edge Function 비활성화
+      // 데이터 시드는 백엔드의 npm run seed:admin 등 스크립트로 처리
+      throw new Error("이 기능은 폐쇄망 운영 환경에서 비활성화되어 있습니다.");
+      // 아래 코드는 형식만 유지 (TypeScript 흐름)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const data: any = null;
       if (progressRef.current) clearInterval(progressRef.current);
       setDemoProgress(100);
       setDemoStepLabel(steps[steps.length - 1]);
@@ -230,9 +229,10 @@ export default function SettingsPage() {
                         const allFailures: string[] = [];
 
                         while (hasMore) {
-                          const { data, error } = await supabase.functions.invoke("geocode-lots", {
-                            body: { cursor, batchSize: 20 },
-                          });
+                          // 폐쇄망 운영 정책: 자동 지오코딩 비활성화
+                          throw new Error("자동 지오코딩이 비활성화되었습니다. 주차장 편집 화면에서 좌표를 직접 입력해주세요.");
+                          // eslint-disable-next-line @typescript-eslint/no-unreachable, @typescript-eslint/no-unused-vars
+                          const data: any = null; const error: any = null;
 
                           if (error) throw error;
                           if (data?.error) throw new Error(data.error);

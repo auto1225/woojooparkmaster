@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
+import { authApi } from "@/integrations/api";
 
 export interface SendMessageParams {
   channel: 'alimtalk' | 'sms' | 'lms' | 'email';
@@ -14,7 +15,7 @@ export interface SendMessageParams {
 }
 
 export async function sendMessage(params: SendMessageParams) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await authApi.me();
   if (!user) throw new Error('인증 필요');
 
   const { data, error } = await supabase.from('message_logs').insert({

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
 import { useAuth } from "@/hooks/useAuth";
 
 export type Theme = "light" | "dark" | "system";

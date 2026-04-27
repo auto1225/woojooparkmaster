@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
+import { filesApi } from "@/integrations/api/files";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { LOT_TYPE_LABELS, OPERATOR_LABELS, SURFACE_LABELS, POWER_LABELS } from "@/types/database";
 import type { LotType, OperatorType, SurfaceType, PowerStatus } from "@/types/database";
@@ -98,7 +99,7 @@ export default function SurveyPrint() {
   const getPhotoUrl = (category: string) => {
     const photo = photos?.find((p: any) => p.category === category);
     if (!photo) return null;
-    const { data } = supabase.storage.from("survey-photos").getPublicUrl(photo.file_path);
+    const data = { publicUrl: filesApi.getUrl("survey-photos", photo.file_path, { inline: true }) };
     return data.publicUrl;
   };
 

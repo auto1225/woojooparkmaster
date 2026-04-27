@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { PrintButton } from "@/components/common/PrintButton";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
 import { useQuery } from "@tanstack/react-query";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 

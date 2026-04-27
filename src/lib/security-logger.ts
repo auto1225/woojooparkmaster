@@ -1,5 +1,6 @@
 /** SEC-C-2/6: 보안 감사 로그 */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
+import { authApi } from "@/integrations/api";
 
 type Severity = 'info' | 'warning' | 'critical';
 
@@ -9,7 +10,7 @@ export async function logSecurityEvent(
   details?: Record<string, any>
 ) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await authApi.me();
     await supabase.from("activity_logs").insert([{
       user_id: user?.id || null,
       user_name: user?.email?.split("@")[0] || 'system',
