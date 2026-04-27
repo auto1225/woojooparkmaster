@@ -237,11 +237,14 @@ async function execute<T>(state: BuilderState): Promise<ExecResult<T>> {
     const id = findIdFilter(state.filters);
     if (id && state.selectMode === "single" && state.filters.length === 1) {
       // .eq('id', x).single() 최적 경로
+      // 단건 GET은 일반적으로 expand를 지원하지 않으므로 polyfill 그대로 사용
       const r = await apiClient.get<unknown>(`${path}/${id}`);
       const obj = r as any;
       if (state.joins?.length) {
         for (const j of state.joins) {
-          await fetchParents([obj], j);
+          if (!(j.alias in obj)) {
+            await fetchParents([obj], j);
+          }
         }
       }
       return { data: obj as T, error: null, count: null };
@@ -259,11 +262,19 @@ async function execute<T>(state: BuilderState): Promise<ExecResult<T>> {
     if (state.countMode) query.count = state.countMode;
     if (state.headOnly) query.head = "true";
 
-    const list = await apiClient.get<{ data: unknown[]; total: number }>(path, query as Record<string, string | number | boolean | undefined | null>);
-    // JOIN polyfill 적용
+    // 백엔드 expand 자동 활용: joins가 있으면 ?expand= 쿼리에 추가
     if (state.joins?.length) {
+      const aliasList = state.joins.map((j) => j.alias).join(",");
+      query.expand = aliasList;
+    }
+    const list = await apiClient.get<{ data: unknown[]; total: number }>(path, query as Record<string, string | number | boolean | undefined | null>);
+    // 백엔드가 expand를 지원하지 않으면 응답에 nested가 없음 → fallback polyfill
+    if (state.joins?.length && Array.isArray(list.data) && list.data.length > 0) {
       for (const j of state.joins) {
-        await fetchParents(list.data as any[], j);
+        const sample = (list.data[0] as any) ?? {};
+        if (!(j.alias in sample)) {
+          await fetchParents(list.data as any[], j);
+        }
       }
     }
     if (state.selectMode === "single") {
