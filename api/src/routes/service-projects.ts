@@ -6,6 +6,7 @@ import { requireEditor, requireManager } from "../middleware/authorize.js";
 import {
   buildUpdateSet, recordAudit, listWithCount, WhereBuilder, fetchOne,
 } from "../lib/crud-helpers.js";
+import { parseExpand, buildExpand, EXPAND_FOR } from "../lib/expand.js";
 
 const TABLE = "service_projects";
 const PATH = "/api/service-projects";
@@ -49,8 +50,23 @@ export async function registerServiceProjectsRoutes(app: FastifyInstance) {
       .eq("lot_id", q.lot_id)
       .eq("supervisor_id", q.supervisor_id)
       .ilikeAny(["title", "project_number", "contractor_name"], q.q);
-    const { sql, params } = wb.build();
-    return listWithCount(pool, TABLE, sql, params, "ORDER BY created_at DESC", q.limit, q.offset);
+    const { sql: whereSql, params } = wb.build();
+
+    const expansions = parseExpand((req.query as any).expand, EXPAND_FOR.service_projects);
+    if (expansions.length > 0) {
+      const { selectClause, joinClause } = buildExpand(expansions, "m.*");
+      const totalRes = await pool.query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM ${TABLE} m ${joinClause} ${whereSql}`,
+        params,
+      );
+      const allParams = [...params, q.limit, q.offset];
+      const rows = await pool.query(
+        `SELECT ${selectClause} FROM ${TABLE} m ${joinClause} ${whereSql} ORDER BY m.created_at DESC LIMIT $${allParams.length - 1} OFFSET $${allParams.length}`,
+        allParams,
+      );
+      return { data: rows.rows, total: Number(totalRes.rows[0].count), limit: q.limit, offset: q.offset };
+    }
+    return listWithCount(pool, TABLE, whereSql, params, "ORDER BY created_at DESC", q.limit, q.offset);
   });
 
   app.get<{ Params: { id: string } }>(`${PATH}/:id`, { preHandler: [app.authenticate] }, async (req) => {
