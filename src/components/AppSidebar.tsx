@@ -186,7 +186,7 @@ let sidebarScrollTop = 0;
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { data: licenses } = useModuleLicenses();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -275,6 +275,9 @@ export function AppSidebar() {
   const isAdmin = profile?.role === "admin";
   // 센서 관제 콘솔(외부) URL — 환경변수로 오버라이드 가능
   const SENSOR_CONSOLE_URL = (import.meta as any).env?.VITE_SENSOR_CONSOLE_URL || "https://console.woojoocha.com";
+  // Sensor Monitoring 메뉴 노출 허용 계정(내 계정만). 이메일은 소문자 비교.
+  const SENSOR_CONSOLE_EMAILS = ["cmh@woojoocha.com"];
+  const canSeeConsole = SENSOR_CONSOLE_EMAILS.includes(((user?.email || profile?.email || "").toLowerCase()));
 
   // 외부 링크 메뉴(새 탭) — 관리자 전용 Sensor Monitoring 콘솔용
   const renderExternal = (item: { title: string; href: string; icon: any }) => (
@@ -423,7 +426,7 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {isAdmin && (
+        {canSeeConsole && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-[15px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground px-3 mb-1.5">센서 관제</SidebarGroupLabel>
             <SidebarGroupContent>
