@@ -64,7 +64,7 @@ export function buildUpdateSet(
  *
  * 사용: const row = await fetchOne("parking_lots", id);
  */
-export async function fetchOne<T = Record<string, unknown>>(
+export async function fetchOne<T extends pg.QueryResultRow = Record<string, unknown>>(
   table: string,
   id: string,
   notFoundMsg = "Not found",
@@ -102,7 +102,7 @@ export async function recordAudit(opts: {
 /**
  * 페이지네이션 결과 형태 통일.
  */
-export async function listWithCount<T>(
+export async function listWithCount<T extends pg.QueryResultRow>(
   client: pg.Pool | pg.PoolClient,
   table: string,
   whereSql: string,

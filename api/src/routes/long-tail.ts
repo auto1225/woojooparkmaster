@@ -36,7 +36,7 @@ function buildCrud(opts: {
   table: string;
   path: string;
   list: { schema: z.ZodTypeAny; build: (q: any) => WhereBuilder; order: string };
-  create: { schema: z.ZodTypeAny; ownerCol?: "created_by" | "issued_by" | "registered_by" | null };
+  create: { schema: z.ZodTypeAny; ownerCol?: "created_by" | "issued_by" | "registered_by" | "uploaded_by" | null };
   update: { schema: z.ZodTypeAny };
   errorMsg: string;
   /** 허용된 expand 키 목록. 비어있으면 expand 미지원 */
@@ -467,13 +467,13 @@ export async function registerLongTailRoutes(app: FastifyInstance) {
     const q = baseList.parse(req.query);
     return listWithCount(pool, "lot_realtime_status", "", [], "ORDER BY last_updated DESC", q.limit, q.offset);
   });
-  app.get("/api/lot-realtime-status/:lot_id", { preHandler: [app.authenticate] }, async (req) => {
+  app.get<{ Params: { lot_id: string } }>("/api/lot-realtime-status/:lot_id", { preHandler: [app.authenticate] }, async (req) => {
     const r = await pool.query("SELECT * FROM lot_realtime_status WHERE lot_id = $1", [req.params.lot_id]);
     if (r.rows.length === 0) return { lot_id: req.params.lot_id };
     return r.rows[0];
   });
-  app.put("/api/lot-realtime-status/:lot_id", { preHandler: [app.authenticate, requireEditor] }, async (req) => {
-    const body = (req.body ?? {});
+  app.put<{ Params: { lot_id: string }; Body: Record<string, unknown> }>("/api/lot-realtime-status/:lot_id", { preHandler: [app.authenticate, requireEditor] }, async (req) => {
+    const body = req.body ?? {};
     const fields = Object.entries(body);
     const cols = ["lot_id", ...fields.map(([k]) => k)];
     const placeholders = cols.map((_, i) => `$${i + 1}`);
@@ -489,8 +489,6 @@ export async function registerLongTailRoutes(app: FastifyInstance) {
   });
 
   // 0010 추가 28개 (호출 1~3회)
-  const T = (name) => name; // for readability
-
   for (const cfg of [
     { table: "approval_lines", path: "/api/approval-lines",
       filters: ["module", "status"], q: ["line_name"], owner: "created_by" , expands: ["assignee"]},
@@ -557,22 +555,25 @@ export async function registerLongTailRoutes(app: FastifyInstance) {
     { table: "security_training_logs", path: "/api/security-training-logs",
       filters: ["user_id", "training_type", "passed"], owner: null },
   ]) {
-    const filterShape = {};
+    const filterShape: Record<string, z.ZodOptional<z.ZodString>> = {};
     for (const f of cfg.filters) filterShape[f] = z.string().optional();
     const listSchema = baseList.extend(cfg.q ? { ...filterShape, q: z.string().optional() } : filterShape);
     buildCrud({
       app, table: cfg.table, path: cfg.path,
       list: {
         schema: listSchema,
-        build: (q) => {
+        build: (q: Record<string, unknown>) => {
           const wb = new WhereBuilder();
           for (const f of cfg.filters) wb.eq(f, q[f]);
-          if (cfg.q) wb.ilikeAny(cfg.q, q.q);
+          if (cfg.q) wb.ilikeAny(cfg.q, typeof q.q === "string" ? q.q : undefined);
           return wb;
         },
         order: "ORDER BY created_at DESC",
       },
-      create: { schema: z.object({}).passthrough(), ownerCol: cfg.owner },
+      create: {
+        schema: z.object({}).passthrough(),
+        ownerCol: cfg.owner as "created_by" | "issued_by" | "registered_by" | "uploaded_by" | null,
+      },
       update: { schema: z.object({}).passthrough() },
       errorMsg: cfg.table + "을(를) 찾을 수 없습니다.",
       allowedExpands: cfg.expands,

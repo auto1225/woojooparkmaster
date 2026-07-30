@@ -43,13 +43,17 @@ async function fetch_(url: string, init: RequestInit = {}): Promise<Response> {
   return res;
 }
 
+async function readJson<T>(response: Response): Promise<T> {
+  return response.json() as Promise<T>;
+}
+
 async function main() {
   console.log(`\n🔍 스모크 테스트 시작 (${BASE})\n`);
 
   // 1. health
   try {
     const r = await fetch_(`${BASE}/api/health`);
-    const j = await r.json();
+    const j = await readJson<{ db?: boolean }>(r);
     check("/api/health 200", r.ok);
     check("DB 연결 OK", j.db === true);
   } catch (e) {
@@ -71,7 +75,7 @@ async function main() {
   // 3. me
   try {
     const r = await fetch_(`${BASE}/api/auth/me`);
-    const j = await r.json();
+    const j = await readJson<{ user?: { role?: string } }>(r);
     check("/api/auth/me 응답", r.ok && !!j.user, `role=${j.user?.role}`);
   } catch {
     check("/api/auth/me", false);
@@ -107,7 +111,7 @@ async function main() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code, name: "스모크테스트", lot_type: "offstreet" }),
     });
-    const j = await cr.json();
+    const j = await readJson<{ id?: string }>(cr);
     check("parking_lots POST 201", cr.status === 201);
     if (j.id) {
       const gr = await fetch_(`${BASE}/api/parking-lots/${j.id}`);
@@ -122,7 +126,7 @@ async function main() {
   // 6. expand 동작
   try {
     const r = await fetch_(`${BASE}/api/complaints?expand=parking_lots,assignee&limit=1`);
-    const j = await r.json();
+    const j = await readJson<{ data?: unknown[] }>(r);
     check("complaints expand 응답", r.ok && Array.isArray(j.data));
   } catch {
     check("expand 동작", false);
@@ -138,7 +142,7 @@ async function main() {
   // 8. AI 헬스 (활성/비활성 상관없이 응답 있어야)
   try {
     const r = await fetch_(`${BASE}/api/ai/health`);
-    const j = await r.json();
+    const j = await readJson<{ enabled?: boolean }>(r);
     check(`AI ${j.enabled ? "활성" : "비활성"} (정상 응답)`, r.ok);
   } catch { check("AI health", false); }
 

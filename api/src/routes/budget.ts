@@ -6,6 +6,7 @@
  * GET /api/budget-plans/:id?include=items 로 한 번에 조회 가능.
  */
 import type { FastifyInstance } from "fastify";
+import type { QueryResultRow } from "pg";
 import { z } from "zod";
 import { pool } from "../db.js";
 import { requireEditor, requireManager } from "../middleware/authorize.js";
@@ -80,7 +81,7 @@ const ItemUpdateBody = ItemCreateBody.partial();
 const IdParam = z.object({ id: z.string().uuid() });
 
 // ────────────── 공용 CRUD 헬퍼 ──────────────
-async function genericCreate<T>(
+async function genericCreate<T extends QueryResultRow>(
   table: string, body: Record<string, unknown>, userId: string,
 ): Promise<T> {
   const fields = Object.entries(body);
