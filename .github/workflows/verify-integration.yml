@@ -1,4 +1,4 @@
-# trigger: 2026-07-30 final type fixes and verification
+# trigger: 2026-07-30 validation-only run
 name: Verify final integration
 
 on:
@@ -28,83 +28,6 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: package-lock.json
-
-      - name: Apply final TypeScript fixes
-        shell: bash
-        run: |
-          python <<'PY'
-          from pathlib import Path
-
-          planning_path = Path("src/pages/planning/PlanningDocuments.tsx")
-          planning = planning_path.read_text(encoding="utf-8")
-
-          type_anchor = 'import { DOC_TYPE_LABELS, DOC_CATEGORY_LABELS, REVIEW_STATUS_LABELS } from "@/types/planning";\n'
-          type_block = '''import { DOC_TYPE_LABELS, DOC_CATEGORY_LABELS, REVIEW_STATUS_LABELS } from "@/types/planning";
-
-type PlanningProject = {
-  id: string;
-  project_number: string;
-  project_name: string;
-};
-
-type DesignDocument = {
-  id: string;
-  category?: string | null;
-  doc_number: string;
-  doc_type: string;
-  title: string;
-  version?: string | null;
-  review_status?: string | null;
-  created_at?: string | null;
-};
-'''
-          if "type PlanningProject" not in planning:
-              if type_anchor not in planning:
-                  raise SystemExit("PlanningDocuments type anchor not found")
-              planning = planning.replace(type_anchor, type_block, 1)
-
-          old_return = "      return data || [];"
-          if "as PlanningProject[]" not in planning:
-              if old_return not in planning:
-                  raise SystemExit("PlanningDocuments project return not found")
-              planning = planning.replace(
-                  old_return,
-                  "      return (data || []) as PlanningProject[];",
-                  1,
-              )
-          if "as DesignDocument[]" not in planning:
-              if old_return not in planning:
-                  raise SystemExit("PlanningDocuments document return not found")
-              planning = planning.replace(
-                  old_return,
-                  "      return (data || []) as DesignDocument[];",
-                  1,
-              )
-
-          planning = planning.replace(
-              "const groupedByCategory = (docs || []).reduce((acc: Record<string, any[]>, doc) => {",
-              "const groupedByCategory = (docs || []).reduce((acc: Record<string, DesignDocument[]>, doc) => {",
-              1,
-          )
-          planning_path.write_text(planning, encoding="utf-8")
-
-          analytics_path = Path("src/pages/settings/ActivityAnalytics.tsx")
-          analytics = analytics_path.read_text(encoding="utf-8")
-          old_block = '''    const topModule = Object.entries(
-      userLogs.reduce((acc: Record<string, number>, l) => { acc[l.module] = (acc[l.module] || 0) + 1; return acc; }, {})
-    ).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
-'''
-          new_block = '''    const moduleCounts = userLogs.reduce<Record<string, number>>((acc, log) => {
-      acc[log.module] = (acc[log.module] || 0) + 1;
-      return acc;
-    }, {});
-    const topModule = Object.entries(moduleCounts)
-      .sort(([, countA], [, countB]) => countB - countA)[0]?.[0] || "-";
-'''
-          if old_block not in analytics:
-              raise SystemExit("ActivityAnalytics module count block not found")
-          analytics_path.write_text(analytics.replace(old_block, new_block, 1), encoding="utf-8")
-          PY
 
       - name: Run validation and write report
         shell: bash
@@ -199,10 +122,14 @@ type DesignDocument = {
             done
           } > docs/VALIDATION_REPORT.md
 
-      - name: Commit source fixes and validation report
+      - name: Commit validation report
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/planning/PlanningDocuments.tsx src/pages/settings/ActivityAnalytics.tsx docs/VALIDATION_REPORT.md
-          git commit -m "fix: 프론트 최종 타입 오류 수정 및 검증"
+          git add docs/VALIDATION_REPORT.md
+          if git diff --cached --quiet; then
+            echo "Validation report is already current"
+            exit 0
+          fi
+          git commit -m "docs: 최신 통합 검증 결과 기록"
           git push origin HEAD:agent/parkmaster-final-integration-20260730
