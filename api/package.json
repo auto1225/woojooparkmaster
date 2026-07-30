@@ -15,7 +15,7 @@
     "seed:admin": "tsx scripts/seed-admin.ts",
     "import:supabase": "tsx scripts/import-from-supabase.ts",
     "lint": "eslint src --ext .ts",
-    "test": "vitest run",
+    "test": "vitest run --config vitest.config.ts",
     "smoke": "tsx scripts/smoke-test.ts",
     "verify:import": "tsx scripts/verify-import.ts",
     "eval:ai": "tsx scripts/eval-ai.ts"
