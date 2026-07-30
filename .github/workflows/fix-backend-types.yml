@@ -1,0 +1,135 @@
+name: Fix backend TypeScript errors
+
+on:
+  push:
+    branches:
+      - agent/parkmaster-final-integration-20260730
+    paths:
+      - .github/workflows/fix-backend-types.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fixes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/parkmaster-final-integration-20260730
+
+      - name: Apply focused TypeScript fixes
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              if old not in text:
+                  raise SystemExit(f"Expected text not found in {path}: {old[:80]!r}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          # smoke-test.ts: Node fetch Response.json() returns unknown under strict typing.
+          replace_once(
+              "api/scripts/smoke-test.ts",
+              "  return res;\n}\n\nasync function main() {",
+              "  return res;\n}\n\nasync function readJson<T>(response: Response): Promise<T> {\n  return response.json() as Promise<T>;\n}\n\nasync function main() {",
+          )
+          replace_once(
+              "api/scripts/smoke-test.ts",
+              "    const j = await r.json();\n    check(\"/api/health 200\", r.ok);\n    check(\"DB 연결 OK\", j.db === true);",
+              "    const j = await readJson<{ db?: boolean }>(r);\n    check(\"/api/health 200\", r.ok);\n    check(\"DB 연결 OK\", j.db === true);",
+          )
+          replace_once(
+              "api/scripts/smoke-test.ts",
+              "    const j = await r.json();\n    check(\"/api/auth/me 응답\", r.ok && !!j.user, `role=${j.user?.role}`);",
+              "    const j = await readJson<{ user?: { role?: string } }>(r);\n    check(\"/api/auth/me 응답\", r.ok && !!j.user, `role=${j.user?.role}`);",
+          )
+          replace_once(
+              "api/scripts/smoke-test.ts",
+              "    const j = await cr.json();",
+              "    const j = await readJson<{ id?: string }>(cr);",
+          )
+          replace_once(
+              "api/scripts/smoke-test.ts",
+              "    const j = await r.json();\n    check(\"complaints expand 응답\", r.ok && Array.isArray(j.data));",
+              "    const j = await readJson<{ data?: unknown[] }>(r);\n    check(\"complaints expand 응답\", r.ok && Array.isArray(j.data));",
+          )
+          replace_once(
+              "api/scripts/smoke-test.ts",
+              "    const j = await r.json();\n    check(`AI ${j.enabled ? \"활성\" : \"비활성\"} (정상 응답)`, r.ok);",
+              "    const j = await readJson<{ enabled?: boolean }>(r);\n    check(`AI ${j.enabled ? \"활성\" : \"비활성\"} (정상 응답)`, r.ok);",
+          )
+
+          # pg v8 generics require QueryResultRow constraints.
+          replace_once(
+              "api/src/lib/crud-helpers.ts",
+              "export async function fetchOne<T = Record<string, unknown>>(",
+              "export async function fetchOne<T extends pg.QueryResultRow = Record<string, unknown>>(",
+          )
+          replace_once(
+              "api/src/lib/crud-helpers.ts",
+              "export async function listWithCount<T>(",
+              "export async function listWithCount<T extends pg.QueryResultRow>(",
+          )
+          replace_once(
+              "api/src/routes/budget.ts",
+              "import type { FastifyInstance } from \"fastify\";\n",
+              "import type { FastifyInstance } from \"fastify\";\nimport type { QueryResultRow } from \"pg\";\n",
+          )
+          replace_once(
+              "api/src/routes/budget.ts",
+              "async function genericCreate<T>(",
+              "async function genericCreate<T extends QueryResultRow>(",
+          )
+
+          # long-tail.ts: explicitly type dynamic route params, bodies and config maps.
+          replace_once(
+              "api/src/routes/long-tail.ts",
+              'ownerCol?: "created_by" | "issued_by" | "registered_by" | null',
+              'ownerCol?: "created_by" | "issued_by" | "registered_by" | "uploaded_by" | null',
+          )
+          replace_once(
+              "api/src/routes/long-tail.ts",
+              '  app.get("/api/lot-realtime-status/:lot_id", { preHandler: [app.authenticate] }, async (req) => {',
+              '  app.get<{ Params: { lot_id: string } }>("/api/lot-realtime-status/:lot_id", { preHandler: [app.authenticate] }, async (req) => {',
+          )
+          replace_once(
+              "api/src/routes/long-tail.ts",
+              '  app.put("/api/lot-realtime-status/:lot_id", { preHandler: [app.authenticate, requireEditor] }, async (req) => {\n    const body = (req.body ?? {});',
+              '  app.put<{ Params: { lot_id: string }; Body: Record<string, unknown> }>("/api/lot-realtime-status/:lot_id", { preHandler: [app.authenticate, requireEditor] }, async (req) => {\n    const body = req.body ?? {};',
+          )
+          replace_once(
+              "api/src/routes/long-tail.ts",
+              "  const T = (name) => name; // for readability\n\n",
+              "",
+          )
+          replace_once(
+              "api/src/routes/long-tail.ts",
+              "    const filterShape = {};\n    for (const f of cfg.filters) filterShape[f] = z.string().optional();",
+              "    const filterShape: Record<string, z.ZodOptional<z.ZodString>> = {};\n    for (const f of cfg.filters) filterShape[f] = z.string().optional();",
+          )
+          replace_once(
+              "api/src/routes/long-tail.ts",
+              "        build: (q) => {\n          const wb = new WhereBuilder();\n          for (const f of cfg.filters) wb.eq(f, q[f]);\n          if (cfg.q) wb.ilikeAny(cfg.q, q.q);",
+              "        build: (q: Record<string, unknown>) => {\n          const wb = new WhereBuilder();\n          for (const f of cfg.filters) wb.eq(f, q[f]);\n          if (cfg.q) wb.ilikeAny(cfg.q, typeof q.q === \"string\" ? q.q : undefined);",
+          )
+          replace_once(
+              "api/src/routes/long-tail.ts",
+              "      create: { schema: z.object({}).passthrough(), ownerCol: cfg.owner },",
+              "      create: {\n        schema: z.object({}).passthrough(),\n        ownerCol: cfg.owner as \"created_by\" | \"issued_by\" | \"registered_by\" | \"uploaded_by\" | null,\n      },",
+          )
+          PY
+
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/scripts/smoke-test.ts api/src/lib/crud-helpers.ts api/src/routes/budget.ts api/src/routes/long-tail.ts
+          git commit -m "fix: 백엔드 엄격 타입 오류 수정"
+          git push origin HEAD:agent/parkmaster-final-integration-20260730
