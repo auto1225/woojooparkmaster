@@ -1,37 +1,16 @@
 /**
  * Supabase JS SDK 호환 shim.
  *
- * 388회의 supabase.from('x')... 호출을 백엔드 API로 위임한다.
- * 점진적 마이그레이션 동안에만 사용; 모든 호출이 typed 바인딩으로 옮겨지면 제거.
+ * 기존 화면의 supabase.from('x') 체인을 자체 Fastify API로 위임한다.
+ * 점진적 마이그레이션 동안만 유지하며, 신규 코드는 typed API 바인딩을 사용한다.
  *
- * 지원하는 체인 메서드:
- *   .select(columns?, opts?)  ← columns는 무시(백엔드가 결정), opts.count는 지원
- *   .insert(data)             ← 단건/다건
- *   .update(data)             ← .eq() 와 결합 시 단건 PATCH
- *   .upsert(data)             ← INSERT ON CONFLICT
- *   .delete()                 ← .eq() 와 결합 시 단건 DELETE
- *   .eq, .neq, .in, .gt, .gte, .lt, .lte, .like, .ilike, .contains, .is
- *   .order(col, { ascending? })
- *   .limit(n) / .range(from, to)
- *   .single() / .maybeSingle()
- *   .then()                   ← Promise처럼 사용 가능
- *
- * 미지원 (의도적으로 throw):
- *   - JOIN 셀렉트 (.select('*, related(*)'))  → 전용 엔드포인트로 수동 변환
- *   - .rpc()                                  → 백엔드 라우트 추가로 대체
- *   - .channel() / realtime                   → 코드에 0회. 미사용
- *   - .storage / .functions                   → 별도 모듈 사용
- *
- * 매핑 규약:
- *   테이블명 'code_master' → URL '/api/code-master' (snake_case → kebab-case)
- *   GET /api/{table}             ← 목록 + 필터를 query string으로
- *   GET /api/{table}/{id}        ← .eq('id', x).single()
- *   POST /api/{table}            ← .insert
- *   PATCH /api/{table}/{id}      ← .update().eq('id', x)
- *   DELETE /api/{table}/{id}     ← .delete().eq('id', x)
- *
- * 백엔드 라우트가 아직 없는 테이블을 호출하면 404가 떨어지며, 호출자가
- * 정확히 어디서 막혔는지 보고 그 테이블의 백엔드 라우트를 우선 작성하도록 유도한다.
+ * 지원 범위:
+ *   - select / insert / update / upsert / delete
+ *   - eq / neq / in / gt / gte / lt / lte / like / ilike / contains / is
+ *   - or / not / order / limit / range
+ *   - single / maybeSingle
+ *   - 관계 select의 expand 및 fallback parent 조회
+ *   - 기존 실시간 호출이 중단되지 않도록 no-op channel 호환 표면 제공
  */
 import { apiClient, ApiError } from "./client";
 
@@ -56,85 +35,98 @@ interface BuilderState {
   range?: { from: number; to: number };
   countMode?: "exact" | "planned" | "estimated";
   headOnly?: boolean;
-  /** insert/update/upsert/delete 를 만나면 세팅 */
+  orExpression?: string;
+  /** insert/update/upsert/delete 를 만나면 설정 */
   mutation?: { type: "insert" | "update" | "upsert" | "delete"; payload?: unknown };
-  /** select() 후 반환 한정 */
+  /** select() 후 반환 형식 */
   selectMode?: "many" | "single" | "maybeSingle";
 }
 
-
 /**
- * '*, parking_lots(code, name), surveyor:profiles!fk_name(name)' 같은 select 문자열을 파싱.
- * 반환:
- *   - mainCols: 메인 테이블 컬럼 (* 또는 id, code 등). API에서는 무시되지만 보존.
- *   - joins: [{ alias, table, fk, cols }]
- *
- * 미지원 syntax는 그대로 throw하지 않고 무시 (warn) — 호출자에게 빈 객체 nested 반환.
+ * `*, parking_lots(code, name), surveyor:profiles!fk_name(name)` 같은
+ * Supabase 관계 select 문자열을 파싱한다.
  */
 interface ParsedJoin {
-  alias: string;       // 응답에 부착할 키
-  table: string;       // 부모 테이블
-  fk?: string;         // 명시적 FK 컬럼명 (...!fk_name(...))
-  cols: string[];      // 가져올 컬럼 (best-effort)
+  alias: string;
+  table: string;
+  fk?: string;
+  cols: string[];
 }
+
 function parseJoinSelect(columns: string): { mainCols: string; joins: ParsedJoin[] } {
   const joins: ParsedJoin[] = [];
   let depth = 0;
-  let buf = "";
+  let buffer = "";
   const tokens: string[] = [];
-  for (const ch of columns) {
-    if (ch === "(") depth++;
-    if (ch === ")") depth--;
-    if (ch === "," && depth === 0) {
-      tokens.push(buf.trim());
-      buf = "";
+
+  for (const char of columns) {
+    if (char === "(") depth += 1;
+    if (char === ")") depth -= 1;
+
+    if (char === "," && depth === 0) {
+      tokens.push(buffer.trim());
+      buffer = "";
     } else {
-      buf += ch;
+      buffer += char;
     }
   }
-  if (buf.trim()) tokens.push(buf.trim());
+
+  if (buffer.trim()) tokens.push(buffer.trim());
 
   const mainTokens: string[] = [];
-  for (const t of tokens) {
-    // alias:table!fk(cols)  또는  table(cols)
-    const m = t.match(/^(?:([a-zA-Z_][\w]*)\s*:\s*)?([a-zA-Z_][\w]*)\s*(?:!([a-zA-Z_][\w]*))?\s*\(([^)]*)\)\s*$/);
-    if (m) {
-      const [, alias, table, fk, colsRaw] = m;
-      joins.push({
-        alias: alias || table,
-        table,
-        fk: fk || undefined,
-        cols: colsRaw.split(",").map((x) => x.trim()).filter(Boolean),
-      });
-    } else {
-      mainTokens.push(t);
+  for (const token of tokens) {
+    const match = token.match(
+      /^(?:([a-zA-Z_][\w]*)\s*:\s*)?([a-zA-Z_][\w]*)\s*(?:!([a-zA-Z_][\w]*))?\s*\(([^)]*)\)\s*$/,
+    );
+
+    if (!match) {
+      mainTokens.push(token);
+      continue;
     }
+
+    const [, alias, table, fk, columnsRaw] = match;
+    joins.push({
+      alias: alias || table,
+      table,
+      fk: fk || undefined,
+      cols: columnsRaw.split(",").map((value) => value.trim()).filter(Boolean),
+    });
   }
+
   return { mainCols: mainTokens.join(", ") || "*", joins };
 }
 
 /**
- * 부모 테이블 fetch — 단순 단수형 외래키 추론 (parking_lots → lot_id 등).
- * 실패하면 빈 객체 부착하고 진행 (앱 폭발 방지).
+ * 백엔드가 expand를 제공하지 않는 경우 부모 데이터를 보완한다.
+ * 실패해도 화면 전체가 중단되지 않도록 관계 필드를 null로 둔다.
  */
 async function fetchParents(rows: any[], join: ParsedJoin): Promise<void> {
   if (!Array.isArray(rows) || rows.length === 0) return;
-  const fkCol = join.fk
-    ? guessFkFromFkName(join.fk, join.table)
+
+  const foreignKeyColumn = join.fk
+    ? guessFkFromFkName(join.fk)
     : guessFkColumn(join.table);
-  if (!fkCol) return;
-  const ids = Array.from(new Set(rows.map((r) => r?.[fkCol]).filter(Boolean)));
+  if (!foreignKeyColumn) return;
+
+  const ids = Array.from(
+    new Set(rows.map((row) => row?.[foreignKeyColumn]).filter(Boolean)),
+  );
   if (ids.length === 0) return;
+
   try {
-    const path = "/api/" + join.table.replace(/_/g, "-");
-    const url = path + "?id__in=" + encodeURIComponent(ids.join(","));
-    const r = await apiClient.get<{ data: any[] }>(url);
-    const map = new Map<string, any>();
-    for (const item of r.data ?? []) map.set(item.id, item);
+    const path = tableToPath(join.table);
+    const response = await apiClient.get<{ data: any[] }>(
+      `${path}?id__in=${encodeURIComponent(ids.join(","))}`,
+    );
+    const parentById = new Map<string, any>();
+
+    for (const item of response.data ?? []) {
+      parentById.set(item.id, item);
+    }
+
     for (const row of rows) {
-      const parentId = row?.[fkCol];
-      const parent = parentId ? map.get(parentId) : null;
-      row[join.alias] = parent ?? null;
+      const parentId = row?.[foreignKeyColumn];
+      row[join.alias] = parentId ? parentById.get(parentId) ?? null : null;
     }
   } catch {
     for (const row of rows) row[join.alias] = null;
@@ -142,9 +134,7 @@ async function fetchParents(rows: any[], join: ParsedJoin): Promise<void> {
 }
 
 function guessFkColumn(tableName: string): string {
-  // parking_lots → lot_id, profiles → profile_id (불완전), bid_projects → project_id (불완전)
-  // 가장 흔한 패턴: 마지막 단어 단수형 + _id
-  const map: Record<string, string> = {
+  const knownColumns: Record<string, string> = {
     parking_lots: "lot_id",
     profiles: "user_id",
     bid_projects: "bid_project_id",
@@ -159,35 +149,60 @@ function guessFkColumn(tableName: string): string {
     budget_plans: "plan_id",
     approval_records: "step_id",
   };
-  return map[tableName] ?? tableName.replace(/s$/, "") + "_id";
+
+  return knownColumns[tableName] ?? `${tableName.replace(/s$/, "")}_id`;
 }
 
-function guessFkFromFkName(fkName: string, _table: string): string | null {
-  // surveys_surveyor_id_fkey → surveyor_id
-  const m = fkName.match(/_([a-zA-Z_]+_id)_fkey$/);
-  return m ? m[1] : null;
+function guessFkFromFkName(foreignKeyName: string): string | null {
+  const match = foreignKeyName.match(/_([a-zA-Z_]+_id)_fkey$/);
+  return match ? match[1] : null;
 }
 
 function detectJoinSelect(columns: string): boolean {
-  // 'a, related(b)' 또는 'a:rel(b)' 같은 패턴
   return /[a-zA-Z_]+\([^)]*\)/.test(columns);
 }
 
 function flattenFilters(filters: FilterEntry[]): Record<string, string> {
-  // 필터를 query string용 key=value로 변환.
-  // 백엔드가 여러 필터를 어떻게 받을지에 따라 정책이 달라지는데, 기본은
-  // op가 eq면 col=val, 그 외는 col__op=val 로 표기한다.
-  const out: Record<string, string> = {};
-  for (const f of filters) {
-    const key = f.op === "eq" ? f.col : `${f.col}__${f.op}`;
-    out[key] = Array.isArray(f.val) ? f.val.join(",") : String(f.val);
+  const query: Record<string, string> = {};
+
+  for (const filter of filters) {
+    const key = filter.op === "eq" ? filter.col : `${filter.col}__${filter.op}`;
+    query[key] = Array.isArray(filter.val)
+      ? filter.val.join(",")
+      : String(filter.val);
   }
-  return out;
+
+  return query;
 }
 
 function findIdFilter(filters: FilterEntry[]): string | undefined {
-  const f = filters.find((x) => x.op === "eq" && x.col === "id");
-  return f?.val as string | undefined;
+  const filter = filters.find((item) => item.op === "eq" && item.col === "id");
+  return filter?.val as string | undefined;
+}
+
+function applyOrExpression(
+  query: Record<string, unknown>,
+  expression: string | undefined,
+): void {
+  if (!expression) return;
+
+  const parts = expression
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const ilikeValues = parts
+    .map((part) => part.match(/^[^.]+\.ilike\.(.*)$/)?.[1])
+    .filter((value): value is string => Boolean(value));
+
+  // 전역 검색 화면에서 사용하는 동일 검색어의 다중 ilike 조건은
+  // 백엔드 공통 q 파라미터로 축약한다.
+  if (ilikeValues.length === parts.length && new Set(ilikeValues).size === 1) {
+    query.q = ilikeValues[0].replace(/^%+|%+$/g, "");
+    return;
+  }
+
+  // 라우트가 원본 OR 구문을 지원하는 경우를 위해 그대로 전달한다.
+  query.or = expression;
 }
 
 // ───── execution ─────
@@ -198,26 +213,31 @@ interface ExecResult<T> {
   count: number | null;
 }
 
+function errorResult<T>(message: string, status?: number): ExecResult<T> {
+  return { data: null, error: { message, status }, count: null };
+}
+
 async function execute<T>(state: BuilderState): Promise<ExecResult<T>> {
   const path = tableToPath(state.table);
+
   try {
-    // INSERT
     if (state.mutation?.type === "insert") {
-      const r = await apiClient.post<unknown>(path, state.mutation.payload);
-      return { data: r as T, error: null, count: null };
+      const response = await apiClient.post<unknown>(path, state.mutation.payload);
+      return { data: response as T, error: null, count: null };
     }
 
-    // UPDATE
     if (state.mutation?.type === "update") {
       const id = findIdFilter(state.filters);
       if (!id) {
         return errorResult("update()는 .eq('id', x) 와 함께 사용해야 합니다.");
       }
-      const r = await apiClient.patch<unknown>(`${path}/${id}`, state.mutation.payload);
-      return { data: r as T, error: null, count: null };
+      const response = await apiClient.patch<unknown>(
+        `${path}/${id}`,
+        state.mutation.payload,
+      );
+      return { data: response as T, error: null, count: null };
     }
 
-    // DELETE
     if (state.mutation?.type === "delete") {
       const id = findIdFilter(state.filters);
       if (!id) {
@@ -227,156 +247,260 @@ async function execute<T>(state: BuilderState): Promise<ExecResult<T>> {
       return { data: null as T, error: null, count: null };
     }
 
-    // UPSERT
     if (state.mutation?.type === "upsert") {
-      const r = await apiClient.post<unknown>(path + "?upsert=true", state.mutation.payload);
-      return { data: r as T, error: null, count: null };
+      const response = await apiClient.post<unknown>(
+        `${path}?upsert=true`,
+        state.mutation.payload,
+      );
+      return { data: response as T, error: null, count: null };
     }
 
-    // SELECT
     const id = findIdFilter(state.filters);
     if (id && state.selectMode === "single" && state.filters.length === 1) {
-      // .eq('id', x).single() 최적 경로
-      // 단건 GET은 일반적으로 expand를 지원하지 않으므로 polyfill 그대로 사용
-      const r = await apiClient.get<unknown>(`${path}/${id}`);
-      const obj = r as any;
+      const response = await apiClient.get<unknown>(`${path}/${id}`);
+      const row = response as any;
+
       if (state.joins?.length) {
-        for (const j of state.joins) {
-          if (!(j.alias in obj)) {
-            await fetchParents([obj], j);
-          }
+        for (const join of state.joins) {
+          if (!(join.alias in row)) await fetchParents([row], join);
         }
       }
-      return { data: obj as T, error: null, count: null };
+
+      return { data: row as T, error: null, count: null };
     }
 
     const query: Record<string, unknown> = flattenFilters(state.filters);
+    applyOrExpression(query, state.orExpression);
+
     if (state.limit !== undefined) query.limit = state.limit;
     if (state.range) {
       query.limit = state.range.to - state.range.from + 1;
       query.offset = state.range.from;
     }
     if (state.orderBy.length > 0) {
-      query.order = state.orderBy.map((o) => (o.ascending ? o.col : `-${o.col}`)).join(",");
+      query.order = state.orderBy
+        .map((order) => (order.ascending ? order.col : `-${order.col}`))
+        .join(",");
     }
     if (state.countMode) query.count = state.countMode;
     if (state.headOnly) query.head = "true";
-
-    // 백엔드 expand 자동 활용: joins가 있으면 ?expand= 쿼리에 추가
     if (state.joins?.length) {
-      const aliasList = state.joins.map((j) => j.alias).join(",");
-      query.expand = aliasList;
+      query.expand = state.joins.map((join) => join.alias).join(",");
     }
-    const list = await apiClient.get<{ data: unknown[]; total: number }>(path, query as Record<string, string | number | boolean | undefined | null>);
-    // 백엔드가 expand를 지원하지 않으면 응답에 nested가 없음 → fallback polyfill
+
+    const list = await apiClient.get<{ data: any[]; total: number }>(
+      path,
+      query as Record<string, string | number | boolean | undefined | null>,
+    );
+
     if (state.joins?.length && Array.isArray(list.data) && list.data.length > 0) {
-      for (const j of state.joins) {
-        const sample = (list.data[0] as any) ?? {};
-        if (!(j.alias in sample)) {
-          await fetchParents(list.data as any[], j);
-        }
+      for (const join of state.joins) {
+        const sample = list.data[0] ?? {};
+        if (!(join.alias in sample)) await fetchParents(list.data, join);
       }
     }
+
     if (state.selectMode === "single") {
       if (!list.data || list.data.length === 0) {
         return errorResult("Row not found", 404);
       }
       if (list.data.length > 1) {
-        return errorResult(".single() expected 1 row, got " + list.data.length);
+        return errorResult(`.single() expected 1 row, got ${list.data.length}`);
       }
       return { data: list.data[0] as T, error: null, count: list.total };
     }
+
     if (state.selectMode === "maybeSingle") {
       return { data: (list.data[0] as T) ?? null, error: null, count: list.total };
     }
-    return { data: list.data as T, error: null, count: list.total };
-  } catch (err) {
-    if (err instanceof ApiError) {
-      return errorResult(err.clientMessage, err.status);
-    }
-    return errorResult((err as Error).message ?? "알 수 없는 오류");
-  }
-}
 
-function errorResult<T>(message: string, status?: number): ExecResult<T> {
-  return { data: null, error: { message, status }, count: null };
+    return { data: list.data as T, error: null, count: list.total };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return errorResult(error.clientMessage, error.status);
+    }
+    return errorResult((error as Error).message ?? "알 수 없는 오류");
+  }
 }
 
 // ───── chainable builder ─────
 
-class QueryBuilder<T = unknown> implements PromiseLike<ExecResult<T>> {
+class QueryBuilder<T = any> implements PromiseLike<ExecResult<T>> {
   constructor(private state: BuilderState) {}
 
-  // SELECT
-  select(columns: string = "*", opts?: { count?: BuilderState["countMode"]; head?: boolean }): this {
+  select(
+    columns: string = "*",
+    options?: { count?: BuilderState["countMode"]; head?: boolean },
+  ): this {
     if (detectJoinSelect(columns)) {
-      throw new Error(
-        `[supabase-compat] JOIN 형식 select('${columns}')는 호환 shim에서 지원되지 않습니다.\n` +
-        `백엔드(/api/${this.state.table.replace(/_/g, "-")})에 전용 엔드포인트를 추가해 처리하세요.`,
+      const { joins } = parseJoinSelect(columns);
+      this.state.joins = joins;
+    }
+    if (options?.count) this.state.countMode = options.count;
+    if (options?.head) this.state.headOnly = true;
+    return this;
+  }
+
+  eq(column: string, value: unknown): this {
+    return this.addFilter("eq", column, value);
+  }
+  neq(column: string, value: unknown): this {
+    return this.addFilter("neq", column, value);
+  }
+  in(column: string, values: unknown[]): this {
+    return this.addFilter("in", column, values);
+  }
+  gt(column: string, value: unknown): this {
+    return this.addFilter("gt", column, value);
+  }
+  gte(column: string, value: unknown): this {
+    return this.addFilter("gte", column, value);
+  }
+  lt(column: string, value: unknown): this {
+    return this.addFilter("lt", column, value);
+  }
+  lte(column: string, value: unknown): this {
+    return this.addFilter("lte", column, value);
+  }
+  like(column: string, value: string): this {
+    return this.addFilter("like", column, value);
+  }
+  ilike(column: string, value: string): this {
+    return this.addFilter("ilike", column, value);
+  }
+  is(column: string, value: unknown): this {
+    return this.addFilter("is", column, value);
+  }
+  contains(column: string, value: unknown): this {
+    return this.addFilter("contains", column, value);
+  }
+
+  or(expression: string): this {
+    this.state.orExpression = expression;
+    return this;
+  }
+
+  not(column: string, operator: string, value: unknown): this {
+    if (operator !== "eq" && operator !== "is") {
+      console.warn(
+        `[supabase-compat] .not(${column}, ${operator}, ...)를 제외 필터로 변환합니다.`,
       );
     }
-    if (opts?.count) this.state.countMode = opts.count;
-    if (opts?.head) this.state.headOnly = true;
+    return this.addFilter("neq", column, value);
+  }
+
+  private addFilter(
+    operator: FilterEntry["op"],
+    column: string,
+    value: unknown,
+  ): this {
+    this.state.filters.push({ op: operator, col: column, val: value });
     return this;
   }
 
-  // FILTERS
-  eq(col: string, val: unknown): this { return this.addFilter("eq", col, val); }
-  neq(col: string, val: unknown): this { return this.addFilter("neq", col, val); }
-  in(col: string, vals: unknown[]): this { return this.addFilter("in", col, vals); }
-  gt(col: string, val: unknown): this { return this.addFilter("gt", col, val); }
-  gte(col: string, val: unknown): this { return this.addFilter("gte", col, val); }
-  lt(col: string, val: unknown): this { return this.addFilter("lt", col, val); }
-  lte(col: string, val: unknown): this { return this.addFilter("lte", col, val); }
-  like(col: string, val: string): this { return this.addFilter("like", col, val); }
-  ilike(col: string, val: string): this { return this.addFilter("ilike", col, val); }
-  is(col: string, val: unknown): this { return this.addFilter("is", col, val); }
-  contains(col: string, val: unknown): this { return this.addFilter("contains", col, val); }
-
-  private addFilter(op: FilterEntry["op"], col: string, val: unknown): this {
-    this.state.filters.push({ op, col, val });
+  order(
+    column: string,
+    options?: {
+      ascending?: boolean;
+      nullsFirst?: boolean;
+      foreignTable?: string;
+      referencedTable?: string;
+    },
+  ): this {
+    this.state.orderBy.push({
+      col: column,
+      ascending: options?.ascending ?? true,
+    });
     return this;
   }
 
-  // ORDER / PAGE
-  order(col: string, opts?: { ascending?: boolean }): this {
-    this.state.orderBy.push({ col, ascending: opts?.ascending ?? true });
+  limit(value: number): this {
+    this.state.limit = value;
     return this;
   }
-  limit(n: number): this { this.state.limit = n; return this; }
-  range(from: number, to: number): this { this.state.range = { from, to }; return this; }
 
-  // SINGLE
-  single(): this { this.state.selectMode = "single"; return this; }
-  maybeSingle(): this { this.state.selectMode = "maybeSingle"; return this; }
+  range(from: number, to: number): this {
+    this.state.range = { from, to };
+    return this;
+  }
 
-  // MUTATIONS
+  single(): this {
+    this.state.selectMode = "single";
+    return this;
+  }
+
+  maybeSingle(): this {
+    this.state.selectMode = "maybeSingle";
+    return this;
+  }
+
   insert(payload: unknown): QueryBuilder<T> {
-    return new QueryBuilder<T>({ ...this.state, mutation: { type: "insert", payload } });
-  }
-  update(payload: unknown): QueryBuilder<T> {
-    return new QueryBuilder<T>({ ...this.state, mutation: { type: "update", payload } });
-  }
-  upsert(payload: unknown): QueryBuilder<T> {
-    return new QueryBuilder<T>({ ...this.state, mutation: { type: "upsert", payload } });
-  }
-  delete(): QueryBuilder<T> {
-    return new QueryBuilder<T>({ ...this.state, mutation: { type: "delete" } });
+    return new QueryBuilder<T>({
+      ...this.state,
+      mutation: { type: "insert", payload },
+    });
   }
 
-  // PromiseLike — await로 실행
-  then<T1 = ExecResult<T>, T2 = never>(
-    onfulfilled?: ((value: ExecResult<T>) => T1 | PromiseLike<T1>) | null,
-    onrejected?: ((reason: unknown) => T2 | PromiseLike<T2>) | null,
-  ): PromiseLike<T1 | T2> {
+  update(payload: unknown): QueryBuilder<T> {
+    return new QueryBuilder<T>({
+      ...this.state,
+      mutation: { type: "update", payload },
+    });
+  }
+
+  upsert(payload: unknown): QueryBuilder<T> {
+    return new QueryBuilder<T>({
+      ...this.state,
+      mutation: { type: "upsert", payload },
+    });
+  }
+
+  delete(): QueryBuilder<T> {
+    return new QueryBuilder<T>({
+      ...this.state,
+      mutation: { type: "delete" },
+    });
+  }
+
+  then<TFulfilled = ExecResult<T>, TRejected = never>(
+    onfulfilled?:
+      | ((value: ExecResult<T>) => TFulfilled | PromiseLike<TFulfilled>)
+      | null,
+    onrejected?:
+      | ((reason: unknown) => TRejected | PromiseLike<TRejected>)
+      | null,
+  ): PromiseLike<TFulfilled | TRejected> {
     return execute<T>(this.state).then(onfulfilled, onrejected);
+  }
+}
+
+// ───── realtime compatibility ─────
+
+type RealtimeCallback = (payload: any) => void;
+
+class RealtimeChannelCompat {
+  on(
+    _type: string,
+    _filter: Record<string, unknown>,
+    _callback: RealtimeCallback,
+  ): this {
+    return this;
+  }
+
+  subscribe(callback?: (status: string) => void): this {
+    queueMicrotask(() => callback?.("SUBSCRIBED"));
+    return this;
+  }
+
+  async unsubscribe(): Promise<{ status: "ok" }> {
+    return { status: "ok" };
   }
 }
 
 // ───── public surface ─────
 
 export const supabase = {
-  from<T = unknown>(table: string): QueryBuilder<T> {
+  from<T = any>(table: string): QueryBuilder<T> {
     return new QueryBuilder<T>({
       table,
       filters: [],
@@ -385,30 +509,41 @@ export const supabase = {
     });
   },
 
-  // auth, storage, functions는 별도 모듈에서 import 권장.
-  // 여기서는 마이그레이션 안내 메시지만.
-  auth: new Proxy({} as Record<string, unknown>, {
-    get(_t, prop) {
-      throw new Error(
-        `[supabase-compat] supabase.auth.${String(prop)} 는 지원되지 않습니다.\n` +
-        `대신 'authApi' from '@/integrations/api'를 사용하세요. 매핑은 src/integrations/api/auth.ts 주석 참고.`,
-      );
-    },
-  }),
+  channel(_name: string): RealtimeChannelCompat {
+    return new RealtimeChannelCompat();
+  },
 
-  storage: new Proxy({} as Record<string, unknown>, {
-    get(_t, prop) {
-      throw new Error(
-        `[supabase-compat] supabase.storage.${String(prop)} 는 지원되지 않습니다. 자체 파일 API로 변환 필요.`,
-      );
-    },
-  }),
+  async removeChannel(
+    channel: RealtimeChannelCompat,
+  ): Promise<{ status: "ok" }> {
+    return channel.unsubscribe();
+  },
 
-  functions: new Proxy({} as Record<string, unknown>, {
-    get(_t, prop) {
+  // 인증·파일·함수 호출은 전용 자체 API 모듈 사용을 권장한다.
+  auth: new Proxy({} as Record<string, any>, {
+    get(_target, property) {
       throw new Error(
-        `[supabase-compat] supabase.functions.${String(prop)} 는 지원되지 않습니다. 백엔드 라우트로 변환 필요.`,
+        `[supabase-compat] supabase.auth.${String(property)}는 지원되지 않습니다. ` +
+          `대신 '@/integrations/api'의 authApi를 사용하세요.`,
       );
     },
-  }),
+  }) as any,
+
+  storage: new Proxy({} as Record<string, any>, {
+    get(_target, property) {
+      throw new Error(
+        `[supabase-compat] supabase.storage.${String(property)}는 지원되지 않습니다. ` +
+          `자체 파일 API를 사용하세요.`,
+      );
+    },
+  }) as any,
+
+  functions: new Proxy({} as Record<string, any>, {
+    get(_target, property) {
+      throw new Error(
+        `[supabase-compat] supabase.functions.${String(property)}는 지원되지 않습니다. ` +
+          `백엔드 REST 라우트를 사용하세요.`,
+      );
+    },
+  }) as any,
 };
