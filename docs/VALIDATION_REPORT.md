@@ -1,7 +1,7 @@
 # ParkMaster 통합 검증 보고서
 
-- 생성 시각(UTC): 2026-07-30 07:39:30
-- 커밋: f256bb3ef3bfc55be8767dad4f0eaef5bbb9ee1e
+- 생성 시각(UTC): 2026-07-30 07:48:57
+- 커밋: c6b8b2f756c68015e566512bf3296c5c3fb3c058
 - Node.js: v22.23.1
 - npm: 10.9.8
 
@@ -11,7 +11,7 @@
 |---|---|---|
 | Frontend | npm ci | PASS |
 | Frontend | lint (레거시 기준 보고) | FAIL (1) |
-| Frontend | TypeScript | FAIL (2) |
+| Frontend | TypeScript | PASS |
 | Frontend | Vitest | PASS |
 | Frontend | Vite production build | PASS |
 | Backend | npm install | PASS |
@@ -140,17 +140,8 @@
 /home/runner/work/woojooparkmaster/woojooparkmaster/tailwind.config.ts
   99:13  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
 
-✖ 927 problems (898 errors, 29 warnings)
+✖ 922 problems (893 errors, 29 warnings)
   2 errors and 2 warnings potentially fixable with the `--fix` option.
 
-```
-
-### frontend_typecheck
-
-```text
-src/pages/planning/PlanningDocuments.tsx(125,79): error TS2339: Property 'length' does not exist on type 'unknown'.
-src/pages/planning/PlanningDocuments.tsx(141,32): error TS2339: Property 'map' does not exist on type 'unknown'.
-src/pages/settings/ActivityAnalytics.tsx(101,22): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
-src/pages/settings/ActivityAnalytics.tsx(101,29): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
 ```
 
