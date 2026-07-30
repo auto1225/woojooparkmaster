@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useLayoutEffect, useMemo } from "react";
-import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText, Radio, Cpu, Server, Monitor, Key, FileBarChart, CalendarClock, LayoutTemplate, PanelLeftClose, PanelLeftOpen, GripVertical } from "lucide-react";
+import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText, Radio, Cpu, Server, Monitor, Key, FileBarChart, CalendarClock, LayoutTemplate, PanelLeftClose, PanelLeftOpen, GripVertical, ExternalLink } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -186,7 +186,7 @@ let sidebarScrollTop = 0;
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { data: licenses } = useModuleLicenses();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -273,6 +273,37 @@ export function AppSidebar() {
   };
 
   const isAdmin = profile?.role === "admin";
+  // 센서 관제 콘솔(외부) URL — 환경변수로 오버라이드 가능
+  const SENSOR_CONSOLE_URL = (import.meta as any).env?.VITE_SENSOR_CONSOLE_URL || "https://console.woojoocha.com";
+  // Sensor Monitoring 메뉴 노출 허용 계정(내 계정만). 이메일은 소문자 비교.
+  const SENSOR_CONSOLE_EMAILS = ["cmh@woojoocha.com"];
+  const canSeeConsole = SENSOR_CONSOLE_EMAILS.includes(((user?.email || profile?.email || "").toLowerCase()));
+
+  // 외부 링크 메뉴(새 탭) — 관리자 전용 Sensor Monitoring 콘솔용
+  const renderExternal = (item: { title: string; href: string; icon: any }) => (
+    <SidebarMenuItem key={item.title}>
+      <SidebarMenuButton asChild>
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a href={item.href} target="_blank" rel="noopener noreferrer"
+                className="flex items-center text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150">
+                <item.icon className="h-[18px] w-[18px] shrink-0" />
+              </a>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">{item.title}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <a href={item.href} target="_blank" rel="noopener noreferrer"
+            className="flex items-center text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-3 px-3">
+            <item.icon className="mr-2.5 h-[20px] w-[20px] shrink-0" />
+            <span className="text-[17px]">{item.title}</span>
+            <ExternalLink className="ml-auto h-3.5 w-3.5 opacity-50 shrink-0" />
+          </a>
+        )}
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
 
   const renderLink = (item: { title: string; url: string; icon: any; end?: boolean }) => (
     <SidebarMenuItem key={item.title}>
@@ -391,6 +422,15 @@ export function AppSidebar() {
                   </SortableContext>
                 </DndContext>
               )}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {canSeeConsole && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[15px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground px-3 mb-1.5">센서 관제</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-0.5">{renderExternal({ title: "Sensor Monitoring", href: SENSOR_CONSOLE_URL, icon: Monitor })}</SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
