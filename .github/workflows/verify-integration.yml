@@ -1,0 +1,130 @@
+name: Verify final integration
+
+on:
+  push:
+    branches:
+      - agent/parkmaster-final-integration-20260730
+    paths:
+      - .github/workflows/verify-integration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/parkmaster-final-integration-20260730
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Run validation and write report
+        shell: bash
+        run: |
+          set +e
+          mkdir -p /tmp/parkmaster-validation docs
+
+          run_check() {
+            local key="$1"
+            shift
+            echo "Running: $*"
+            "$@" >"/tmp/parkmaster-validation/${key}.log" 2>&1
+            echo $? >"/tmp/parkmaster-validation/${key}.status"
+          }
+
+          run_check frontend_install npm ci
+          if [ "$(cat /tmp/parkmaster-validation/frontend_install.status)" = "0" ]; then
+            run_check frontend_lint npm run lint
+            run_check frontend_typecheck npx tsc --noEmit -p tsconfig.app.json
+            run_check frontend_test npm test -- --passWithNoTests
+            run_check frontend_build env VITE_API_BASE=http://localhost:4000 VITE_SENSOR_CONSOLE_URL=https://console.example.invalid npm run build
+          else
+            for key in frontend_lint frontend_typecheck frontend_test frontend_build; do
+              echo 125 >"/tmp/parkmaster-validation/${key}.status"
+              echo "Skipped because frontend dependency installation failed." >"/tmp/parkmaster-validation/${key}.log"
+            done
+          fi
+
+          (
+            cd api || exit 1
+            npm install --no-audit --no-fund > /tmp/parkmaster-validation/backend_install.log 2>&1
+            echo $? > /tmp/parkmaster-validation/backend_install.status
+            if [ "$(cat /tmp/parkmaster-validation/backend_install.status)" = "0" ]; then
+              npm run build > /tmp/parkmaster-validation/backend_build.log 2>&1
+              echo $? > /tmp/parkmaster-validation/backend_build.status
+              npm test -- --passWithNoTests > /tmp/parkmaster-validation/backend_test.log 2>&1
+              echo $? > /tmp/parkmaster-validation/backend_test.status
+            else
+              for key in backend_build backend_test; do
+                echo 125 >"/tmp/parkmaster-validation/${key}.status"
+                echo "Skipped because backend dependency installation failed." >"/tmp/parkmaster-validation/${key}.log"
+              done
+            fi
+          )
+
+          status_label() {
+            case "$1" in
+              0) echo "PASS" ;;
+              125) echo "SKIPPED" ;;
+              *) echo "FAIL ($1)" ;;
+            esac
+          }
+
+          {
+            echo "# ParkMaster 통합 검증 보고서"
+            echo
+            echo "- 생성 시각(UTC): $(date -u '+%Y-%m-%d %H:%M:%S')"
+            echo "- 커밋: $(git rev-parse HEAD)"
+            echo "- Node.js: $(node --version)"
+            echo "- npm: $(npm --version)"
+            echo
+            echo "## 결과"
+            echo
+            echo "| 영역 | 검사 | 결과 |"
+            echo "|---|---|---|"
+            for item in \
+              "frontend_install|Frontend|npm ci" \
+              "frontend_lint|Frontend|lint (레거시 기준 보고)" \
+              "frontend_typecheck|Frontend|TypeScript" \
+              "frontend_test|Frontend|Vitest" \
+              "frontend_build|Frontend|Vite production build" \
+              "backend_install|Backend|npm install" \
+              "backend_build|Backend|TypeScript build" \
+              "backend_test|Backend|Vitest"; do
+              IFS='|' read -r key area check <<< "$item"
+              code=$(cat "/tmp/parkmaster-validation/${key}.status")
+              echo "| ${area} | ${check} | $(status_label "$code") |"
+            done
+            echo
+            echo "## 실패·경고 로그 요약"
+            echo
+            for key in frontend_install frontend_lint frontend_typecheck frontend_test frontend_build backend_install backend_build backend_test; do
+              code=$(cat "/tmp/parkmaster-validation/${key}.status")
+              if [ "$code" != "0" ]; then
+                echo "### ${key}"
+                echo
+                echo '```text'
+                tail -n 120 "/tmp/parkmaster-validation/${key}.log"
+                echo '```'
+                echo
+              fi
+            done
+          } > docs/VALIDATION_REPORT.md
+
+      - name: Commit validation report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/VALIDATION_REPORT.md
+          git commit -m "docs: 최종 통합 검증 결과 기록"
+          git push origin HEAD:agent/parkmaster-final-integration-20260730
