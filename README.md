@@ -17,6 +17,10 @@ npm run dev
 
 다른 컴퓨터에서 최신 변경사항을 받을 때는 작업 내용을 먼저 커밋한 뒤 `git pull --rebase origin main`을 실행합니다. 기능 수정은 별도 브랜치에서 진행하고 Pull Request로 `main`에 반영합니다.
 
+## GitHub 자동 검증과 배포본
+
+`main` 브랜치와 Pull Request는 GitHub Actions에서 의존성 설치, 린트, 전체 테스트, 프로덕션 빌드를 자동으로 검증합니다. 성공한 실행의 `parkmaster-web-*` 아티팩트에는 정적 웹 배포본이 포함됩니다. 확정 버전은 저장소의 Releases에서 소스와 웹 빌드 압축파일을 함께 내려받을 수 있습니다.
+
 ## 기관 내부 존 배포
 
 - 데이터베이스, 인증, 파일 저장소, Edge Functions: 기관 내부 서버
