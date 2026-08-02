@@ -22,7 +22,7 @@ import { Plus, LayoutGrid, List, MapPin } from "lucide-react";
 import { AuthorField } from "@/components/common/AuthorField";
 import {
   SITE_STATUS_LABELS, SITE_STATUS_COLORS, OWNERSHIP_LABELS,
-  getSiteGrade, getSiteGradeColor, formatBudgetWon, SHAPE_LABELS, ACQUISITION_LABELS,
+  getSiteGrade, getSiteGradeColor, formatBudgetWon, normalizeSiteScore, SHAPE_LABELS, ACQUISITION_LABELS,
 } from "@/types/planning";
 import { LOT_TYPE_LABELS } from "@/types/database";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
@@ -244,7 +244,7 @@ export default function PlanningSites() {
                         <TableCell className="text-right text-xs">{s.area_sqm ? Number(s.area_sqm).toLocaleString() : '-'}</TableCell>
                         <TableCell><Badge variant="outline" className="text-[10px]">{OWNERSHIP_LABELS[s.ownership || ''] || s.ownership || '-'}</Badge></TableCell>
                         <TableCell className="text-right">{s.estimated_spaces || '-'}</TableCell>
-                        <TableCell className="text-right font-bold">{s.total_score ? Number(s.total_score).toFixed(0) : '-'}</TableCell>
+                        <TableCell className="text-right font-bold">{s.total_score ? normalizeSiteScore(Number(s.total_score)).toFixed(0) : '-'}</TableCell>
                         <TableCell><Badge className={getSiteGradeColor(Number(s.total_score))} variant="outline">{getSiteGrade(Number(s.total_score))}</Badge></TableCell>
                         <TableCell className="text-right text-xs">{s.bc_ratio ? Number(s.bc_ratio).toFixed(2) : '-'}</TableCell>
                         <TableCell><Badge className={SITE_STATUS_COLORS[s.status] || ''} variant="outline">{SITE_STATUS_LABELS[s.status] || s.status}</Badge></TableCell>
@@ -288,7 +288,7 @@ export default function PlanningSites() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="text-center">
-                        <p className="text-2xl font-bold">{s.total_score ? Number(s.total_score).toFixed(0) : '-'}</p>
+                        <p className="text-2xl font-bold">{s.total_score ? normalizeSiteScore(Number(s.total_score)).toFixed(0) : '-'}</p>
                         <Badge className={getSiteGradeColor(Number(s.total_score))} variant="outline">{getSiteGrade(Number(s.total_score))}</Badge>
                       </div>
                       <div className="w-[120px] h-[100px]">

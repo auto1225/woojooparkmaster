@@ -3,8 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const DB_NAME = "parkmaster-offline";
-const DB_VERSION = 1;
-const STORE_SURVEYS = "pending-surveys";
+const DB_VERSION = 2;
+const STORE_SURVEYS = "pending-survey-steps";
 const STORE_PHOTOS = "pending-photos";
 
 function openDB(): Promise<IDBDatabase> {
@@ -13,7 +13,7 @@ function openDB(): Promise<IDBDatabase> {
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE_SURVEYS)) {
-        db.createObjectStore(STORE_SURVEYS, { keyPath: "survey_id" });
+        db.createObjectStore(STORE_SURVEYS, { keyPath: "id" });
       }
       if (!db.objectStoreNames.contains(STORE_PHOTOS)) {
         db.createObjectStore(STORE_PHOTOS, { keyPath: "id" });
@@ -24,12 +24,14 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveSurveyOffline(surveyId: string, step: string, data: any) {
+export async function saveSurveyOffline(surveyId: string, table: string, recordId: string, data: any) {
   const db = await openDB();
   const tx = db.transaction(STORE_SURVEYS, "readwrite");
   tx.objectStore(STORE_SURVEYS).put({
+    id: `${surveyId}:${table}:${recordId}`,
     survey_id: surveyId,
-    step,
+    table,
+    record_id: recordId,
     data,
     timestamp: Date.now(),
   });
@@ -39,11 +41,11 @@ export async function saveSurveyOffline(surveyId: string, step: string, data: an
   });
 }
 
-export async function savePhotoOffline(surveyId: string, blob: Blob, fileName: string) {
+export async function savePhotoOffline(surveyId: string, blob: Blob, fileName: string, category: string, sortOrder: number) {
   const db = await openDB();
   const tx = db.transaction(STORE_PHOTOS, "readwrite");
   const id = `${surveyId}_${Date.now()}_${fileName}`;
-  tx.objectStore(STORE_PHOTOS).put({ id, survey_id: surveyId, blob, file_name: fileName, timestamp: Date.now() });
+  tx.objectStore(STORE_PHOTOS).put({ id, survey_id: surveyId, blob, file_name: fileName, category, sort_order: sortOrder, timestamp: Date.now() });
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
@@ -88,14 +90,14 @@ export async function syncOfflineData(): Promise<{ surveys: number; photos: numb
 
   for (const s of surveys) {
     try {
-      const { error } = await supabase
-        .from("surveys")
+      const { error } = await (supabase
+        .from(s.table as any) as any)
         .update(s.data)
-        .eq("id", s.survey_id);
+        .eq("id", s.record_id);
       if (!error) {
         const db = await openDB();
         const tx = db.transaction(STORE_SURVEYS, "readwrite");
-        tx.objectStore(STORE_SURVEYS).delete(s.survey_id);
+        tx.objectStore(STORE_SURVEYS).delete(s.id);
         await new Promise<void>((res) => { tx.oncomplete = () => res(); });
         syncedSurveys++;
       }
@@ -111,6 +113,13 @@ export async function syncOfflineData(): Promise<{ surveys: number; photos: numb
       const path = `surveys/${p.survey_id}/${p.file_name}`;
       const { error } = await supabase.storage.from("survey-photos").upload(path, p.blob, { upsert: true });
       if (!error) {
+        const { error: metadataError } = await supabase.from("survey_photos").insert({
+          survey_id: p.survey_id,
+          category: p.category,
+          file_path: path,
+          sort_order: p.sort_order,
+        });
+        if (metadataError) continue;
         const db = await openDB();
         const tx = db.transaction(STORE_PHOTOS, "readwrite");
         tx.objectStore(STORE_PHOTOS).delete(p.id);
@@ -124,6 +133,7 @@ export async function syncOfflineData(): Promise<{ surveys: number; photos: numb
 
   if (syncedSurveys + syncedPhotos > 0) {
     toast.success("오프라인 데이터 동기화 완료");
+    window.dispatchEvent(new CustomEvent("parkmaster:offline-sync"));
   }
 
   return { surveys: syncedSurveys, photos: syncedPhotos };

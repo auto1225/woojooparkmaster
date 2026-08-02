@@ -47,7 +47,7 @@ export interface Complaint {
   created_by?: string;
   created_at: string;
   updated_at?: string;
-  parking_lots?: { code: string; name: string };
+  parking_lots?: { code: string; name: string; lot_type?: string };
   profiles?: { name: string; team: string };
 }
 
@@ -114,7 +114,8 @@ export const RESPONSE_TYPE_LABELS: Record<string, string> = {
 
 export const COMMENT_TYPE_LABELS: Record<string, string> = {
   internal: "내부메모", external: "민원인회신", status_change: "상태변경",
-  assignment: "배정", escalation: "상향보고",
+  assignment: "배정", escalation: "상향보고", field_visit: "현장확인",
+  external_wait: "외부기관 대기", closure: "종결 근거", reopen: "재개 사유",
 };
 
 export function getDDay(dueDate?: string): { text: string; isOverdue: boolean } {
@@ -127,6 +128,11 @@ export function getDDay(dueDate?: string): { text: string; isOverdue: boolean } 
   if (diff > 0) return { text: `D-${diff}`, isOverdue: false };
   if (diff === 0) return { text: "D-Day", isOverdue: false };
   return { text: `D+${Math.abs(diff)}`, isOverdue: true };
+}
+
+export function isComplaintOverdue(complaint: Pick<Complaint, "due_date" | "status">): boolean {
+  if (complaint.status === "closed") return false;
+  return getDDay(complaint.due_date).isOverdue;
 }
 
 export function getTeamRecommendation(category: string): string | null {

@@ -4,6 +4,14 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { formatFacilityCurrency, formatFacilityDateTime, formatFacilityNumber } from "@/lib/facility-format";
 import type { MaintenanceLog } from "@/types/facility";
 import { MAINT_STATUS_LABELS, MAINT_TYPE_LABELS, PRIORITY_COLORS, PRIORITY_LABELS } from "@/types/facility";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
+import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { ExternalLink, ImageIcon } from "lucide-react";
+import { getMaintenanceEvidenceUrl, listMaintenanceEvidence } from "@/lib/facility-field-work";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MaintenanceLogDetailSheetProps {
   log: MaintenanceLog | null;
@@ -13,10 +21,43 @@ interface MaintenanceLogDetailSheetProps {
 
 export function MaintenanceLogDetailSheet({ log, onOpenChange, open }: MaintenanceLogDetailSheetProps) {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const legacyComplaintNumber = log?.source_module === "COMPLAINT"
+    ? null
+    : log?.description?.match(/\bCM-\d{8}-\d+\b/)?.[0] || null;
+  const { data: evidence = [], isLoading: evidenceLoading } = useQuery({
+    queryKey: ["maintenance-evidence", log?.id],
+    queryFn: () => listMaintenanceEvidence(log!.id),
+    enabled: Boolean(open && log?.id),
+  });
+  const { data: legacyComplaint } = useQuery({
+    queryKey: ["maintenance-source-complaint", legacyComplaintNumber],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("complaints")
+        .select("id, complaint_number")
+        .eq("complaint_number", legacyComplaintNumber!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: Boolean(open && !log?.source_record_id && legacyComplaintNumber),
+  });
 
   if (!log) return null;
 
+  const sourceComplaintId = log.source_module === "COMPLAINT" && log.source_record_id
+    ? log.source_record_id
+    : legacyComplaint?.id;
+
   const parts = Array.isArray(log.parts_used) ? log.parts_used : [];
+  const openEvidence = async (filePath: string) => {
+    try {
+      const url = await getMaintenanceEvidenceUrl(filePath);
+      window.location.assign(url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "증빙 사진을 열지 못했습니다");
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -34,10 +75,30 @@ export function MaintenanceLogDetailSheet({ log, onOpenChange, open }: Maintenan
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
+          {sourceComplaintId && (
+            <section className="flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 p-4">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-primary">민원에서 생성된 시설작업</p>
+                <p className="mt-1 text-sm text-muted-foreground">원 민원의 처리 내용과 현장 결과를 함께 확인하세요.</p>
+              </div>
+              <Button
+                className="shrink-0"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  navigate(`/complaints/${sourceComplaintId}`);
+                }}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />원 민원 보기
+              </Button>
+            </section>
+          )}
           <section className="grid grid-cols-2 gap-3">
             <InfoCard label="장비" value={log.equipment?.name || "-"} />
             <InfoCard label="우선순위" value={PRIORITY_LABELS[log.priority]} />
             <InfoCard label="신고일" value={formatFacilityDateTime(log.reported_at)} />
+            <InfoCard label="담당자" value={log.assignee?.name || "미배정"} />
+            <InfoCard label="처리 기한" value={log.due_date || "-"} />
             <InfoCard label="완료일" value={formatFacilityDateTime(log.completed_at)} />
           </section>
 
@@ -85,6 +146,53 @@ export function MaintenanceLogDetailSheet({ log, onOpenChange, open }: Maintenan
               <p className="mt-4 text-sm text-muted-foreground">등록된 부품 내역이 없습니다.</p>
             )}
           </section>
+
+          <section className="rounded-2xl border bg-card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-foreground">현장 완료 증빙</h3>
+              <span className="text-xs text-muted-foreground">{evidence.length}건</span>
+            </div>
+            {evidenceLoading ? (
+              <p className="mt-4 text-sm text-muted-foreground">사진을 불러오는 중...</p>
+            ) : evidence.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                {evidence.map((file) => (
+                  <div key={file.id} className="flex items-center gap-3 rounded-md bg-muted/30 px-3 py-2">
+                    <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{file.file_name}</p>
+                      <p className="text-xs text-muted-foreground">{file.created_at ? formatFacilityDateTime(file.created_at) : "촬영시각 미기록"}</p>
+                    </div>
+                    <Button size="icon" variant="ghost" title="증빙 사진 열기" onClick={() => openEvidence(file.file_path)}>
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : log.after_photo ? (
+              <Button className="mt-4" variant="outline" size="sm" onClick={() => openEvidence(log.after_photo!)}>
+                <ImageIcon className="mr-2 h-4 w-4" />기존 완료 사진 열기
+              </Button>
+            ) : (
+              <p className="mt-4 text-sm text-muted-foreground">등록된 완료 사진이 없습니다.</p>
+            )}
+          </section>
+
+          <section className="rounded-2xl border bg-card p-4">
+            <h3 className="text-sm font-semibold text-foreground">관련 업체 연락망</h3>
+            <dl className="mt-4 space-y-3 text-sm">
+              <DetailRow label="업체명" value={log.vendor_name || "-"} />
+              <DetailRow label="업체 담당자" value={log.vendor_manager || "-"} />
+              <DetailRow label="담당자 연락처" value={log.vendor_phone || log.vendor_contact || "-"} />
+              <DetailRow label="담당자 이메일" value={log.vendor_email || "-"} />
+            </dl>
+          </section>
+          <DocumentLinksPanel
+            module="FACILITY_MAINTENANCE"
+            recordId={log.id}
+            recordPath={`/facility/maintenance?work=${log.id}`}
+            recordTitle={`${log.log_number} ${log.title}`}
+          />
         </div>
       </SheetContent>
     </Sheet>

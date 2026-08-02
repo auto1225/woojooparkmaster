@@ -5,12 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   ISSUE_TYPE_LABELS, SEVERITY_LABELS, SEVERITY_COLORS,
   ISSUE_STATUS_LABELS, formatServiceAmount,
 } from "@/types/service";
+import { ArrowRight } from "lucide-react";
 
 export default function ServiceIssues() {
   const navigate = useNavigate();
@@ -67,13 +69,14 @@ export default function ServiceIssues() {
                     <TableHead className="text-right">금액영향</TableHead>
                     <TableHead className="text-right">일정영향</TableHead>
                     <TableHead>상태</TableHead>
+                    <TableHead className="text-right">실행</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map(i => (
                     <TableRow key={i.id}
                       className={`cursor-pointer hover:bg-muted/50 ${i.severity === "critical" && !["resolved", "closed"].includes(i.status) ? "bg-destructive/5" : ""}`}
-                      onClick={() => navigate(`/service/projects/${i.project_id}`)}>
+                      onClick={() => navigate(`/service/projects/${i.project_id}?tab=issues`)}>
                       <TableCell className="text-xs font-mono">{i.issue_number}</TableCell>
                       <TableCell className="text-sm">{(i.service_projects as any)?.title}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px]">{ISSUE_TYPE_LABELS[i.issue_type] || i.issue_type}</Badge></TableCell>
@@ -82,9 +85,10 @@ export default function ServiceIssues() {
                       <TableCell className="text-right text-sm">{i.impact_amount ? formatServiceAmount(i.impact_amount) : "-"}</TableCell>
                       <TableCell className="text-right text-sm">{i.impact_days ? `${i.impact_days}일` : "-"}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px]">{ISSUE_STATUS_LABELS[i.status] || i.status}</Badge></TableCell>
+                      <TableCell className="text-right" onClick={(event) => event.stopPropagation()}><Button size="sm" variant="outline" onClick={() => navigate(`/service/projects/${i.project_id}?tab=issues`)}>처리 <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></TableCell>
                     </TableRow>
                   ))}
-                  {filtered.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">이슈 없음</TableCell></TableRow>}
+                  {filtered.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">이슈 없음</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </CardContent></Card>

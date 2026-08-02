@@ -12,15 +12,14 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
-import { Plus, Play, Edit, Trash2, Calendar, Clock, Users } from "lucide-react";
+import { Plus, Play, Trash2, Calendar, Clock, Loader2 } from "lucide-react";
 import { AuthorField } from "@/components/common/AuthorField";
 import { FREQUENCY_LABELS, type ReportTemplate } from "@/types/report";
+import { runReportSchedule } from "@/lib/report-engine";
 
 export default function ReportSchedules() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
     schedule_name: "",
@@ -59,7 +58,7 @@ export default function ReportSchedules() {
   const createMutation = useMutation({
     mutationFn: async () => {
       const now = new Date();
-      let nextRun = new Date(now);
+      const nextRun = new Date(now);
       nextRun.setHours(parseInt(form.execution_time.split(":")[0]), parseInt(form.execution_time.split(":")[1]), 0, 0);
       if (form.frequency === "daily") { if (nextRun <= now) nextRun.setDate(nextRun.getDate() + 1); }
       else if (form.frequency === "weekly") { while (nextRun.getDay() !== form.day_of_week % 7 || nextRun <= now) nextRun.setDate(nextRun.getDate() + 1); }
@@ -106,6 +105,19 @@ export default function ReportSchedules() {
       queryClient.invalidateQueries({ queryKey: ["report-schedules"] });
       toast.success("삭제되었습니다");
     },
+  });
+
+  const runMutation = useMutation({
+    mutationFn: async (schedule: any) => {
+      if (!user) throw new Error("로그인이 필요합니다.");
+      return runReportSchedule(schedule, user.id, false);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["report-schedules"] });
+      queryClient.invalidateQueries({ queryKey: ["report-history"] });
+      toast.success("정기 보고서를 생성했습니다");
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -191,8 +203,16 @@ export default function ReportSchedules() {
                     {s.last_run && <span>· 최근: {new Date(s.last_run).toLocaleDateString("ko-KR")}</span>}
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/reports/generate?template=${s.template?.template_code}`)}>
-                      <Play className="h-3.5 w-3.5 mr-1" />수동 실행
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={runMutation.isPending}
+                      onClick={() => runMutation.mutate(s)}
+                    >
+                      {runMutation.isPending && runMutation.variables?.id === s.id
+                        ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                        : <Play className="h-3.5 w-3.5 mr-1" />}
+                      수동 실행
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(s.id)}>
                       <Trash2 className="h-3.5 w-3.5" />

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -26,7 +27,8 @@ import {
   SEVERITY_LABELS, SEVERITY_COLORS, ISSUE_STATUS_LABELS,
   RESULT_LABELS, RESULT_COLORS, formatServiceAmount,
 } from "@/types/service";
-import { ArrowLeft, CheckCircle, Circle, AlertCircle, Plus } from "lucide-react";
+import { ArrowLeft, CheckCircle, Circle, AlertCircle, Plus, Pencil } from "lucide-react";
+import { advanceServicePayment, createServiceInspection, decideServiceInspection, requestServicePayment } from "@/lib/workflow-commands";
 
 function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
   return (
@@ -40,10 +42,38 @@ function InfoRow({ label, value }: { label: string; value?: string | number | nu
 export default function ServiceProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const canEdit = profile && ["admin", "manager", "editor"].includes(profile.role);
   const canApprove = profile && ["admin", "manager"].includes(profile.role);
+  const [inspectionOpen, setInspectionOpen] = useState(false);
+  const [inspectionForm, setInspectionForm] = useState({ type: "progress", title: "", date: new Date().toISOString().slice(0, 10), targetAmount: 0 });
+  const [inspectionAction, setInspectionAction] = useState<{ item: any; action: "require_correction" | "submit_correction" } | null>(null);
+  const [actionNote, setActionNote] = useState("");
+  const [correctionDeadline, setCorrectionDeadline] = useState("");
+  const [workflowPending, setWorkflowPending] = useState<string | null>(null);
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [issueForm, setIssueForm] = useState({
+    type: "delay",
+    severity: "medium",
+    title: "",
+    description: "",
+    impactAmount: 0,
+    impactDays: 0,
+  });
+  const [contactOpen, setContactOpen] = useState(false);
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    contractor_name: "",
+    contractor_business_number: "",
+    contractor_representative: "",
+    contractor_address: "",
+    contractor_phone: "",
+    contractor_email: "",
+    contractor_manager: "",
+    contractor_manager_phone: "",
+  });
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["service-project", id],
@@ -135,6 +165,148 @@ export default function ServiceProjectDetail() {
     invalidateAll();
   };
 
+  const handleCreateInspection = async () => {
+    if (!id) return;
+    setWorkflowPending("create-inspection");
+    try {
+      await createServiceInspection(id, {
+        type: inspectionForm.type,
+        title: inspectionForm.title,
+        date: inspectionForm.date,
+        targetAmount: inspectionForm.targetAmount,
+      });
+      toast({ title: "검수를 생성했습니다" });
+      setInspectionOpen(false);
+      setInspectionForm({ type: "progress", title: "", date: new Date().toISOString().slice(0, 10), targetAmount: 0 });
+      invalidateAll();
+    } catch (error: any) {
+      toast({ title: "검수 생성 실패", description: error.message, variant: "destructive" });
+    } finally {
+      setWorkflowPending(null);
+    }
+  };
+
+  const handleInspectionDecision = async (inspection: any, action: "approve" | "require_correction" | "submit_correction") => {
+    setWorkflowPending(inspection.id);
+    try {
+      await decideServiceInspection(inspection.id, action, {
+        note: actionNote,
+        correctionDeadline,
+      });
+      toast({ title: action === "approve" ? "검수를 승인했습니다" : action === "require_correction" ? "보완을 요구했습니다" : "보완자료를 제출했습니다" });
+      setInspectionAction(null);
+      setActionNote("");
+      setCorrectionDeadline("");
+      invalidateAll();
+    } catch (error: any) {
+      toast({ title: "검수 처리 실패", description: error.message, variant: "destructive" });
+    } finally {
+      setWorkflowPending(null);
+    }
+  };
+
+  const handlePaymentRequest = async (inspection: any) => {
+    setWorkflowPending(inspection.id);
+    try {
+      await requestServicePayment(inspection.id, inspection.inspection_type === "final" ? "final" : "progress");
+      toast({ title: "지급 요청을 생성했습니다" });
+      invalidateAll();
+    } catch (error: any) {
+      toast({ title: "지급 요청 실패", description: error.message, variant: "destructive" });
+    } finally {
+      setWorkflowPending(null);
+    }
+  };
+
+  const handlePaymentAction = async (payment: any, action: "approve" | "pay") => {
+    setWorkflowPending(payment.id);
+    try {
+      await advanceServicePayment(payment.id, action);
+      toast({ title: action === "approve" ? "지급을 승인했습니다" : "지급 완료로 처리했습니다" });
+      invalidateAll();
+    } catch (error: any) {
+      toast({ title: "지급 처리 실패", description: error.message, variant: "destructive" });
+    } finally {
+      setWorkflowPending(null);
+    }
+  };
+
+  const handleCreateIssue = async () => {
+    if (!id || !project || !issueForm.title.trim() || !issueForm.description.trim()) return;
+    setWorkflowPending("create-issue");
+    const issueNumber = `${project.project_number}-ISS-${String((issues?.length || 0) + 1).padStart(2, "0")}`;
+    const { error } = await supabase.from("service_issues").insert({
+      project_id: id,
+      issue_number: issueNumber,
+      issue_type: issueForm.type,
+      severity: issueForm.severity,
+      title: issueForm.title.trim(),
+      description: issueForm.description.trim(),
+      impact_amount: issueForm.impactAmount || null,
+      impact_days: issueForm.impactDays || null,
+      status: "open",
+      reported_at: new Date().toISOString(),
+      reported_by: profile?.id || null,
+    });
+    setWorkflowPending(null);
+    if (error) {
+      toast({ title: "이슈 등록 실패", description: error.message, variant: "destructive" });
+      return;
+    }
+    await logActivity({ module: "service", action: "create", targetType: "service_issue", targetName: issueNumber, details: { project_id: id } });
+    toast({ title: "이슈를 등록했습니다" });
+    setIssueOpen(false);
+    setIssueForm({ type: "delay", severity: "medium", title: "", description: "", impactAmount: 0, impactDays: 0 });
+    invalidateAll();
+  };
+
+  const handleIssueStatus = async (issue: any, status: "in_progress" | "resolved") => {
+    setWorkflowPending(issue.id);
+    const { error } = await supabase.from("service_issues").update({
+      status,
+      ...(status === "resolved" ? { resolved_at: new Date().toISOString(), resolved_by: profile?.id || null } : {}),
+    }).eq("id", issue.id);
+    setWorkflowPending(null);
+    if (error) {
+      toast({ title: "이슈 처리 실패", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: status === "resolved" ? "이슈를 해결 처리했습니다" : "이슈 처리를 시작했습니다" });
+    invalidateAll();
+  };
+
+  const openContactEditor = () => {
+    if (!project) return;
+    setContactForm({
+      contractor_name: project.contractor_name || "",
+      contractor_business_number: project.contractor_business_number || "",
+      contractor_representative: project.contractor_representative || "",
+      contractor_address: project.contractor_address || "",
+      contractor_phone: project.contractor_phone || "",
+      contractor_email: project.contractor_email || "",
+      contractor_manager: project.contractor_manager || "",
+      contractor_manager_phone: project.contractor_manager_phone || "",
+    });
+    setContactOpen(true);
+  };
+
+  const saveContact = async () => {
+    if (!project || !contactForm.contractor_name.trim()) return;
+    setContactSaving(true);
+    const payload = Object.fromEntries(Object.entries(contactForm).map(([key, value]) => [key, value.trim() || null]));
+    const { error } = await supabase.from("service_projects").update(payload).eq("id", project.id);
+    setContactSaving(false);
+    if (error) {
+      toast({ title: "업체 연락망 저장 실패", description: error.message, variant: "destructive" });
+      return;
+    }
+    await logActivity({ module: "service", action: "contractor_contact_update", targetType: "service_project", targetId: project.id, targetName: project.title, details: { contractor_name: contactForm.contractor_name, contractor_manager: contactForm.contractor_manager } });
+    queryClient.invalidateQueries({ queryKey: ["service-project", id] });
+    queryClient.invalidateQueries({ queryKey: ["service-projects"] });
+    setContactOpen(false);
+    toast({ title: "수행업체 연락망을 수정했습니다" });
+  };
+
   if (isLoading) return <DashboardLayout><div className="space-y-4 max-w-5xl"><Skeleton className="h-10 w-48" /><Skeleton className="h-64" /></div></DashboardLayout>;
   if (!project) return <DashboardLayout><div className="flex flex-col items-center py-20 gap-4"><p className="text-muted-foreground">사업을 찾을 수 없습니다</p><Button variant="outline" onClick={() => navigate("/service/projects")}>목록</Button></div></DashboardLayout>;
 
@@ -166,6 +338,8 @@ export default function ServiceProjectDetail() {
           </div>
         </div>
 
+        <DocumentLinksPanel module="SERVICE" recordId={p.id} recordPath={`/service/projects/${p.id}`} recordTitle={p.title} />
+
         {/* Milestone Timeline */}
         {milestones && milestones.length > 0 && (
           <div className="flex items-center gap-1 overflow-x-auto pb-2">
@@ -193,15 +367,20 @@ export default function ServiceProjectDetail() {
         )}
 
         {/* Tabs */}
-        <Tabs defaultValue="info">
-          <TabsList className="flex-wrap">
-            <TabsTrigger value="info">사업 정보</TabsTrigger>
-            <TabsTrigger value="milestones">마일스톤</TabsTrigger>
-            <TabsTrigger value="deliverables">성과물</TabsTrigger>
-            <TabsTrigger value="inspections">검수</TabsTrigger>
-            <TabsTrigger value="payments">대가지급</TabsTrigger>
-            <TabsTrigger value="issues">이슈</TabsTrigger>
-          </TabsList>
+        <Tabs
+          value={["info", "milestones", "deliverables", "inspections", "payments", "issues"].includes(searchParams.get("tab") || "") ? searchParams.get("tab")! : "info"}
+          onValueChange={(tab) => setSearchParams(tab === "info" ? {} : { tab }, { replace: true })}
+        >
+          <div className="-mx-1 overflow-x-auto px-1 pb-1">
+            <TabsList className="w-max min-w-full justify-start">
+              <TabsTrigger value="info">사업 정보</TabsTrigger>
+              <TabsTrigger value="milestones">마일스톤</TabsTrigger>
+              <TabsTrigger value="deliverables">성과물</TabsTrigger>
+              <TabsTrigger value="inspections">검수</TabsTrigger>
+              <TabsTrigger value="payments">대가지급</TabsTrigger>
+              <TabsTrigger value="issues">이슈</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Tab 1: Info */}
           <TabsContent value="info">
@@ -217,21 +396,23 @@ export default function ServiceProjectDetail() {
               </Card>
               <Card><CardHeader className="pb-2"><CardTitle className="text-xs uppercase text-muted-foreground font-mono">금액</CardTitle></CardHeader>
                 <CardContent>
-                  <InfoRow label="계약금액" value={`${p.contract_amount.toLocaleString()}원`} />
+                  <InfoRow label="계약금액" value={`${(p.contract_amount ?? 0).toLocaleString()}원`} />
                   <InfoRow label="부가세" value={`${(p.vat_amount || 0).toLocaleString()}원`} />
-                  <InfoRow label="총액" value={`${p.total_amount.toLocaleString()}원`} />
+                  <InfoRow label="총액" value={`${(p.total_amount ?? 0).toLocaleString()}원`} />
                   <InfoRow label="지급액" value={`${(p.paid_amount || 0).toLocaleString()}원`} />
                   <InfoRow label="잔액" value={`${(p.remaining_amount || 0).toLocaleString()}원`} />
                   <InfoRow label="지급률" value={`${Number(p.payment_rate || 0).toFixed(1)}%`} />
                 </CardContent>
               </Card>
-              <Card><CardHeader className="pb-2"><CardTitle className="text-xs uppercase text-muted-foreground font-mono">수행업체</CardTitle></CardHeader>
+              <Card><CardHeader className="pb-2"><div className="flex items-center justify-between"><CardTitle className="text-xs uppercase text-muted-foreground font-mono">수행업체</CardTitle>{canEdit && <Button variant="ghost" size="sm" onClick={openContactEditor}><Pencil className="mr-1 h-3.5 w-3.5" />연락망 수정</Button>}</div></CardHeader>
                 <CardContent>
                   <InfoRow label="업체명" value={p.contractor_name} />
                   <InfoRow label="사업자번호" value={p.contractor_business_number} />
                   <InfoRow label="대표자" value={p.contractor_representative} />
+                  <InfoRow label="주소" value={p.contractor_address} />
                   <InfoRow label="담당자" value={p.contractor_manager} />
-                  <InfoRow label="전화" value={p.contractor_phone} />
+                  <InfoRow label="대표전화" value={p.contractor_phone} />
+                  <InfoRow label="담당자 연락처" value={p.contractor_manager_phone} />
                   <InfoRow label="이메일" value={p.contractor_email} />
                 </CardContent>
               </Card>
@@ -314,12 +495,13 @@ export default function ServiceProjectDetail() {
 
           {/* Tab 4: Inspections */}
           <TabsContent value="inspections">
+            {canEdit && <div className="mb-3 flex justify-end"><Button size="sm" onClick={() => setInspectionOpen(true)}><Plus className="mr-1 h-4 w-4" />검수 생성</Button></div>}
             <Card><CardContent className="p-0">
               <Table>
                 <TableHeader><TableRow>
                   <TableHead>번호</TableHead><TableHead>유형</TableHead><TableHead>차수</TableHead>
                   <TableHead>검수일</TableHead><TableHead className="text-right">대상금액</TableHead>
-                  <TableHead className="text-right">승인금액</TableHead><TableHead>결과</TableHead><TableHead>상태</TableHead>
+                  <TableHead className="text-right">승인금액</TableHead><TableHead>결과</TableHead><TableHead>상태</TableHead><TableHead>실행</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {inspections?.map((i: any) => (
@@ -332,9 +514,19 @@ export default function ServiceProjectDetail() {
                       <TableCell className="text-right text-sm">{i.approved_amount ? formatServiceAmount(i.approved_amount) : "-"}</TableCell>
                       <TableCell>{i.result ? <Badge variant="outline" className={`text-[10px] ${RESULT_COLORS[i.result] || ''}`}>{RESULT_LABELS[i.result]}</Badge> : "-"}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px]">{INSPECTION_STATUS_LABELS[i.status]}</Badge></TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {canApprove && ["pending", "correction_submitted"].includes(i.status) && <Button size="sm" onClick={() => handleInspectionDecision(i, "approve")} disabled={workflowPending === i.id}>승인</Button>}
+                          {canApprove && ["pending", "correction_submitted"].includes(i.status) && <Button size="sm" variant="outline" onClick={() => setInspectionAction({ item: i, action: "require_correction" })}>보완</Button>}
+                          {canEdit && i.status === "correction_required" && <Button size="sm" variant="outline" onClick={() => setInspectionAction({ item: i, action: "submit_correction" })}>보완 제출</Button>}
+                          {canApprove && i.status === "approved" && !payments?.some((payment: any) => payment.inspection_id === i.id && payment.status !== "cancelled") && (
+                            <Button size="sm" variant="outline" onClick={() => handlePaymentRequest(i)} disabled={workflowPending === i.id}>지급 요청</Button>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
-                  {!inspections?.length && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">검수 내역 없음</TableCell></TableRow>}
+                  {!inspections?.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">검수 내역 없음</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </CardContent></Card>
@@ -348,7 +540,7 @@ export default function ServiceProjectDetail() {
                   <TableHead>번호</TableHead><TableHead>유형</TableHead><TableHead>차수</TableHead>
                   <TableHead className="text-right">청구금액</TableHead><TableHead className="text-right">공제</TableHead>
                   <TableHead className="text-right">실지급</TableHead><TableHead>청구일</TableHead>
-                  <TableHead>지급일</TableHead><TableHead>상태</TableHead>
+                  <TableHead>지급일</TableHead><TableHead>상태</TableHead><TableHead>실행</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {payments?.map((py: any) => (
@@ -362,9 +554,13 @@ export default function ServiceProjectDetail() {
                       <TableCell className="text-xs">{py.request_date}</TableCell>
                       <TableCell className="text-xs">{py.paid_date || "-"}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px]">{PAYMENT_STATUS_LABELS[py.status]}</Badge></TableCell>
+                      <TableCell>
+                        {canApprove && ["requested", "reviewing"].includes(py.status) && <Button size="sm" onClick={() => handlePaymentAction(py, "approve")} disabled={workflowPending === py.id}>지급 승인</Button>}
+                        {canApprove && py.status === "approved" && <Button size="sm" onClick={() => handlePaymentAction(py, "pay")} disabled={workflowPending === py.id}>지급 완료</Button>}
+                      </TableCell>
                     </TableRow>
                   ))}
-                  {!payments?.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">지급 내역 없음</TableCell></TableRow>}
+                  {!payments?.length && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">지급 내역 없음</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </CardContent></Card>
@@ -372,12 +568,13 @@ export default function ServiceProjectDetail() {
 
           {/* Tab 6: Issues */}
           <TabsContent value="issues">
+            {canEdit && <div className="mb-3 flex justify-end"><Button size="sm" onClick={() => setIssueOpen(true)}><Plus className="mr-1 h-4 w-4" />이슈 등록</Button></div>}
             <Card><CardContent className="p-0">
               <Table>
                 <TableHeader><TableRow>
                   <TableHead>번호</TableHead><TableHead>유형</TableHead><TableHead>심각도</TableHead>
                   <TableHead>제목</TableHead><TableHead className="text-right">금액영향</TableHead>
-                  <TableHead className="text-right">일정영향</TableHead><TableHead>상태</TableHead>
+                  <TableHead className="text-right">일정영향</TableHead><TableHead>상태</TableHead><TableHead>실행</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {issues?.map((i: any) => (
@@ -389,14 +586,92 @@ export default function ServiceProjectDetail() {
                       <TableCell className="text-right text-sm">{i.impact_amount ? formatServiceAmount(i.impact_amount) : "-"}</TableCell>
                       <TableCell className="text-right text-sm">{i.impact_days ? `${i.impact_days}일` : "-"}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px]">{ISSUE_STATUS_LABELS[i.status]}</Badge></TableCell>
+                      <TableCell>
+                        {canEdit && i.status === "open" && <Button size="sm" variant="outline" onClick={() => handleIssueStatus(i, "in_progress")} disabled={workflowPending === i.id}>처리 시작</Button>}
+                        {canEdit && i.status === "in_progress" && <Button size="sm" onClick={() => handleIssueStatus(i, "resolved")} disabled={workflowPending === i.id}>해결 완료</Button>}
+                      </TableCell>
                     </TableRow>
                   ))}
-                  {!issues?.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">이슈 없음</TableCell></TableRow>}
+                  {!issues?.length && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">등록된 이슈가 없습니다</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </CardContent></Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={inspectionOpen} onOpenChange={setInspectionOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>검수 생성</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>검수명 *</Label><Input value={inspectionForm.title} onChange={(event) => setInspectionForm((form) => ({ ...form, title: event.target.value }))} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>유형</Label>
+                  <Select value={inspectionForm.type} onValueChange={(value) => setInspectionForm((form) => ({ ...form, type: value }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{Object.entries(INSPECTION_TYPE_LABELS).map(([key, value]) => <SelectItem key={key} value={key}>{value}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div><Label>검수일</Label><Input type="date" value={inspectionForm.date} onChange={(event) => setInspectionForm((form) => ({ ...form, date: event.target.value }))} /></div>
+              </div>
+              <div><Label>대상금액 *</Label><Input type="number" value={inspectionForm.targetAmount} onChange={(event) => setInspectionForm((form) => ({ ...form, targetAmount: Number(event.target.value) || 0 }))} /></div>
+              <Button className="w-full" onClick={handleCreateInspection} disabled={!inspectionForm.title.trim() || inspectionForm.targetAmount <= 0 || workflowPending === "create-inspection"}>생성</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={contactOpen} onOpenChange={setContactOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader><DialogTitle>수행업체 연락망 수정</DialogTitle></DialogHeader>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div><Label>업체명 *</Label><Input value={contactForm.contractor_name} onChange={(event) => setContactForm((form) => ({ ...form, contractor_name: event.target.value }))} /></div>
+              <div><Label>사업자등록번호</Label><Input value={contactForm.contractor_business_number} onChange={(event) => setContactForm((form) => ({ ...form, contractor_business_number: event.target.value }))} /></div>
+              <div><Label>대표자</Label><Input value={contactForm.contractor_representative} onChange={(event) => setContactForm((form) => ({ ...form, contractor_representative: event.target.value }))} /></div>
+              <div><Label>대표전화</Label><Input type="tel" value={contactForm.contractor_phone} onChange={(event) => setContactForm((form) => ({ ...form, contractor_phone: event.target.value }))} /></div>
+              <div><Label>업체 담당자</Label><Input value={contactForm.contractor_manager} onChange={(event) => setContactForm((form) => ({ ...form, contractor_manager: event.target.value }))} /></div>
+              <div><Label>담당자 연락처</Label><Input type="tel" value={contactForm.contractor_manager_phone} onChange={(event) => setContactForm((form) => ({ ...form, contractor_manager_phone: event.target.value }))} /></div>
+              <div><Label>이메일</Label><Input type="email" value={contactForm.contractor_email} onChange={(event) => setContactForm((form) => ({ ...form, contractor_email: event.target.value }))} /></div>
+              <div><Label>주소</Label><Input value={contactForm.contractor_address} onChange={(event) => setContactForm((form) => ({ ...form, contractor_address: event.target.value }))} /></div>
+            </div>
+            <Button className="w-full" onClick={saveContact} disabled={!contactForm.contractor_name.trim() || contactSaving}>{contactSaving ? "저장 중..." : "연락망 저장"}</Button>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader><DialogTitle>용역 이슈 등록</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>유형</Label><Select value={issueForm.type} onValueChange={(type) => setIssueForm((form) => ({ ...form, type }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(ISSUE_TYPE_LABELS).map(([key, value]) => <SelectItem key={key} value={key}>{value}</SelectItem>)}</SelectContent></Select></div>
+                <div><Label>심각도</Label><Select value={issueForm.severity} onValueChange={(severity) => setIssueForm((form) => ({ ...form, severity }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(SEVERITY_LABELS).map(([key, value]) => <SelectItem key={key} value={key}>{value}</SelectItem>)}</SelectContent></Select></div>
+              </div>
+              <div><Label>제목 *</Label><Input value={issueForm.title} onChange={(event) => setIssueForm((form) => ({ ...form, title: event.target.value }))} /></div>
+              <div><Label>내용 *</Label><Textarea rows={4} value={issueForm.description} onChange={(event) => setIssueForm((form) => ({ ...form, description: event.target.value }))} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>금액 영향</Label><Input type="number" min={0} value={issueForm.impactAmount} onChange={(event) => setIssueForm((form) => ({ ...form, impactAmount: Number(event.target.value) || 0 }))} /></div>
+                <div><Label>일정 영향(일)</Label><Input type="number" min={0} value={issueForm.impactDays} onChange={(event) => setIssueForm((form) => ({ ...form, impactDays: Number(event.target.value) || 0 }))} /></div>
+              </div>
+              <Button className="w-full" onClick={handleCreateIssue} disabled={!issueForm.type || !issueForm.severity || !issueForm.title.trim() || !issueForm.description.trim() || workflowPending === "create-issue"}>이슈 등록</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={Boolean(inspectionAction)} onOpenChange={(open) => { if (!open) setInspectionAction(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>{inspectionAction?.action === "require_correction" ? "보완 요구" : "보완자료 제출"}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>{inspectionAction?.action === "require_correction" ? "보완 사유" : "보완 내용"} *</Label><Textarea value={actionNote} onChange={(event) => setActionNote(event.target.value)} rows={4} /></div>
+              {inspectionAction?.action === "require_correction" && <div><Label>보완 기한 *</Label><Input type="date" value={correctionDeadline} onChange={(event) => setCorrectionDeadline(event.target.value)} /></div>}
+              <Button
+                className="w-full"
+                onClick={() => inspectionAction && handleInspectionDecision(inspectionAction.item, inspectionAction.action)}
+                disabled={!actionNote.trim() || (inspectionAction?.action === "require_correction" && !correctionDeadline) || Boolean(workflowPending)}
+              >
+                {inspectionAction?.action === "require_correction" ? "보완 요구" : "제출"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Status Action Buttons */}
         {canEdit && (

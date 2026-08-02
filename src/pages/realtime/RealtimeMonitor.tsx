@@ -39,12 +39,11 @@ export default function RealtimeMonitor() {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'f' || e.key === 'F') toggleFullscreen();
       if (e.key === 'Escape') { exitFullscreen(); navigate('/realtime'); }
-      if (e.key === 's' || e.key === 'S') {} // auto-cycle toggle
       if (e.key === 'm' || e.key === 'M') setMuted(v => !v);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [navigate]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -62,11 +61,12 @@ export default function RealtimeMonitor() {
   };
 
   const { data: lots } = useQuery({
-    queryKey: ["monitor-lots"],
+    queryKey: ["realtime-status-all"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("lot_realtime_status")
-        .select("*, parking_lots(code, name, latitude, longitude)");
+        .select("*, parking_lots(code, name, latitude, longitude, lot_type)");
+      if (error) throw error;
       return data || [];
     },
     refetchInterval: 5000,
@@ -77,7 +77,7 @@ export default function RealtimeMonitor() {
     const channel = supabase
       .channel('monitor-status')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lot_realtime_status' }, (payload: any) => {
-        queryClient.invalidateQueries({ queryKey: ["monitor-lots"] });
+        queryClient.invalidateQueries({ queryKey: ["realtime-status-all"] });
         const n = payload.new;
         if (n) {
           const t = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });

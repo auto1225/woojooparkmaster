@@ -25,13 +25,15 @@ export default function OpsExemptionsPage() {
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
 
-  const { data: exemptions } = useQuery({ queryKey: ["fee-exemptions"], queryFn: async () => {
-    const { data } = await supabase.from("fee_exemptions").select("*").order("exemption_type");
+  const { data: exemptions, error: exemptionsError } = useQuery({ queryKey: ["fee-exemptions"], queryFn: async () => {
+    const { data, error } = await supabase.from("fee_exemptions").select("*").order("exemption_type");
+    if (error) throw error;
     return data || [];
   }});
 
-  const { data: lots } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
-    const { data } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+  const { data: lots, error: lotsError } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
+    const { data, error } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+    if (error) throw error;
     return data || [];
   }});
 
@@ -48,8 +50,10 @@ export default function OpsExemptionsPage() {
     try {
       const { id, ...payload } = form;
       if (payload.lot_id === "") payload.lot_id = null;
-      if (editing) await supabase.from("fee_exemptions").update(payload).eq("id", editing.id);
-      else await supabase.from("fee_exemptions").insert(payload);
+      const { error } = editing
+        ? await supabase.from("fee_exemptions").update(payload).eq("id", editing.id)
+        : await supabase.from("fee_exemptions").insert(payload);
+      if (error) throw error;
       toast({ title: "저장됨" });
       queryClient.invalidateQueries({ queryKey: ["fee-exemptions"] });
       setDialogOpen(false);
@@ -59,16 +63,36 @@ export default function OpsExemptionsPage() {
 
   const handleDelete = async () => {
     if (!editing) return;
-    await supabase.from("fee_exemptions").delete().eq("id", editing.id);
-    toast({ title: "삭제됨" });
-    queryClient.invalidateQueries({ queryKey: ["fee-exemptions"] });
-    setDialogOpen(false);
+    try {
+      const { error } = await supabase.from("fee_exemptions").delete().eq("id", editing.id);
+      if (error) throw error;
+      toast({ title: "삭제됨" });
+      queryClient.invalidateQueries({ queryKey: ["fee-exemptions"] });
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast({ title: "삭제 실패", description: err.message, variant: "destructive" });
+    }
   };
 
   const toggleActive = async (e: any) => {
-    await supabase.from("fee_exemptions").update({ is_active: !e.is_active }).eq("id", e.id);
-    queryClient.invalidateQueries({ queryKey: ["fee-exemptions"] });
+    try {
+      const { error } = await supabase.from("fee_exemptions").update({ is_active: !e.is_active }).eq("id", e.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["fee-exemptions"] });
+    } catch (err: any) {
+      toast({ title: "상태 변경 실패", description: err.message, variant: "destructive" });
+    }
   };
+
+  const queryError = exemptionsError || lotsError;
+
+  if (queryError) {
+    return (
+      <DashboardLayout>
+        <Card><CardContent className="py-10 text-center text-destructive">감면 정책을 불러오지 못했습니다: {queryError.message}</CardContent></Card>
+      </DashboardLayout>
+    );
+  }
 
   const renderTable = (items: any[]) => (
     <Table><TableHeader><TableRow>

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
+import { isModuleEnabled } from "@/lib/authorization";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ const MODULES = [
 export default function MasterHub() {
   const navigate = useNavigate();
   const { data: licenses } = useModuleLicenses();
-  const activeSet = new Set((licenses ?? []).filter(m => m.is_active).map(m => m.module_code));
+  const activeSet = new Set(MODULES.filter((module) => isModuleEnabled(licenses, module.code)).map((module) => module.code));
 
   const { data: counts = {} } = useQuery({
     queryKey: ['master-hub-counts'], queryFn: async () => {

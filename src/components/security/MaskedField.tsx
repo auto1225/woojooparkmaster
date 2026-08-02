@@ -1,7 +1,7 @@
 /** SEC-4: 마스킹 필드 컴포넌트 */
 import { useState, useEffect } from 'react';
 import { usePIIMasking } from '@/hooks/usePIIMasking';
-import type { PIIFieldType } from '@/lib/pii-masking';
+import { maskField, type PIIFieldType } from '@/lib/pii-masking';
 import { Button } from '@/components/ui/button';
 import { Eye, EyeOff, Shield } from 'lucide-react';
 import {
@@ -12,19 +12,23 @@ import {
 interface Props {
   value: string;
   field: PIIFieldType;
+  sourceField?: string;
+  alwaysMask?: boolean;
   table: string;
   recordId: string;
   createdBy?: string;
 }
 
-export function MaskedField({ value, field, table, recordId, createdBy }: Props) {
+export function MaskedField({ value, field, sourceField, alwaysMask = false, table, recordId, createdBy }: Props) {
   const { shouldMask, getMasked, requestUnmask, role } = usePIIMasking();
   const [showOriginal, setShowOriginal] = useState(false);
   const [originalValue, setOriginalValue] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const isMasked = shouldMask(field, createdBy);
-  const displayValue = showOriginal && originalValue ? originalValue : getMasked(value, field, createdBy);
+  const isMasked = alwaysMask || shouldMask(field, createdBy);
+  const displayValue = showOriginal && originalValue
+    ? originalValue
+    : alwaysMask ? maskField(value, field) : getMasked(value, field, createdBy);
 
   // Auto re-mask after 5 seconds
   useEffect(() => {
@@ -38,7 +42,7 @@ export function MaskedField({ value, field, table, recordId, createdBy }: Props)
 
   const handleUnmask = async () => {
     setConfirmOpen(false);
-    const val = await requestUnmask(table, recordId, field);
+    const val = await requestUnmask(table, recordId, sourceField || field);
     if (val) {
       setOriginalValue(val);
       setShowOriginal(true);
@@ -56,6 +60,8 @@ export function MaskedField({ value, field, table, recordId, createdBy }: Props)
       {canUnmask && (
         <>
           <Button variant="ghost" size="icon" className="h-5 w-5 ml-0.5"
+            aria-label={showOriginal ? "개인정보 다시 가리기" : "개인정보 열람"}
+            title={showOriginal ? "개인정보 다시 가리기" : "개인정보 열람"}
             onClick={() => showOriginal ? setShowOriginal(false) : setConfirmOpen(true)}>
             {showOriginal
               ? <EyeOff className="h-3 w-3 text-muted-foreground" />

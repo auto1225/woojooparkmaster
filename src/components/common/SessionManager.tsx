@@ -57,7 +57,7 @@ export function SessionManager() {
       ACTIVITY_EVENTS.forEach((e) => window.removeEventListener(e, onActivity));
       window.removeEventListener("storage", onStorage);
     };
-  }, [user, resetTimers, showWarning]);
+  }, [user, resetTimers, showWarning, signOut]);
 
   const handleContinue = () => {
     setShowWarning(false);

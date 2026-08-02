@@ -2688,6 +2688,10 @@ export type Database = {
           total_maintenance_cost: number | null
           updated_at: string | null
           useful_life_years: number | null
+          vendor_email: string | null
+          vendor_manager: string | null
+          vendor_name: string | null
+          vendor_phone: string | null
           warranty_end: string | null
           warranty_start: string | null
         }
@@ -2727,6 +2731,10 @@ export type Database = {
           total_maintenance_cost?: number | null
           updated_at?: string | null
           useful_life_years?: number | null
+          vendor_email?: string | null
+          vendor_manager?: string | null
+          vendor_name?: string | null
+          vendor_phone?: string | null
           warranty_end?: string | null
           warranty_start?: string | null
         }
@@ -2766,6 +2774,10 @@ export type Database = {
           total_maintenance_cost?: number | null
           updated_at?: string | null
           useful_life_years?: number | null
+          vendor_email?: string | null
+          vendor_manager?: string | null
+          vendor_name?: string | null
+          vendor_phone?: string | null
           warranty_end?: string | null
           warranty_start?: string | null
         }
@@ -3375,7 +3387,10 @@ export type Database = {
           total_cost: number | null
           updated_at: string | null
           vendor_contact: string | null
+          vendor_email: string | null
+          vendor_manager: string | null
           vendor_name: string | null
+          vendor_phone: string | null
         }
         Insert: {
           after_photo?: string | null
@@ -3415,7 +3430,10 @@ export type Database = {
           total_cost?: number | null
           updated_at?: string | null
           vendor_contact?: string | null
+          vendor_email?: string | null
+          vendor_manager?: string | null
           vendor_name?: string | null
+          vendor_phone?: string | null
         }
         Update: {
           after_photo?: string | null
@@ -3455,7 +3473,10 @@ export type Database = {
           total_cost?: number | null
           updated_at?: string | null
           vendor_contact?: string | null
+          vendor_email?: string | null
+          vendor_manager?: string | null
           vendor_name?: string | null
+          vendor_phone?: string | null
         }
         Relationships: [
           {
@@ -3552,7 +3573,10 @@ export type Database = {
           schedule_name: string
           schedule_type: string
           updated_at: string | null
+          vendor_email: string | null
+          vendor_manager: string | null
           vendor_name: string | null
+          vendor_phone: string | null
         }
         Insert: {
           advance_notice_days?: number | null
@@ -3575,7 +3599,10 @@ export type Database = {
           schedule_name: string
           schedule_type: string
           updated_at?: string | null
+          vendor_email?: string | null
+          vendor_manager?: string | null
           vendor_name?: string | null
+          vendor_phone?: string | null
         }
         Update: {
           advance_notice_days?: number | null
@@ -3598,7 +3625,10 @@ export type Database = {
           schedule_name?: string
           schedule_type?: string
           updated_at?: string | null
+          vendor_email?: string | null
+          vendor_manager?: string | null
           vendor_name?: string | null
+          vendor_phone?: string | null
         }
         Relationships: [
           {

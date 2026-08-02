@@ -1,6 +1,10 @@
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+@font-face {
+  font-family: 'Nanum Gothic';
+  src: url('/fonts/NanumGothic-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;
@@ -72,9 +76,9 @@
     --shadow-glow: 0 0 20px rgba(30, 86, 224, 0.15);
 
     /* Typography */
-    --font-display: 'Plus Jakarta Sans', 'Pretendard Variable', sans-serif;
-    --font-sans: 'Pretendard Variable', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    --font-display: 'Nanum Gothic', system-ui, sans-serif;
+    --font-sans: 'Nanum Gothic', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
 
     /* Charts */
     --chart-1: 221 83% 53%;

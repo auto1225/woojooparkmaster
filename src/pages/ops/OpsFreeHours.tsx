@@ -25,14 +25,16 @@ export default function OpsFreeHoursPage() {
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
 
-  const { data: lots } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
-    const { data } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+  const { data: lots, error: lotsError } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
+    const { data, error } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+    if (error) throw error;
     return data || [];
   }});
 
-  const { data: settings } = useQuery({ queryKey: ["free-hours", selectedLot], queryFn: async () => {
+  const { data: settings, error: settingsError } = useQuery({ queryKey: ["free-hours", selectedLot], queryFn: async () => {
     if (!selectedLot) return [];
-    const { data } = await supabase.from("free_hours_settings").select("*").eq("lot_id", selectedLot).order("day_type");
+    const { data, error } = await supabase.from("free_hours_settings").select("*").eq("lot_id", selectedLot).order("day_type");
+    if (error) throw error;
     return data || [];
   }, enabled: !!selectedLot });
 
@@ -47,8 +49,10 @@ export default function OpsFreeHoursPage() {
     setSaving(true);
     try {
       const { id, parking_lots, created_at, ...payload } = form;
-      if (editing) await supabase.from("free_hours_settings").update(payload).eq("id", editing.id);
-      else await supabase.from("free_hours_settings").insert(payload);
+      const { error } = editing
+        ? await supabase.from("free_hours_settings").update(payload).eq("id", editing.id)
+        : await supabase.from("free_hours_settings").insert(payload);
+      if (error) throw error;
       toast({ title: "저장됨" });
       queryClient.invalidateQueries({ queryKey: ["free-hours"] });
       setDialogOpen(false);
@@ -58,16 +62,36 @@ export default function OpsFreeHoursPage() {
 
   const handleDelete = async () => {
     if (!editing) return;
-    await supabase.from("free_hours_settings").delete().eq("id", editing.id);
-    toast({ title: "삭제됨" });
-    queryClient.invalidateQueries({ queryKey: ["free-hours"] });
-    setDialogOpen(false);
+    try {
+      const { error } = await supabase.from("free_hours_settings").delete().eq("id", editing.id);
+      if (error) throw error;
+      toast({ title: "삭제됨" });
+      queryClient.invalidateQueries({ queryKey: ["free-hours"] });
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast({ title: "삭제 실패", description: err.message, variant: "destructive" });
+    }
   };
 
   const toggleActive = async (s: any) => {
-    await supabase.from("free_hours_settings").update({ is_active: !s.is_active }).eq("id", s.id);
-    queryClient.invalidateQueries({ queryKey: ["free-hours"] });
+    try {
+      const { error } = await supabase.from("free_hours_settings").update({ is_active: !s.is_active }).eq("id", s.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["free-hours"] });
+    } catch (err: any) {
+      toast({ title: "상태 변경 실패", description: err.message, variant: "destructive" });
+    }
   };
+
+  const queryError = lotsError || settingsError;
+
+  if (queryError) {
+    return (
+      <DashboardLayout>
+        <Card><CardContent className="py-10 text-center text-destructive">무료개방 설정을 불러오지 못했습니다: {queryError.message}</CardContent></Card>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

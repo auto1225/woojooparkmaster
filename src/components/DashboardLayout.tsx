@@ -1,12 +1,14 @@
+import { useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { OfficialDocumentDialog } from "@/components/documents/OfficialDocumentDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
-import { Bell, LogOut, ClipboardCheck, Sun, Moon, User, Settings, Search, ChevronRight, ArrowLeft } from "lucide-react";
+import { Bell, LogOut, ClipboardCheck, Sun, Moon, User, Settings, Search, ChevronRight, ArrowLeft, FilePlus2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MobileBottomNav } from "@/components/common/MobileBottomNav";
@@ -14,12 +16,16 @@ import { ScrollToTop } from "@/components/common/ScrollToTop";
 import { useTheme } from "@/hooks/useTheme";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useOperationalMonitor } from "@/hooks/useOperationalMonitor";
 
 const BREADCRUMB_MAP: Record<string, { label: string; parent?: string }> = {
   "/": { label: "대시보드" },
   "/lots": { label: "주차장 관리" },
   "/lots/new": { label: "등록", parent: "/lots" },
   "/approvals": { label: "결재함" },
+  "/team-work": { label: "팀 업무관리" },
+  "/team-work/duties": { label: "업무분장", parent: "/team-work" },
+  "/business-cards": { label: "명함관리" },
   "/surveys": { label: "현황조사" },
   "/ops": { label: "운영관리" },
   "/ops/staff": { label: "인력 관리", parent: "/ops" },
@@ -115,6 +121,9 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  useOperationalMonitor();
+  const queryClient = useQueryClient();
+  const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const { profile, signOut } = useAuth();
   const { data: config } = useSystemConfig();
   const { toggleTheme, isDark } = useTheme();
@@ -165,7 +174,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AppSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
           {/* Premium Header */}
           <header className="h-14 flex items-center gap-3 border-b border-border/60 bg-card px-4 sm:px-6 shrink-0 shadow-xs">
             <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
@@ -177,7 +186,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </Button>
             )}
             {/* Breadcrumb */}
-            <nav className="flex items-center gap-1 min-w-0">
+            <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-hidden sm:flex">
               {breadcrumbs.map((crumb, i) => (
                 <div key={crumb.path} className="flex items-center gap-1">
                   {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />}
@@ -193,7 +202,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </nav>
 
             {/* Right action bar */}
-            <div className="ml-auto flex items-center gap-1">
+            <div className="ml-auto flex shrink-0 items-center gap-1">
               {/* Search trigger */}
               {!isMobile ? (
                 <button
@@ -201,7 +210,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   className="flex items-center gap-2 h-8 px-3 rounded-lg border border-border bg-sunken text-muted-foreground text-xs hover:border-primary/30 transition-colors w-[180px]"
                 >
                   <Search className="h-3.5 w-3.5" />
-                  <span>검색...</span>
+                  <span>찾기...</span>
                   <kbd className="ml-auto text-[10px] font-mono bg-card border rounded px-1 py-0.5">⌘K</kbd>
                 </button>
               ) : (
@@ -209,6 +218,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <Search className="h-4 w-4" />
                 </Button>
               )}
+
+              <Button
+                variant="outline"
+                size={isMobile ? "icon" : "sm"}
+                className={isMobile ? "h-9 w-9" : "h-8 gap-1.5"}
+                title="공식 문서 등록"
+                onClick={() => setDocumentDialogOpen(true)}
+              >
+                <FilePlus2 className="h-4 w-4" />
+                {!isMobile && <span>문서 등록</span>}
+              </Button>
 
               {/* Approvals */}
               <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-sunken relative" onClick={() => navigate("/approvals")}>
@@ -295,11 +315,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </header>
 
-          <main className="flex-1 p-5 sm:p-8 overflow-auto bg-background pb-20 md:pb-8">
+          <main className="flex-1 min-h-0 p-5 sm:p-8 overflow-auto bg-background">
             {children}
           </main>
           <MobileBottomNav />
           <ScrollToTop />
+          <OfficialDocumentDialog
+            open={documentDialogOpen}
+            onOpenChange={setDocumentDialogOpen}
+            onCreated={async () => {
+              await queryClient.invalidateQueries({ queryKey: ["official-document-list"] });
+            }}
+          />
         </div>
       </div>
     </SidebarProvider>

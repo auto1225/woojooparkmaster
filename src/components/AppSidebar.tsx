@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useLayoutEffect, useMemo } from "react";
-import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText, Radio, Cpu, Server, Monitor, Key, FileBarChart, CalendarClock, LayoutTemplate, PanelLeftClose, PanelLeftOpen, GripVertical, ExternalLink } from "lucide-react";
+import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText, Radio, Cpu, Server, Monitor, Key, FileBarChart, CalendarClock, LayoutTemplate, PanelLeftClose, PanelLeftOpen, GripVertical, ExternalLink, GitCompareArrows, ContactRound } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -19,8 +19,14 @@ import {
   useSortable, arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { runtimeConfig } from "@/config/runtime-config";
+import { isModuleEnabled } from "@/lib/authorization";
 
 const coreMenuItems = [
+  { title: "문서대장", url: "/documents", icon: FileText },
+  { title: "팀 업무관리", url: "/team-work", icon: ClipboardList, end: true },
+  { title: "업무분장", url: "/team-work/duties", icon: Users },
+  { title: "명함관리", url: "/business-cards", icon: ContactRound },
   { title: "대시보드", url: "/", icon: LayoutDashboard, end: true },
   { title: "종합 현황", url: "/master", icon: PanelLeftOpen },
   { title: "결재함", url: "/approvals", icon: ClipboardCheck },
@@ -36,6 +42,8 @@ const opsSubMenu = [
   { title: "월정기권", url: "/ops/passes", icon: CreditCard },
   { title: "단속 기록", url: "/ops/enforcement", icon: Shield },
   { title: "무료개방", url: "/ops/free-hours", icon: Clock },
+  { title: "방치차량 처리", url: "/ops/abandoned-vehicles", icon: Car },
+  { title: "관제·보안 점검", url: "/ops/security-inspections", icon: ShieldCheck },
 ];
 
 const facilitySubMenu = [
@@ -84,10 +92,12 @@ const complaintSubMenu = [
 
 const planningSubMenu = [
   { title: "기획 현황", url: "/planning", icon: Compass, end: true },
+  { title: "사업 의사결정", url: "/planning/decisions", icon: GitCompareArrows },
   { title: "후보부지", url: "/planning/sites", icon: MapPin },
   { title: "공사 관리", url: "/planning/projects", icon: HardHat },
   { title: "도면 관리", url: "/planning/documents", icon: FileImage },
   { title: "인허가", url: "/planning/permits", icon: ScrollText },
+  { title: "사업 행정절차", url: "/planning/procedures", icon: ClipboardList },
 ];
 
 const realtimeSubMenu = [
@@ -224,8 +234,8 @@ export function AppSidebar() {
   // Active modules
   const activeModuleIds = useMemo(() => {
     const set = new Set<string>();
-    (licenses ?? []).forEach((m) => {
-      if (m.is_active) set.add(m.module_code);
+    ALL_MODULES.forEach((module) => {
+      if (isModuleEnabled(licenses, module.licenseKey)) set.add(module.id);
     });
     return set;
   }, [licenses]);
@@ -243,13 +253,13 @@ export function AppSidebar() {
     // First add items in stored order
     for (const id of moduleOrder) {
       const mod = moduleMap.get(id);
-      if (mod && activeModuleIds.has(mod.licenseKey)) {
+      if (mod && activeModuleIds.has(mod.id)) {
         ordered.push(mod);
       }
     }
     // Then add any new modules not in stored order
     for (const mod of ALL_MODULES) {
-      if (activeModuleIds.has(mod.licenseKey) && !moduleOrder.includes(mod.id)) {
+      if (activeModuleIds.has(mod.id) && !moduleOrder.includes(mod.id)) {
         ordered.push(mod);
       }
     }
@@ -274,10 +284,11 @@ export function AppSidebar() {
 
   const isAdmin = profile?.role === "admin";
   // 센서 관제 콘솔(외부) URL — 환경변수로 오버라이드 가능
-  const SENSOR_CONSOLE_URL = (import.meta as any).env?.VITE_SENSOR_CONSOLE_URL || "https://console.woojoocha.com";
+  const SENSOR_CONSOLE_URL = runtimeConfig.sensorConsoleUrl;
   // Sensor Monitoring 메뉴 노출 허용 계정(내 계정만). 이메일은 소문자 비교.
   const SENSOR_CONSOLE_EMAILS = ["cmh@woojoocha.com"];
-  const canSeeConsole = SENSOR_CONSOLE_EMAILS.includes(((user?.email || profile?.email || "").toLowerCase()));
+  const canSeeConsole = Boolean(SENSOR_CONSOLE_URL)
+    && SENSOR_CONSOLE_EMAILS.includes(((user?.email || profile?.email || "").toLowerCase()));
 
   // 외부 링크 메뉴(새 탭) — 관리자 전용 Sensor Monitoring 콘솔용
   const renderExternal = (item: { title: string; href: string; icon: any }) => (
@@ -313,7 +324,7 @@ export function AppSidebar() {
             <TooltipTrigger asChild>
               <NavLink to={item.url} end={item.end}
                 className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150"
-                activeClassName="bg-primary/20 text-primary-foreground border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.15)]">
+                activeClassName="bg-white/[0.14] !text-white border-l-[3px] border-l-white shadow-sm">
                 <item.icon className="h-[18px] w-[18px] shrink-0" />
               </NavLink>
             </TooltipTrigger>
@@ -322,7 +333,7 @@ export function AppSidebar() {
         ) : (
           <NavLink to={item.url} end={item.end}
             className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-3 px-3"
-            activeClassName="bg-primary/20 !text-[hsl(var(--sidebar-primary))] border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.15)] font-semibold">
+            activeClassName="bg-white/[0.14] !text-white border-l-[3px] border-l-white shadow-sm font-semibold">
             <item.icon className="mr-2.5 h-[20px] w-[20px] shrink-0" />
             <span className="text-[17px]">{item.title}</span>
           </NavLink>
@@ -355,7 +366,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} end={item.end}
                      className="text-sidebar-foreground hover:text-white hover:bg-white/[0.06] rounded-lg py-2.5 px-2.5 transition-all duration-150"
-                      activeClassName="!text-[hsl(var(--sidebar-primary))] bg-primary/10 border-l-2 border-l-primary font-semibold">
+                      activeClassName="!text-white bg-white/[0.12] border-l-2 border-l-white/90 font-semibold">
                       <span className="text-[16px]">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>

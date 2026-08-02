@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { PHOTO_CATEGORIES } from "@/types/survey";
 import type { SurveyPhoto } from "@/types/survey";
 import { Camera, X, ZoomIn } from "lucide-react";
+import { savePhotoOffline } from "@/lib/offline-survey";
 
 interface Props {
   surveyId: string;
@@ -27,6 +28,11 @@ export function StepPhotos({ surveyId, photos, onRefresh, readOnly }: Props) {
   const handleUpload = async (file: File, category: string) => {
     setUploadingCat(category);
     try {
+      if (!navigator.onLine) {
+        await savePhotoOffline(surveyId, file, file.name, category, photos.filter(p => p.category === category).length);
+        toast({ title: "사진이 오프라인 저장되었습니다", description: "연결되면 자동으로 업로드합니다." });
+        return;
+      }
       const ext = file.name.split(".").pop() || "jpg";
       const path = `${surveyId}/${category}_${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage.from("survey-photos").upload(path, file);
@@ -42,7 +48,12 @@ export function StepPhotos({ surveyId, photos, onRefresh, readOnly }: Props) {
       toast({ title: "업로드 완료" });
       onRefresh();
     } catch (err: any) {
-      toast({ title: "업로드 실패", description: err.message, variant: "destructive" });
+      if (!navigator.onLine || /fetch|network|connection/i.test(err.message || "")) {
+        await savePhotoOffline(surveyId, file, file.name, category, photos.filter(p => p.category === category).length);
+        toast({ title: "사진이 오프라인 저장되었습니다", description: "연결되면 자동으로 업로드합니다." });
+      } else {
+        toast({ title: "업로드 실패", description: err.message, variant: "destructive" });
+      }
     } finally {
       setUploadingCat(null);
     }

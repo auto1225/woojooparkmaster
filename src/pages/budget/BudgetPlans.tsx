@@ -153,7 +153,8 @@ function PlanDetail() {
 
   const toggleExpand = (id: string) => {
     const next = new Set(expanded);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
     setExpanded(next);
   };
 
@@ -195,7 +196,7 @@ function PlanDetail() {
     refetchItems();
   };
 
-  const handleUpdateAmount = async (itemId: string, field: string, value: number) => {
+  const handleUpdateAmount = async (itemId: string, field: 'planned_amount', value: number) => {
     const { error } = await supabase.from('budget_items').update({ [field]: value }).eq('id', itemId);
     if (error) toast.error(error.message);
     else refetchItems();

@@ -1,5 +1,7 @@
 /** SEC-C-4: 프론트엔드 권한 체크 훅 */
 import { useAuth } from "@/hooks/useAuth";
+import { useModuleLicenses } from "@/hooks/useSystemConfig";
+import { isModuleEnabled } from "@/lib/authorization";
 
 export interface Permission {
   canView: boolean;
@@ -13,9 +15,13 @@ export interface Permission {
 const ALL_TRUE: Permission = { canView: true, canCreate: true, canEdit: true, canDelete: true, canApprove: true, canExport: true };
 const ALL_FALSE: Permission = { canView: false, canCreate: false, canEdit: false, canDelete: false, canApprove: false, canExport: false };
 
-export function useAuthorization(_module?: string): Permission {
+export function useAuthorization(module?: string): Permission {
   const { profile } = useAuth();
+  const { data: licenses } = useModuleLicenses();
   const role = profile?.role;
+  const moduleEnabled = !module || isModuleEnabled(licenses, module.toUpperCase());
+
+  if (!moduleEnabled) return ALL_FALSE;
 
   switch (role) {
     case 'admin':

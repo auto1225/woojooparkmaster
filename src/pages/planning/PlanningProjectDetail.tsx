@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +12,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
+import { handoffConstructionToOperations, setConstructionCompletionCheck } from "@/lib/workflow-commands";
 import {
   PHASE_LABELS, PHASE_ORDER, PROJECT_TYPE_LABELS,
   CONSTRUCTION_STATUS_LABELS, CONSTRUCTION_STATUS_COLORS,
@@ -28,19 +34,76 @@ export default function PlanningProjectDetail() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const [checkInputs, setCheckInputs] = useState<Record<string, { evidencePath: string; notes: string }>>({});
+  const [handoffForm, setHandoffForm] = useState({ lotCode: "", lotName: "", totalSpaces: "", addressRoad: "" });
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["planning-project", id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("construction_projects")
-        .select("*")
+        .select("*, site:site_candidates(*), parking_lot:parking_lots(code, name, address_road, total_spaces)")
         .eq("id", id!)
         .single();
       if (error) throw error;
       return data;
     },
     enabled: !!id,
+  });
+
+  useEffect(() => {
+    if (!project) return;
+    const site = (project as any).site;
+    const existingLot = (project as any).parking_lot;
+    setHandoffForm((current) => ({
+      lotCode: current.lotCode || existingLot?.code || `LOT-${project.project_number.replace(/[^a-zA-Z0-9]/g, "").slice(-8)}`,
+      lotName: current.lotName || existingLot?.name || site?.name || project.project_name.replace(/(조성|건설|공사)\s*사업?$/g, "").trim(),
+      totalSpaces: current.totalSpaces || String(existingLot?.total_spaces || site?.estimated_spaces || ""),
+      addressRoad: current.addressRoad || existingLot?.address_road || site?.address_road || "",
+    }));
+  }, [project]);
+
+  const { data: completionChecks } = useQuery({
+    queryKey: ["construction-completion-checks", id],
+    queryFn: async () => {
+      const { error: ensureError } = await (supabase.rpc as any)("ensure_construction_completion_checklist", { p_project_id: id });
+      if (ensureError) throw ensureError;
+      const { data, error } = await (supabase as any).from("construction_completion_checks")
+        .select("*")
+        .eq("project_id", id)
+        .order("sort_order");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  const checkMutation = useMutation({
+    mutationFn: ({ check, completed }: { check: any; completed: boolean }) => {
+      const input = checkInputs[check.id] || { evidencePath: check.evidence_path || "", notes: check.notes || "" };
+      return setConstructionCompletionCheck(check.id, completed, input);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["construction-completion-checks", id] });
+      toast({ title: "준공 체크 항목을 저장했습니다" });
+    },
+    onError: (error: Error) => toast({ title: "체크 항목 저장 실패", description: error.message, variant: "destructive" }),
+  });
+
+  const handoffMutation = useMutation({
+    mutationFn: () => handoffConstructionToOperations(id!, {
+      lotCode: handoffForm.lotCode,
+      lotName: handoffForm.lotName,
+      totalSpaces: Number(handoffForm.totalSpaces),
+      addressRoad: handoffForm.addressRoad,
+    }),
+    onSuccess: (lotId) => {
+      queryClient.invalidateQueries({ queryKey: ["planning-project", id] });
+      queryClient.invalidateQueries({ queryKey: ["parking-lots"] });
+      toast({ title: "준공 사업을 주차장 운영 원장으로 전환했습니다" });
+      navigate(`/lots/${lotId}`);
+    },
+    onError: (error: Error) => toast({ title: "운영 전환 실패", description: error.message, variant: "destructive" }),
   });
 
   const { data: docs } = useQuery({
@@ -76,8 +139,12 @@ export default function PlanningProjectDetail() {
 
   const handlePhaseChange = async (newPhase: string) => {
     if (!project) return;
+    if (newPhase === "completion") {
+      toast({ title: "준공·운영 전환 탭에서 필수 체크 후 완료해 주세요", variant: "destructive" });
+      return;
+    }
     const { error } = await supabase.from("construction_projects")
-      .update({ phase: newPhase, status: newPhase === 'completion' ? 'completed' : project.status } as any)
+      .update({ phase: newPhase } as any)
       .eq("id", project.id);
     if (error) { toast({ title: "변경 실패", variant: "destructive" }); return; }
     toast({ title: `단계 변경: ${PHASE_LABELS[newPhase]}` });
@@ -112,6 +179,8 @@ export default function PlanningProjectDetail() {
           </div>
         </div>
 
+        <DocumentLinksPanel module="PLANNING" recordId={project.id} recordPath={`/planning/projects/${project.id}`} recordTitle={project.project_name} />
+
         {/* Phase Step Bar */}
         <Card>
           <CardContent className="py-4">
@@ -136,11 +205,14 @@ export default function PlanningProjectDetail() {
         </Card>
 
         <Tabs defaultValue="info">
-          <TabsList>
-            <TabsTrigger value="info">사업정보</TabsTrigger>
-            <TabsTrigger value="docs">도면 ({(docs || []).length})</TabsTrigger>
-            <TabsTrigger value="permits">인허가 ({(permits || []).length})</TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto">
+            <TabsList className="min-w-max">
+              <TabsTrigger value="info">사업정보</TabsTrigger>
+              <TabsTrigger value="docs">도면 ({(docs || []).length})</TabsTrigger>
+              <TabsTrigger value="permits">인허가 ({(permits || []).length})</TabsTrigger>
+              <TabsTrigger value="completion">준공·운영 전환</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="info" className="space-y-4 mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -249,6 +321,96 @@ export default function PlanningProjectDetail() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="completion" className="mt-4 space-y-4">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)] gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center justify-between">
+                    <span>준공 체크리스트</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {(completionChecks || []).filter((check: any) => check.is_completed).length}/{(completionChecks || []).length} 완료
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {(completionChecks || []).map((check: any) => {
+                    const input = checkInputs[check.id] || { evidencePath: check.evidence_path || "", notes: check.notes || "" };
+                    return (
+                      <div key={check.id} className="border-b pb-3 last:border-b-0 last:pb-0">
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={check.is_completed}
+                            disabled={!canEdit || checkMutation.isPending}
+                            onCheckedChange={(value) => checkMutation.mutate({ check, completed: value === true })}
+                          />
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium">{check.label}</p>
+                              {check.requires_evidence && <Badge variant="outline" className="text-[10px]">증빙 필수</Badge>}
+                            </div>
+                            {!check.is_completed && canEdit && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <Input
+                                  value={input.evidencePath}
+                                  onChange={(event) => setCheckInputs((current) => ({ ...current, [check.id]: { ...input, evidencePath: event.target.value } }))}
+                                  placeholder={check.requires_evidence ? "증빙 문서 경로 또는 문서번호" : "증빙 경로 (선택)"}
+                                />
+                                <Input
+                                  value={input.notes}
+                                  onChange={(event) => setCheckInputs((current) => ({ ...current, [check.id]: { ...input, notes: event.target.value } }))}
+                                  placeholder="확인 메모"
+                                />
+                              </div>
+                            )}
+                            {check.is_completed && (
+                              <p className="text-xs text-muted-foreground">
+                                {check.evidence_path ? `증빙: ${check.evidence_path}` : "증빙 없음"}
+                                {check.notes ? ` | ${check.notes}` : ""}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">주차장 운영 원장 전환</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  {project.status === "completed" && project.lot_id ? (
+                    <div className="space-y-3 text-center py-4">
+                      <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto" />
+                      <p className="text-sm font-medium">운영 전환 완료</p>
+                      <Button variant="outline" onClick={() => navigate(`/lots/${project.lot_id}`)}>
+                        <ExternalLink className="h-4 w-4 mr-1" />주차장 원장 보기
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div><Label>주차장 코드</Label><Input value={handoffForm.lotCode} disabled={!!project.lot_id} onChange={(event) => setHandoffForm({ ...handoffForm, lotCode: event.target.value })} /></div>
+                      <div><Label>주차장 명칭</Label><Input value={handoffForm.lotName} disabled={!!project.lot_id} onChange={(event) => setHandoffForm({ ...handoffForm, lotName: event.target.value })} /></div>
+                      <div><Label>총 주차면</Label><Input type="number" min={1} value={handoffForm.totalSpaces} onChange={(event) => setHandoffForm({ ...handoffForm, totalSpaces: event.target.value })} /></div>
+                      <div><Label>도로명 주소</Label><Input value={handoffForm.addressRoad} disabled={!!project.lot_id} onChange={(event) => setHandoffForm({ ...handoffForm, addressRoad: event.target.value })} /></div>
+                      <div className="rounded border bg-muted/30 p-3 text-xs text-muted-foreground">
+                        필수 체크와 인허가 승인을 서버에서 다시 검증한 뒤 주차장 원장을 생성하거나 기존 원장을 운영 상태로 전환합니다.
+                      </div>
+                      <Button
+                        className="w-full"
+                        disabled={!['admin', 'manager'].includes(profile?.role || '') || handoffMutation.isPending || !handoffForm.totalSpaces}
+                        onClick={() => handoffMutation.mutate()}
+                      >
+                        {handoffMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                        준공 승인 및 운영 전환
+                      </Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

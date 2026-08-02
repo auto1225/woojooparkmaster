@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { ArrowLeft, Plus, Check, X, Upload } from "lucide-react";
 export default function ProcurementProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { profile } = useAuth();
   const isAdmin = profile && ['admin', 'manager'].includes(profile.role);
   const [addSubmissionOpen, setAddSubmissionOpen] = useState(false);
@@ -224,7 +226,12 @@ export default function ProcurementProjectDetail() {
           </div>
         </div>
 
-        <Tabs defaultValue="info">
+        <DocumentLinksPanel module="PROCUREMENT" recordId={project.id} recordPath={`/procurement/projects/${project.id}`} recordTitle={project.title} />
+
+        <Tabs
+          value={["info", "submissions", "evaluation", "contract", "documents"].includes(searchParams.get("tab") || "") ? searchParams.get("tab")! : "info"}
+          onValueChange={(tab) => setSearchParams(tab === "info" ? {} : { tab }, { replace: true })}
+        >
           <TabsList>
             <TabsTrigger value="info">사업 정보</TabsTrigger>
             <TabsTrigger value="submissions">참여 업체 ({submissions?.length || 0})</TabsTrigger>

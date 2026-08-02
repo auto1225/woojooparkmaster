@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -12,14 +13,18 @@ import {
   getScheduleTypeClassName,
   getScheduleTypeLabel,
 } from "@/lib/facility-schedule";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
+import { PauseCircle, Pencil, PlayCircle } from "lucide-react";
 
 interface ScheduleDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   schedule: MaintenanceSchedule | null;
+  onEdit?: (schedule: MaintenanceSchedule) => void;
+  onToggleActive?: (schedule: MaintenanceSchedule) => void;
 }
 
-export function ScheduleDetailSheet({ open, onOpenChange, schedule }: ScheduleDetailSheetProps) {
+export function ScheduleDetailSheet({ open, onOpenChange, schedule, onEdit, onToggleActive }: ScheduleDetailSheetProps) {
   const isMobile = useIsMobile();
 
   if (!schedule) return null;
@@ -44,6 +49,13 @@ export function ScheduleDetailSheet({ open, onOpenChange, schedule }: ScheduleDe
           <SheetDescription>
             {schedule.description || "등록된 점검 설명이 없습니다."}
           </SheetDescription>
+          {(onEdit || onToggleActive) && <div className="flex gap-2 pt-3">
+            {onEdit && <Button variant="outline" size="sm" onClick={() => onEdit(schedule)}><Pencil className="mr-1.5 h-4 w-4" />수정</Button>}
+            {onToggleActive && <Button variant="outline" size="sm" onClick={() => onToggleActive(schedule)}>
+              {schedule.is_active ? <PauseCircle className="mr-1.5 h-4 w-4" /> : <PlayCircle className="mr-1.5 h-4 w-4" />}
+              {schedule.is_active ? "일정 중지" : "일정 재개"}
+            </Button>}
+          </div>}
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
@@ -63,6 +75,9 @@ export function ScheduleDetailSheet({ open, onOpenChange, schedule }: ScheduleDe
               <DetailRow label="사전 알림" value={`${schedule.advance_notice_days}일 전`} />
               <DetailRow label="최근 완료일" value={formatScheduleDate(schedule.last_completed)} />
               <DetailRow label="협력업체" value={schedule.vendor_name || "-"} />
+              <DetailRow label="업체 담당자" value={schedule.vendor_manager || "-"} />
+              <DetailRow label="담당자 연락처" value={schedule.vendor_phone || "-"} />
+              <DetailRow label="담당자 이메일" value={schedule.vendor_email || "-"} />
               <DetailRow label="담당 팀" value={schedule.assigned_team || "-"} />
             </dl>
           </section>
@@ -92,6 +107,12 @@ export function ScheduleDetailSheet({ open, onOpenChange, schedule }: ScheduleDe
               <p className="mt-4 text-sm text-muted-foreground">등록된 체크리스트가 없습니다.</p>
             )}
           </section>
+          <DocumentLinksPanel
+            module="FACILITY_SCHEDULE"
+            recordId={schedule.id}
+            recordPath={`/facility/schedule?schedule=${schedule.id}`}
+            recordTitle={schedule.schedule_name}
+          />
         </div>
       </SheetContent>
     </Sheet>

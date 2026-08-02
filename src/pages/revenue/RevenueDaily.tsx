@@ -11,12 +11,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, CheckCircle, Download } from "lucide-react";
+import { Plus, CheckCircle, Download, AlertTriangle, LockKeyhole } from "lucide-react";
 import { AuthorField } from "@/components/common/AuthorField";
 import { formatWon, DATA_SOURCE_LABELS } from "@/types/revenue";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { logActivity } from "@/lib/activity-logger";
+import { closeRevenuePeriod } from "@/lib/workflow-commands";
 
 export default function RevenueDaily() {
   const { profile } = useAuth();
@@ -33,6 +34,7 @@ export default function RevenueDaily() {
   const defaultEnd = now.toISOString().split('T')[0];
   const [dateStart, setDateStart] = useState(defaultStart);
   const [dateEnd, setDateEnd] = useState(defaultEnd);
+  const [closeMonth, setCloseMonth] = useState(defaultStart.slice(0, 7));
 
   const { data: lots } = useQuery({
     queryKey: ['parking-lots-select'],
@@ -55,6 +57,30 @@ export default function RevenueDaily() {
       const { data } = await q;
       return data || [];
     },
+  });
+
+  const { data: missingDays = [], refetch: refetchMissing } = useQuery({
+    queryKey: ['revenue-missing-days', lotFilter, closeMonth],
+    queryFn: async () => {
+      let query = (supabase.from('revenue_missing_days' as any) as any)
+        .select('lot_id, lot_code, lot_name, revenue_date')
+        .gte('revenue_date', `${closeMonth}-01`)
+        .lte('revenue_date', new Date().toISOString().slice(0, 10));
+      if (lotFilter !== 'all') query = query.eq('lot_id', lotFilter);
+      const { data } = await query;
+      return data || [];
+    },
+  });
+
+  const { data: periodClose, refetch: refetchClose } = useQuery({
+    queryKey: ['revenue-period-close', lotFilter, closeMonth],
+    queryFn: async () => {
+      if (lotFilter === 'all') return null;
+      const { data } = await (supabase.from('revenue_period_closes' as any) as any)
+        .select('*').eq('lot_id', lotFilter).eq('period_month', `${closeMonth}-01`).maybeSingle();
+      return data || null;
+    },
+    enabled: lotFilter !== 'all',
   });
 
   const totals = useMemo(() => {
@@ -139,9 +165,21 @@ export default function RevenueDaily() {
     refetch();
   };
 
+  const handlePeriodClose = async () => {
+    if (lotFilter === 'all') { toast.error('마감할 주차장을 선택해주세요'); return; }
+    try {
+      await closeRevenuePeriod(lotFilter, `${closeMonth}-01`);
+      toast.success(`${closeMonth} 수입을 마감했습니다`);
+      await Promise.all([refetch(), refetchMissing(), refetchClose()]);
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
   const toggleSelect = (id: string) => {
     const next = new Set(selectedIds);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
     setSelectedIds(next);
   };
 
@@ -162,6 +200,30 @@ export default function RevenueDaily() {
             <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />수입 입력</Button>
           </div>
         </div>
+
+        <section className="grid grid-cols-1 border bg-card md:grid-cols-[minmax(0,1fr)_auto]" aria-label="월 마감 통제">
+          <div className="flex flex-wrap items-center gap-4 px-4 py-3">
+            <div>
+              <p className="text-xs text-muted-foreground">마감 대상 월</p>
+              <Input type="month" value={closeMonth} onChange={(event) => setCloseMonth(event.target.value)} className="mt-1 h-8 w-36" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">누락 일수</p>
+              <p className={`mt-1 text-lg font-semibold ${missingDays.length ? 'text-destructive' : 'text-foreground'}`}>
+                {missingDays.length}일
+              </p>
+            </div>
+            {missingDays.length > 0 && <p className="flex items-center gap-1 text-xs text-destructive"><AlertTriangle className="h-4 w-4" />누락 수입을 입력해야 마감할 수 있습니다</p>}
+          </div>
+          <div className="flex items-center border-t px-4 py-3 md:border-l md:border-t-0">
+            <Button
+              onClick={handlePeriodClose}
+              disabled={!canVerify || lotFilter === 'all' || missingDays.length > 0 || Boolean(periodClose?.is_closed)}
+            >
+              <LockKeyhole className="mr-1 h-4 w-4" />{periodClose?.is_closed ? '마감 완료' : '월 마감'}
+            </Button>
+          </div>
+        </section>
 
         {/* Filters */}
         <Card>

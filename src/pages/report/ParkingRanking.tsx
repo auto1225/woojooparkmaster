@@ -51,7 +51,8 @@ export default function ParkingRanking() {
   const { data: lots = [] } = useQuery({
     queryKey: ['ranking-lots'],
     queryFn: async () => {
-      const { data } = await supabase.from('parking_lots').select('id, code, name, total_spaces, lot_type, operation_type');
+      const { data, error } = await supabase.from('parking_lots').select('id, code, name, total_spaces, lot_type, operator_type');
+      if (error) throw error;
       return data || [];
     },
   });
@@ -59,9 +60,10 @@ export default function ParkingRanking() {
   const { data: revenue = [] } = useQuery({
     queryKey: ['ranking-revenue', dateStart, dateEnd],
     queryFn: async () => {
-      const { data } = await supabase.from('revenue_daily')
+      const { data, error } = await supabase.from('revenue_daily')
         .select('lot_id, total_amount, total_vehicles, revenue_date')
         .gte('revenue_date', dateStart).lte('revenue_date', dateEnd);
+      if (error) throw error;
       return data || [];
     },
   });
@@ -69,9 +71,10 @@ export default function ParkingRanking() {
   const { data: complaints = [] } = useQuery({
     queryKey: ['ranking-complaints', dateStart, dateEnd],
     queryFn: async () => {
-      const { data } = await supabase.from('complaints')
+      const { data, error } = await supabase.from('complaints')
         .select('lot_id, satisfaction_score')
         .gte('received_at', dateStart).lte('received_at', dateEnd + 'T23:59:59');
+      if (error) throw error;
       return data || [];
     },
   });
@@ -79,7 +82,8 @@ export default function ParkingRanking() {
   const { data: equipment = [] } = useQuery({
     queryKey: ['ranking-equip'],
     queryFn: async () => {
-      const { data } = await supabase.from('equipment').select('lot_id, status');
+      const { data, error } = await supabase.from('equipment').select('lot_id, status');
+      if (error) throw error;
       return data || [];
     },
   });

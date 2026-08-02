@@ -77,8 +77,9 @@ export async function validateUploadFile(
   }
 
   // Step 6: 파일명 위험 문자 검증
-  const dangerousChars = /[<>:"/\\|?*\x00-\x1f]/;
-  if (dangerousChars.test(file.name)) {
+  const dangerousChars = /[<>:"/\\|?*]/;
+  const hasControlCharacters = Array.from(file.name).some((character) => character.charCodeAt(0) <= 31);
+  if (dangerousChars.test(file.name) || hasControlCharacters) {
     warnings.push('파일명에 특수문자가 포함되어 있어 자동으로 정리됩니다.');
   }
 

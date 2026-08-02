@@ -24,19 +24,22 @@ export default function OpsFeesPage() {
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
 
-  const { data: lots } = useQuery({ queryKey: ["lots-for-fees"], queryFn: async () => {
-    const { data } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+  const { data: lots, error: lotsError } = useQuery({ queryKey: ["lots-for-fees"], queryFn: async () => {
+    const { data, error } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+    if (error) throw error;
     return data || [];
   }});
 
-  const { data: policies } = useQuery({ queryKey: ["fee-policies", selectedLot], queryFn: async () => {
+  const { data: policies, error: policiesError } = useQuery({ queryKey: ["fee-policies", selectedLot], queryFn: async () => {
     if (!selectedLot) return [];
-    const { data } = await supabase.from("fee_policies").select("*").eq("lot_id", selectedLot).order("day_type");
+    const { data, error } = await supabase.from("fee_policies").select("*").eq("lot_id", selectedLot).order("day_type");
+    if (error) throw error;
     return data || [];
   }, enabled: !!selectedLot });
 
-  const { data: policyCounts } = useQuery({ queryKey: ["fee-policy-counts"], queryFn: async () => {
-    const { data } = await supabase.from("fee_policies").select("lot_id");
+  const { data: policyCounts, error: policyCountsError } = useQuery({ queryKey: ["fee-policy-counts"], queryFn: async () => {
+    const { data, error } = await supabase.from("fee_policies").select("lot_id");
+    if (error) throw error;
     const counts: Record<string, number> = {};
     (data || []).forEach((p: any) => { counts[p.lot_id] = (counts[p.lot_id] || 0) + 1; });
     return counts;
@@ -53,8 +56,10 @@ export default function OpsFeesPage() {
     setSaving(true);
     try {
       const { id, parking_lots, created_at, updated_at, ...payload } = form;
-      if (editing) await supabase.from("fee_policies").update(payload).eq("id", editing.id);
-      else await supabase.from("fee_policies").insert(payload);
+      const { error } = editing
+        ? await supabase.from("fee_policies").update(payload).eq("id", editing.id)
+        : await supabase.from("fee_policies").insert(payload);
+      if (error) throw error;
       toast({ title: "저장됨" });
       queryClient.invalidateQueries({ queryKey: ["fee-policies"] });
       queryClient.invalidateQueries({ queryKey: ["fee-policy-counts"] });
@@ -65,18 +70,38 @@ export default function OpsFeesPage() {
 
   const handleDelete = async () => {
     if (!editing) return;
-    await supabase.from("fee_policies").delete().eq("id", editing.id);
-    toast({ title: "삭제됨" });
-    queryClient.invalidateQueries({ queryKey: ["fee-policies"] });
-    setDialogOpen(false);
+    try {
+      const { error } = await supabase.from("fee_policies").delete().eq("id", editing.id);
+      if (error) throw error;
+      toast({ title: "삭제됨" });
+      queryClient.invalidateQueries({ queryKey: ["fee-policies"] });
+      queryClient.invalidateQueries({ queryKey: ["fee-policy-counts"] });
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast({ title: "삭제 실패", description: err.message, variant: "destructive" });
+    }
   };
 
   const toggleActive = async (p: any) => {
-    await supabase.from("fee_policies").update({ is_active: !p.is_active }).eq("id", p.id);
-    queryClient.invalidateQueries({ queryKey: ["fee-policies"] });
+    try {
+      const { error } = await supabase.from("fee_policies").update({ is_active: !p.is_active }).eq("id", p.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["fee-policies"] });
+    } catch (err: any) {
+      toast({ title: "상태 변경 실패", description: err.message, variant: "destructive" });
+    }
   };
 
   const fmt = (n?: number | null) => n != null ? n.toLocaleString() + "원" : "-";
+  const queryError = lotsError || policiesError || policyCountsError;
+
+  if (queryError) {
+    return (
+      <DashboardLayout>
+        <Card><CardContent className="py-10 text-center text-destructive">요금 정책을 불러오지 못했습니다: {queryError.message}</CardContent></Card>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

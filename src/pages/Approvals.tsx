@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { ClipboardCheck, Send, Check, Eye, FileText, Wallet, Briefcase, Gavel, ClipboardList, Megaphone } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatManWon } from "@/lib/validators";
+import { decideSurvey } from "@/lib/workflow-commands";
+import { isModuleEnabled } from "@/lib/authorization";
 
 interface ApprovalItem {
   id: string;
@@ -45,8 +47,9 @@ export default function Approvals() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; items: ApprovalItem[] }>({ open: false, items: [] });
   const [moduleFilter, setModuleFilter] = useState("all");
+  const canApprove = profile?.role === "admin" || profile?.role === "manager";
 
-  const activeModules = new Set((licenses ?? []).filter((m) => m.is_active).map((m) => m.module_code));
+  const activeModules = new Set(Object.keys(MODULE_META).filter((code) => isModuleEnabled(licenses, code)));
 
   // Fetch pending approvals
   const { data: pendingItems = [], isLoading } = useQuery({
@@ -59,14 +62,14 @@ export default function Approvals() {
       if (activeModules.has("SURVEY")) {
         const { data } = await supabase
           .from("surveys")
-          .select("id, parking_lots(lot_name), surveyor_name, survey_date, submitted_at, status")
-          .eq("status", "submitted")
+          .select("id, parking_lots(name), surveyor:profiles!surveys_surveyor_id_fkey(name), survey_date, submitted_at, status")
+          .in("status", ["submitted", "review"])
           .order("submitted_at", { ascending: false });
         data?.forEach((s: any) => {
           items.push({
             id: s.id, module: "SURVEY", table: "surveys",
-            title: s.parking_lots?.lot_name || "주차장",
-            subtitle: `조사자: ${s.surveyor_name || "-"}`,
+            title: s.parking_lots?.name || "주차장",
+            subtitle: `조사자: ${s.surveyor?.name || "-"}`,
             requestDate: s.submitted_at || s.survey_date,
             status: "submitted", link: `/surveys/${s.id}/review`,
           });
@@ -127,31 +130,31 @@ export default function Approvals() {
       if (activeModules.has("SERVICE")) {
         const { data: inspections } = await supabase
           .from("service_inspections")
-          .select("id, service_projects(project_name), inspection_type, inspection_amount, status, created_at")
+          .select("id, project_id, service_projects(title), inspection_type, target_amount, status, created_at")
           .eq("status", "pending")
           .order("created_at", { ascending: false });
         inspections?.forEach((ins: any) => {
           items.push({
             id: ins.id, module: "SERVICE", table: "service_inspections",
-            title: ins.service_projects?.project_name || "용역사업",
+            title: ins.service_projects?.title || "용역사업",
             subtitle: `검수 유형: ${ins.inspection_type}`,
-            amount: ins.inspection_amount, requestDate: ins.created_at,
-            status: "pending", link: `/service/projects/${ins.service_project_id}`,
+            amount: ins.target_amount, requestDate: ins.created_at,
+            status: "pending", link: `/service/projects/${ins.project_id}`,
           });
         });
 
         const { data: payments } = await supabase
           .from("service_payments")
-          .select("id, service_projects(project_name), payment_type, amount, status, created_at")
+          .select("id, project_id, service_projects(title), payment_type, net_amount, status, created_at")
           .in("status", ["requested", "approved"])
           .order("created_at", { ascending: false });
         payments?.forEach((p: any) => {
           items.push({
             id: p.id, module: "SERVICE", table: "service_payments",
-            title: p.service_projects?.project_name || "용역사업",
+            title: p.service_projects?.title || "용역사업",
             subtitle: `지급 유형: ${p.payment_type}`,
-            amount: p.amount, requestDate: p.created_at,
-            status: p.status, link: `/service/projects/${p.service_project_id}`,
+            amount: p.net_amount, requestDate: p.created_at,
+            status: p.status, link: `/service/projects/${p.project_id}`,
           });
         });
       }
@@ -160,7 +163,7 @@ export default function Approvals() {
       items.sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
       return items;
     },
-    enabled: !!user,
+    enabled: !!user && canApprove,
   });
 
   // My requests
@@ -173,14 +176,14 @@ export default function Approvals() {
       if (activeModules.has("SURVEY")) {
         const { data } = await (supabase
           .from("surveys") as any)
-          .select("id, parking_lots(lot_name), status, submitted_at")
-          .eq("created_by", user.id)
+          .select("id, parking_lots(name), status, submitted_at")
+          .eq("surveyor_id", user.id)
           .in("status", ["submitted", "approved", "rejected"])
           .order("submitted_at", { ascending: false });
         data?.forEach((s: any) => {
           items.push({
             id: s.id, module: "SURVEY", table: "surveys",
-            title: s.parking_lots?.lot_name || "주차장",
+            title: s.parking_lots?.name || "주차장",
             requestDate: s.submitted_at || "", status: s.status,
             link: `/surveys/${s.id}/review`,
           });
@@ -214,8 +217,11 @@ export default function Approvals() {
   const approveMutation = useMutation({
     mutationFn: async (items: ApprovalItem[]) => {
       for (const item of items) {
-        const newStatus = item.table === "surveys" ? "approved" : "approved";
-        const updateData: Record<string, any> = { status: newStatus };
+        if (item.table === "surveys") {
+          await decideSurvey(item.id, "approved", { syncToLot: true });
+          continue;
+        }
+        const updateData: Record<string, any> = { status: "approved" };
         if (item.table === "budget_executions" || item.table === "budget_transfers") {
           updateData.approved_by = user?.id;
           updateData.approved_at = new Date().toISOString();
@@ -292,13 +298,13 @@ export default function Approvals() {
           </Card>
         </div>
 
-        <Tabs value={tab} onValueChange={setTab}>
+        <Tabs value={canApprove ? tab : "my"} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="pending">결재 대기 ({pendingCount})</TabsTrigger>
+            {canApprove && <TabsTrigger value="pending">결재 대기 ({pendingCount})</TabsTrigger>}
             <TabsTrigger value="my">내 요청 ({myRequests.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="pending" className="space-y-4 mt-4">
+          {canApprove && <TabsContent value="pending" className="space-y-4 mt-4">
             {/* Module filter */}
             <div className="flex gap-2 flex-wrap">
               <Button variant={moduleFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setModuleFilter("all")}>전체</Button>
@@ -326,7 +332,8 @@ export default function Approvals() {
                         checked={selected.has(item.id)}
                         onCheckedChange={(c) => {
                           const next = new Set(selected);
-                          c ? next.add(item.id) : next.delete(item.id);
+                          if (c) next.add(item.id);
+                          else next.delete(item.id);
                           setSelected(next);
                         }}
                       />
@@ -357,7 +364,7 @@ export default function Approvals() {
                 <div className="py-12 text-center text-sm text-muted-foreground">결재 대기 건이 없습니다</div>
               )}
             </div>
-          </TabsContent>
+          </TabsContent>}
 
           <TabsContent value="my" className="space-y-3 mt-4">
             {myRequests.map((item) => {
