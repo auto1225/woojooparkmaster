@@ -2,7 +2,7 @@
 -- P4-1: AI config entries
 INSERT INTO system_config (config_key, config_value, description) VALUES
   ('ai_enabled', 'false', 'AI 기능 활성화 여부'),
-  ('ai_provider', 'lovable', 'AI 제공자')
+  ('ai_provider', 'generic_gateway', 'AI 제공자')
 ON CONFLICT (config_key) DO NOTHING;
 
 -- P4-4: Message logs table

@@ -4,7 +4,7 @@
 
 - 사용자 PC는 ParkMaster 내부 HTTPS 주소와 승인된 Naver Maps 주소만 접속합니다.
 - ParkMaster 서버의 DB, Auth, Storage, REST, Realtime 통신은 Docker 내부 네트워크에 머뭅니다.
-- Supabase 클라우드, Lovable AI Gateway, Google Fonts, jsDelivr는 운영 런타임에 필요하지 않습니다.
+- Supabase 클라우드, 외부 AI Gateway, Google Fonts, jsDelivr는 운영 런타임에 필요하지 않습니다.
 - FQDN 허용 규칙은 기관 프록시 또는 경계 방화벽에서 관리하고 목적지 IP를 애플리케이션 서버에 고정하지 않습니다.
 
 ## 필수 허용
@@ -35,7 +35,7 @@ GitHub와 컨테이너 레지스트리 접속은 설치·업데이트 시간에�
 ## 명시적 차단 확인
 
 - 외부 Postgres 및 Supabase 프로젝트 주소
-- `ai.gateway.lovable.dev`
+- `AI_ALLOWED_HOSTS`에 등록되지 않은 외부 AI 호스트
 - `fonts.googleapis.com`, `fonts.gstatic.com`, `cdn.jsdelivr.net`
 - 승인되지 않은 분석, 광고, 오류수집, CDN 서비스
 - 인터넷에서 내부 서버로 들어오는 모든 신규 연결
