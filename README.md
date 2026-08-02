@@ -9,12 +9,11 @@ Node.js 22 이상과 Git이 필요합니다. 새 컴퓨터에서는 저장소를
 ```bash
 git clone https://github.com/auto1225/woojooparkmaster.git
 cd woojooparkmaster
-cp .env.example .env
 npm ci
 npm run dev
 ```
 
-복사한 `.env`에서 `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`를 실제 Supabase 프로젝트 값으로 설정합니다. `.env`는 Git에 올라가지 않으므로 컴퓨터마다 별도로 관리해야 합니다. 운영 빌드는 환경값을 포함하지 않으며 컨테이너 시작 시 `/runtime-config.js`가 생성됩니다.
+비공개 저장소의 `.env`에는 브라우저에 공개되는 Supabase URL, publishable key, 프로젝트 ID만 포함되어 있어 복제 후 바로 사용할 수 있습니다. `service_role` 키, 데이터베이스 비밀번호, 개인 액세스 토큰 같은 서버 비밀값은 `.env`에 추가하거나 Git에 커밋하지 않고 별도 보안 저장소에서 관리합니다. 운영 빌드는 환경값을 포함하지 않으며 컨테이너 시작 시 `/runtime-config.js`가 생성됩니다.
 
 다른 컴퓨터에서 최신 변경사항을 받을 때는 작업 내용을 먼저 커밋한 뒤 `git pull --rebase origin main`을 실행합니다. 기능 수정은 별도 브랜치에서 진행하고 Pull Request로 `main`에 반영합니다.
 
