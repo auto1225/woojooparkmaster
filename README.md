@@ -4,14 +4,19 @@
 
 ## 개발 실행
 
-Node.js 22 이상이 필요합니다.
+Node.js 22 이상과 Git이 필요합니다. 새 컴퓨터에서는 저장소를 복제하고 로컬 환경 파일을 만든 뒤 실행합니다.
 
 ```bash
+git clone https://github.com/auto1225/woojooparkmaster.git
+cd woojooparkmaster
+cp .env.example .env
 npm ci
 npm run dev
 ```
 
-개발 환경은 `.env`의 `VITE_SUPABASE_URL`과 `VITE_SUPABASE_PUBLISHABLE_KEY`를 사용합니다. 운영 빌드는 환경값을 포함하지 않으며 컨테이너 시작 시 `/runtime-config.js`가 생성됩니다.
+복사한 `.env`에서 `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`를 실제 Supabase 프로젝트 값으로 설정합니다. `.env`는 Git에 올라가지 않으므로 컴퓨터마다 별도로 관리해야 합니다. 운영 빌드는 환경값을 포함하지 않으며 컨테이너 시작 시 `/runtime-config.js`가 생성됩니다.
+
+다른 컴퓨터에서 최신 변경사항을 받을 때는 작업 내용을 먼저 커밋한 뒤 `git pull --rebase origin main`을 실행합니다. 기능 수정은 별도 브랜치에서 진행하고 Pull Request로 `main`에 반영합니다.
 
 ## 기관 내부 존 배포
 
