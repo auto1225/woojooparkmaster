@@ -1,18 +1,25 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { CONTRACT_STATUS_LABELS, CONTRACT_TYPE_LABELS, formatOkWon } from "@/types/procurement";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import { handoffContractToService } from "@/lib/workflow-commands";
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
 
 export default function ProcurementContracts() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const currentYear = new Date().getFullYear();
 
   const { data: contracts } = useQuery({
@@ -54,6 +61,29 @@ export default function ProcurementContracts() {
   const getDday = (dateStr: string) => {
     const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
     return diff >= 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
+  };
+
+  const signContract = async (contractId: string) => {
+    setProcessingId(contractId);
+    const { error } = await supabase.from('bid_contracts').update({ signed_at: new Date().toISOString() }).eq('id', contractId);
+    setProcessingId(null);
+    if (error) { toast.error(error.message); return; }
+    toast.success('계약 서명 완료로 기록했습니다');
+    queryClient.invalidateQueries({ queryKey: ['all-bid-contracts'] });
+  };
+
+  const handoffContract = async (contractId: string) => {
+    setProcessingId(contractId);
+    try {
+      const service: any = await handoffContractToService(contractId);
+      toast.success('용역사업으로 인계했습니다');
+      queryClient.invalidateQueries({ queryKey: ['all-bid-contracts'] });
+      navigate(`/service/projects/${service.id}`);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   return (
@@ -98,6 +128,7 @@ export default function ProcurementContracts() {
                     <TableHead>계약기간</TableHead>
                     <TableHead>하자보증 종료</TableHead>
                     <TableHead>상태</TableHead>
+                    <TableHead>실행</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -106,7 +137,7 @@ export default function ProcurementContracts() {
                     const endSoon = c.status === 'active' && c.contract_end && new Date(c.contract_end) <= new Date(now.getTime() + 30 * 86400000) && new Date(c.contract_end) >= now;
                     return (
                       <TableRow key={c.id} className={`cursor-pointer ${endSoon ? 'bg-yellow-50' : ''}`}
-                        onClick={() => navigate(`/procurement/projects/${c.bid_project_id}`)}>
+                        onClick={() => navigate(`/procurement/projects/${c.bid_project_id}?tab=contract`)}>
                         <TableCell className="font-mono text-sm">{c.contract_number}</TableCell>
                         <TableCell className="font-medium text-sm">{(c.bid_projects as any)?.title}</TableCell>
                         <TableCell className="text-sm">{c.contractor_name}</TableCell>
@@ -117,6 +148,17 @@ export default function ProcurementContracts() {
                         </TableCell>
                         <TableCell className="text-sm">{c.warranty_end || '-'}</TableCell>
                         <TableCell><Badge variant="outline" className="text-[10px]">{CONTRACT_STATUS_LABELS[c.status] || c.status}</Badge></TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          {c.service_project_id ? (
+                            <Button size="sm" variant="outline" onClick={() => navigate(`/service/projects/${c.service_project_id}`)}>용역 보기</Button>
+                          ) : ['admin', 'manager'].includes(profile?.role || '') && c.status === 'active' ? (
+                            c.signed_at ? (
+                              <Button size="sm" onClick={() => handoffContract(c.id)} disabled={processingId === c.id}>용역 인계</Button>
+                            ) : (
+                              <Button size="sm" variant="outline" onClick={() => signContract(c.id)} disabled={processingId === c.id}>서명 완료</Button>
+                            )
+                          ) : <span className="text-xs text-muted-foreground">-</span>}
+                        </TableCell>
                       </TableRow>
                     );
                   })}

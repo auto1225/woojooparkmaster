@@ -16,6 +16,7 @@ import { Plus, Settings, Trash2, Eye, Edit3, GripVertical, BarChart3, PieChart a
 import { AuthorField } from "@/components/common/AuthorField";
 import { WIDGET_TYPE_LABELS, type DashboardWidget } from "@/types/report";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { isModuleEnabled } from "@/lib/authorization";
 
 const COLORS = ["hsl(211,65%,45%)", "hsl(152,55%,38%)", "hsl(38,92%,50%)", "hsl(280,60%,50%)", "hsl(0,72%,51%)"];
 
@@ -46,7 +47,9 @@ export default function DashboardBuilder() {
   });
 
   const activeModules = new Set(
-    (licenses ?? []).filter((m) => m.is_active).map((m) => m.module_code)
+    Object.values(DATA_SOURCES)
+      .map((source) => source.module)
+      .filter((code) => code === "CORE" || isModuleEnabled(licenses, code))
   );
 
   const availableSources = Object.entries(DATA_SOURCES).filter(([, v]) => activeModules.has(v.module));
@@ -83,12 +86,13 @@ export default function DashboardBuilder() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dashboard-widgets"] }),
   });
+  const initializeDashboard = initMutation.mutate;
 
   useEffect(() => {
     if (widgets !== undefined && widgets.length === 0 && dashboardName === "default") {
-      initMutation.mutate();
+      initializeDashboard();
     }
-  }, [widgets]);
+  }, [dashboardName, initializeDashboard, widgets]);
 
   const addMutation = useMutation({
     mutationFn: async () => {

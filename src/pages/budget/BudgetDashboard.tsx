@@ -11,13 +11,14 @@ import { formatManWon } from "@/types/revenue";
 import { PLAN_TYPE_LABELS, BUDGET_STATUS_LABELS, BUDGET_STATUS_COLORS } from "@/types/budget";
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
+import { isModuleEnabled } from "@/lib/authorization";
 
 export default function BudgetDashboard() {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const { data: licenses } = useModuleLicenses();
-  const revenueActive = (licenses ?? []).some(m => m.module_code === 'REVENUE' && m.is_active);
+  const revenueActive = isModuleEnabled(licenses, "REVENUE");
 
   const { data: plans } = useQuery({
     queryKey: ['budget-plans', year],

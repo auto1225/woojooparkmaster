@@ -11,6 +11,15 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+deploy/runtime/
+deploy/data/
+deploy/backups/
+deploy/tls/
+work/test-results/
+work/*.pdf
 
 # Editor directories and files
 .vscode/*

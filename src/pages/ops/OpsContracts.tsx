@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -23,21 +24,33 @@ import { AuthorField } from "@/components/common/AuthorField";
 export default function OpsContractsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
 
-  const { data: contracts } = useQuery({ queryKey: ["ops-contracts-list"], queryFn: async () => {
-    const { data } = await supabase.from("outsourcing_contracts").select("*, parking_lots(code, name)").order("contract_end", { ascending: true });
+  const { data: contracts, error: contractsError } = useQuery({ queryKey: ["ops-contracts-list"], queryFn: async () => {
+    const { data, error } = await supabase.from("outsourcing_contracts").select("*, parking_lots(code, name)").order("contract_end", { ascending: true });
+    if (error) throw error;
     return data || [];
   }});
 
-  const { data: lots } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
-    const { data } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+  const { data: lots, error: lotsError } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
+    const { data, error } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+    if (error) throw error;
     return data || [];
   }});
+
+  const requestedFilter = searchParams.get("filter");
+  const validFilters = new Set(["all", "expiring", ...Object.keys(CONTRACT_STATUS_LABELS)]);
+  const statusFilter = requestedFilter && validFilters.has(requestedFilter) ? requestedFilter : "all";
+  const setStatusFilter = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === "all") next.delete("filter");
+    else next.set("filter", value);
+    setSearchParams(next, { replace: true });
+  };
 
   const now = new Date();
   const d30 = new Date(); d30.setDate(d30.getDate() + 30);
@@ -59,10 +72,12 @@ export default function OpsContractsPage() {
       const { id, parking_lots, ...payload } = form;
       if (!editing) payload.created_by = user?.id;
       if (editing) {
-        await supabase.from("outsourcing_contracts").update(payload).eq("id", editing.id);
+        const { error } = await supabase.from("outsourcing_contracts").update(payload).eq("id", editing.id);
+        if (error) throw error;
         await logActivity({ module: "ops", action: "update", targetType: "contract", targetId: editing.id, targetName: form.company_name });
       } else {
-        await supabase.from("outsourcing_contracts").insert(payload);
+        const { error } = await supabase.from("outsourcing_contracts").insert(payload);
+        if (error) throw error;
         await logActivity({ module: "ops", action: "create", targetType: "contract", targetName: form.company_name });
       }
       toast({ title: "저장되었습니다" });
@@ -74,12 +89,27 @@ export default function OpsContractsPage() {
 
   const handleDelete = async () => {
     if (!editing) return;
-    await supabase.from("outsourcing_contracts").delete().eq("id", editing.id);
-    await logActivity({ module: "ops", action: "delete", targetType: "contract", targetId: editing.id, targetName: editing.company_name });
-    toast({ title: "삭제됨" });
-    queryClient.invalidateQueries({ queryKey: ["ops-contracts-list"] });
-    setDialogOpen(false);
+    try {
+      const { error } = await supabase.from("outsourcing_contracts").delete().eq("id", editing.id);
+      if (error) throw error;
+      await logActivity({ module: "ops", action: "delete", targetType: "contract", targetId: editing.id, targetName: editing.company_name });
+      toast({ title: "삭제됨" });
+      queryClient.invalidateQueries({ queryKey: ["ops-contracts-list"] });
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast({ title: "삭제 실패", description: err.message, variant: "destructive" });
+    }
   };
+
+  const queryError = contractsError || lotsError;
+
+  if (queryError) {
+    return (
+      <DashboardLayout>
+        <Card><CardContent className="py-10 text-center text-destructive">위탁 계약을 불러오지 못했습니다: {queryError.message}</CardContent></Card>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

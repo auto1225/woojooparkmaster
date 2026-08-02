@@ -15,7 +15,7 @@ const VALID_TRANSITIONS: Record<string, Record<string, string[]>> = {
     in_progress: ['responded', 'pending_external'],
     pending_external: ['in_progress'],
     responded: ['closed', 'reopened'],
-    closed: [],
+    closed: ['reopened'],
     reopened: ['in_progress'],
   },
   bid_project: {

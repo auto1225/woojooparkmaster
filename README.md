@@ -1,73 +1,39 @@
-# Welcome to your Lovable project
+# WOOJOO ParkMaster
 
-## Project info
+공공기관 내부 존에서 사용하는 공영주차장 통합 운영관리 시스템입니다. 운영 데이터, 인증 정보, 첨부파일은 기관 내부의 Self-hosted Supabase에 저장하고 승인된 외부 서비스만 통제된 인터넷 경로로 사용합니다.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 개발 실행
 
-## How can I edit this code?
+Node.js 22 이상이 필요합니다.
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm ci
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+개발 환경은 `.env`의 `VITE_SUPABASE_URL`과 `VITE_SUPABASE_PUBLISHABLE_KEY`를 사용합니다. 운영 빌드는 환경값을 포함하지 않으며 컨테이너 시작 시 `/runtime-config.js`가 생성됩니다.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 기관 내부 존 배포
 
-**Use GitHub Codespaces**
+- 데이터베이스, 인증, 파일 저장소, Edge Functions: 기관 내부 서버
+- 사용자 접속: 내부 DNS와 HTTPS를 통한 단일 주소
+- 네이버 지도: 승인된 외부 통신 구간
+- 외부 AI: 기본 차단, 보안 검토 후 승인 호스트만 허용
+- Supabase Studio, Postgres, Kong: 서버의 loopback에만 바인딩
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+상세 절차는 [온프레미스 배포 가이드](docs/ON_PREMISES_DEPLOYMENT.md), [네트워크 허용 목록](docs/NETWORK_ALLOWLIST.md), [백업·복구 운영서](docs/BACKUP_RECOVERY_RUNBOOK.md)를 따릅니다.
 
-## What technologies are used for this project?
+## 품질 확인
 
-This project is built with:
+```bash
+npm run lint
+npx tsc --noEmit
+npm test
+npm run build
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+운영 서버에서는 다음 검사를 추가로 실행합니다.
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```bash
+bash deploy/scripts/verify-onprem.sh
+```

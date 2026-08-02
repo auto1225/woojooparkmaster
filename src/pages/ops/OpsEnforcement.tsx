@@ -30,13 +30,15 @@ export default function OpsEnforcementPage() {
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
 
-  const { data: records } = useQuery({ queryKey: ["enforcement-records"], queryFn: async () => {
-    const { data } = await supabase.from("enforcement_records").select("*, parking_lots(code, name)").order("violation_date", { ascending: false });
+  const { data: records, error: recordsError } = useQuery({ queryKey: ["enforcement-records"], queryFn: async () => {
+    const { data, error } = await supabase.from("enforcement_records").select("*, parking_lots(code, name)").order("violation_date", { ascending: false });
+    if (error) throw error;
     return data || [];
   }});
 
-  const { data: lots } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
-    const { data } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+  const { data: lots, error: lotsError } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
+    const { data, error } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+    if (error) throw error;
     return data || [];
   }});
 
@@ -70,9 +72,11 @@ export default function OpsEnforcementPage() {
     try {
       const { id, parking_lots, created_at, updated_at, ...payload } = form;
       if (editing) {
-        await supabase.from("enforcement_records").update(payload).eq("id", editing.id);
+        const { error } = await supabase.from("enforcement_records").update(payload).eq("id", editing.id);
+        if (error) throw error;
       } else {
-        await supabase.from("enforcement_records").insert(payload);
+        const { error } = await supabase.from("enforcement_records").insert(payload);
+        if (error) throw error;
         await logActivity({ module: "ops", action: "create", targetType: "enforcement", targetName: form.vehicle_number });
       }
       toast({ title: "저장됨" });
@@ -84,11 +88,26 @@ export default function OpsEnforcementPage() {
   };
 
   const markPaid = async (r: any) => {
-    await supabase.from("enforcement_records").update({ payment_status: "paid", fine_paid_date: new Date().toISOString().split("T")[0] }).eq("id", r.id);
-    toast({ title: "납부 처리됨" });
-    queryClient.invalidateQueries({ queryKey: ["enforcement-records"] });
-    setDetailOpen(false);
+    try {
+      const { error } = await supabase.from("enforcement_records").update({ payment_status: "paid", fine_paid_date: new Date().toISOString().split("T")[0] }).eq("id", r.id);
+      if (error) throw error;
+      toast({ title: "납부 처리됨" });
+      queryClient.invalidateQueries({ queryKey: ["enforcement-records"] });
+      setDetailOpen(false);
+    } catch (err: any) {
+      toast({ title: "납부 처리 실패", description: err.message, variant: "destructive" });
+    }
   };
+
+  const queryError = recordsError || lotsError;
+
+  if (queryError) {
+    return (
+      <DashboardLayout>
+        <Card><CardContent className="py-10 text-center text-destructive">단속 기록을 불러오지 못했습니다: {queryError.message}</CardContent></Card>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

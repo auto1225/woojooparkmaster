@@ -96,6 +96,8 @@ export const REPORT_TYPE_LABELS: Record<string, string> = {
   quarterly: "분기",
   semi_annual: "반기",
   yearly: "연보",
+  annual: "연보",
+  event: "수시",
   council: "시의회",
   audit: "감사",
   custom: "맞춤",
@@ -111,6 +113,7 @@ export const REPORT_CATEGORY_LABELS: Record<string, string> = {
   planning: "기획",
   realtime: "실시간",
   comprehensive: "종합",
+  safety: "안전",
 };
 
 export const AUDIENCE_LABELS: Record<string, string> = {

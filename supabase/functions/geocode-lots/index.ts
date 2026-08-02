@@ -1,11 +1,20 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin") || "";
+  const allowedOrigins = (Deno.env.get("PARKMASTER_ALLOWED_ORIGINS") || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const allowedOrigin = allowedOrigins.length === 0
+    ? origin || "*"
+    : allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "Vary": "Origin",
+  };
+}
 
 const GEOCODE_URL = "https://maps.apigw.ntruss.com/map-geocode/v2/geocode";
 const DEFAULT_BATCH_SIZE = 20;
@@ -116,6 +125,59 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+type ParkingLotRow = {
+  id: string;
+  name: string;
+  address_jibun: string | null;
+  address_road: string | null;
+};
+
+async function internalRequest<T>(
+  path: string,
+  serviceKey: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  if (!supabaseUrl) throw new Error("Internal backend URL is not configured");
+
+  const response = await fetch(`${supabaseUrl}${path}`, {
+    ...init,
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      Accept: "application/json",
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...(init.headers || {}),
+    },
+  });
+
+  if (!response.ok) {
+    console.error(`Internal API error: ${response.status} ${path}`);
+    throw new Error("Internal data request failed");
+  }
+
+  if (response.status === 204) return undefined as T;
+  return await response.json() as T;
+}
+
+async function authorizeAdmin(authHeader: string, anonKey: string, serviceKey: string): Promise<string> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  if (!supabaseUrl) throw new Error("Internal backend URL is not configured");
+
+  const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: { apikey: anonKey, Authorization: authHeader },
+  });
+  if (!userResponse.ok) throw new Error("Unauthorized");
+
+  const user = await userResponse.json();
+  const profiles = await internalRequest<Array<{ role: string }>>(
+    `/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=role&limit=1`,
+    serviceKey,
+  );
+  if (profiles[0]?.role !== "admin") throw new Error("Forbidden");
+  return user.id;
+}
+
 async function geocodeAddress(
   addresses: Array<string | null | undefined>,
   clientId: string,
@@ -168,7 +230,8 @@ async function geocodeAddress(
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -182,17 +245,17 @@ serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseKey || !serviceKey) throw new Error("Internal API keys are not configured");
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claims, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claims?.claims) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
+    let requestedBy: string;
+    try {
+      requestedBy = await authorizeAdmin(authHeader, supabaseKey, serviceKey);
+    } catch (error) {
+      const status = error instanceof Error && error.message === "Forbidden" ? 403 : 401;
+      return new Response(JSON.stringify({ error: status === 403 ? "Forbidden" : "Unauthorized" }), {
+        status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -214,83 +277,87 @@ serve(async (req) => {
       ? payload.lotIds.filter((value): value is string => typeof value === "string" && value.length > 0)
       : [];
 
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceKey);
-
-    let lots:
-      | Array<{ id: string; name: string; address_jibun: string | null; address_road: string | null }>
-      | null = null;
-    let total = 0;
+    let lots: ParkingLotRow[] = [];
+    let hasMore = false;
 
     if (lotIds.length > 0) {
-      const { data, error } = await adminClient
-        .from("parking_lots")
-        .select("id, name, address_jibun, address_road")
-        .in("id", lotIds)
-        .order("name");
-
-      if (error) throw error;
-      lots = data;
-      total = data?.length || 0;
+      const validIds = lotIds
+        .filter((value) => /^[0-9a-f-]{36}$/i.test(value))
+        .slice(0, MAX_BATCH_SIZE);
+      if (validIds.length) {
+        lots = await internalRequest<ParkingLotRow[]>(
+          `/rest/v1/parking_lots?id=in.(${validIds.join(",")})&select=id,name,address_jibun,address_road&order=name.asc`,
+          serviceKey,
+        );
+      }
     } else {
-      const { count, error: countError } = await adminClient
-        .from("parking_lots")
-        .select("id", { count: "exact", head: true })
-        .or("address_jibun.not.is.null,address_road.not.is.null");
-
-      if (countError) throw countError;
-      total = count || 0;
-
-      const { data, error } = await adminClient
-        .from("parking_lots")
-        .select("id, name, address_jibun, address_road")
-        .or("address_jibun.not.is.null,address_road.not.is.null")
-        .order("name")
-        .range(cursor, cursor + batchSize - 1);
-
-      if (error) throw error;
-      lots = data;
+      const rows = await internalRequest<ParkingLotRow[]>(
+        `/rest/v1/parking_lots?or=(address_jibun.not.is.null,address_road.not.is.null)&select=id,name,address_jibun,address_road&order=name.asc&offset=${cursor}&limit=${batchSize + 1}`,
+        serviceKey,
+      );
+      hasMore = rows.length > batchSize;
+      lots = rows.slice(0, batchSize);
     }
 
     let updated = 0;
     let failed = 0;
     const failures: string[] = [];
 
-    for (let index = 0; index < (lots || []).length; index++) {
-      const lot = lots![index];
+    for (let index = 0; index < lots.length; index++) {
+      const lot = lots[index];
       if (!lot.address_jibun?.trim() && !lot.address_road?.trim()) continue;
 
       const result = await geocodeAddress([lot.address_road, lot.address_jibun], clientId, clientSecret);
 
       if (result) {
-        const { error: updateError } = await adminClient
-          .from("parking_lots")
-          .update({
+        try {
+          await internalRequest<void>(
+            `/rest/v1/parking_lots?id=eq.${encodeURIComponent(lot.id)}`,
+            serviceKey,
+            {
+              method: "PATCH",
+              headers: { Prefer: "return=minimal" },
+              body: JSON.stringify({
             latitude: Number(result.lat.toFixed(7)),
             longitude: Number(result.lng.toFixed(7)),
-          })
-          .eq("id", lot.id);
-
-        if (updateError) {
+              }),
+            },
+          );
+          updated++;
+        } catch (updateError) {
           console.error(`Update failed for ${lot.name}:`, updateError);
           failed++;
           failures.push(lot.name);
-        } else {
-          updated++;
         }
       } else {
         failed++;
         failures.push(`${lot.name} (${lot.address_road || lot.address_jibun})`);
       }
 
-      if (index < (lots?.length || 0) - 1) {
+      if (index < lots.length - 1) {
         await sleep(REQUEST_DELAY_MS);
       }
     }
 
-    const processed = lots?.length || 0;
-    const nextCursor = lotIds.length > 0 || cursor + processed >= total ? null : cursor + processed;
-    const hasMore = nextCursor !== null;
+    const processed = lots.length;
+    const nextCursor = lotIds.length > 0 || !hasMore ? null : cursor + processed;
+
+    try {
+      await internalRequest<void>("/rest/v1/external_integration_logs", serviceKey, {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          service: "naver_maps",
+          operation: "batch_geocode",
+          status: failed > 0 ? "partial" : "success",
+          record_count: processed,
+          requested_by: requestedBy,
+          metadata: { updated, failed },
+        }),
+      });
+    } catch (auditError) {
+      console.error("External integration audit failed:", auditError);
+    }
 
     return new Response(
       JSON.stringify({
@@ -301,7 +368,7 @@ serve(async (req) => {
         failed,
         failures: failures.slice(0, 20),
         processed,
-        total,
+        total: hasMore ? cursor + processed + 1 : cursor + processed,
         cursor,
         nextCursor,
         hasMore,

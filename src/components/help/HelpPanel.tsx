@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { HelpCircle, Search, X, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { helpArticles, getModuleFromPath, MODULE_LABELS } from "@/data/help-content";
@@ -42,6 +42,8 @@ export function HelpPanel() {
             size="icon"
             className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 h-10 w-10 rounded-full shadow-lg"
             variant="default"
+            aria-label="도움말 열기"
+            title="도움말"
           >
             <HelpCircle className="h-5 w-5" />
           </Button>
@@ -49,6 +51,9 @@ export function HelpPanel() {
         <SheetContent className="w-[380px] sm:w-[420px] p-0 flex flex-col">
           <SheetHeader className="px-4 pt-4 pb-2 border-b">
             <SheetTitle className="text-base">도움말</SheetTitle>
+            <SheetDescription className="sr-only">
+              현재 화면과 관련된 업무 도움말을 검색하고 확인합니다.
+            </SheetDescription>
             <div className="relative mt-2">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input

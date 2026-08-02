@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,13 +16,17 @@ import { ChevronRight, FileText, Loader2, CheckCircle2, XCircle, Sparkles } from
 import { REPORT_TYPE_LABELS, REPORT_CATEGORY_LABELS, type ReportTemplate } from "@/types/report";
 import { logActivity } from "@/lib/activity-logger";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
-import { callAI } from "@/lib/ai-service";
+import { callAI, reviewAIAssistance, type AISource } from "@/lib/ai-service";
+import { runtimeConfig } from "@/config/runtime-config";
 import { Textarea } from "@/components/ui/textarea";
+import { generateReport, getReportEvidence } from "@/lib/report-engine";
+import { isModuleEnabled } from "@/lib/authorization";
 
 export default function ReportGenerate() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const templateCode = searchParams.get("template");
+  const sourceId = searchParams.get("source");
   const { user, profile } = useAuth();
   const { data: licenses } = useModuleLicenses();
   const [step, setStep] = useState(templateCode ? 2 : 1);
@@ -30,16 +34,20 @@ export default function ReportGenerate() {
   const [params, setParams] = useState<Record<string, string>>({});
   const [outputFormat, setOutputFormat] = useState("pdf");
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{ status: string; id?: string; error?: string } | null>(null);
   const [aiSummary, setAiSummary] = useState("");
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [aiMeta, setAiMeta] = useState<{ id?: string; confidence?: number; sources: AISource[]; initial: string } | null>(null);
   const { data: config } = useSystemConfig();
-  const aiEnabled = config?.ai_enabled === 'true';
+  const aiEnabled = runtimeConfig.externalAiEnabled && config?.ai_enabled === 'true';
 
-  const activeModules = new Set(
-    (licenses ?? []).filter((m) => m.is_active).map((m) => m.module_code)
-  );
+  const activeModules = new Set([
+    "CORE",
+    ...["OPS", "FACILITY", "REVENUE", "BUDGET", "COMPLAINT", "PLANNING", "REALTIME", "REPORT", "SURVEY"]
+      .filter((code) => isModuleEnabled(licenses, code)),
+  ]);
 
   const { data: templates } = useQuery({
     queryKey: ["report-templates"],
@@ -53,16 +61,41 @@ export default function ReportGenerate() {
     },
   });
 
+  const { data: sourceReport } = useQuery({
+    queryKey: ["report-copy-source", sourceId],
+    enabled: Boolean(sourceId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("report_generated")
+        .select("*, template:report_templates(*)")
+        .eq("id", sourceId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   useEffect(() => {
     if (templateCode && templates) {
       const t = templates.find((t) => t.template_code === templateCode);
       if (t) {
         setSelectedTemplate(t);
-        setTitle(t.name);
+        if (!sourceId) setTitle(t.name);
         setStep(2);
       }
     }
-  }, [templateCode, templates]);
+  }, [templateCode, templates, sourceId]);
+
+  useEffect(() => {
+    if (!sourceReport?.template) return;
+    setSelectedTemplate(sourceReport.template as any as ReportTemplate);
+    setTitle(sourceReport.title || sourceReport.template.name);
+    setDescription(sourceReport.description || "");
+    setParams((sourceReport.parameters_used || {}) as Record<string, string>);
+    setOutputFormat(sourceReport.file_format === "pdf+xlsx" ? "pdf+xlsx" : "pdf");
+    setAiSummary(sourceReport.summary_data?.aiSummary || "");
+    setStep(2);
+  }, [sourceReport]);
 
   const isAvailable = (t: ReportTemplate) => {
     const req = Array.isArray(t.required_modules) ? t.required_modules : [];
@@ -73,58 +106,30 @@ export default function ReportGenerate() {
 
   const handleGenerate = async () => {
     if (!selectedTemplate || !user) return;
+    const missingRequired = (selectedTemplate.parameters || []).some((parameter: any) => {
+      if (!parameter.required) return false;
+      if (parameter.type === "daterange") return !params.period_start || !params.period_end;
+      if (parameter.type === "quarter") return !params[`${parameter.name}_year`] || !params[`${parameter.name}_q`];
+      return !params[parameter.name];
+    });
+    if (missingRequired) {
+      toast.error("필수 조건을 모두 입력해 주세요");
+      return;
+    }
     setGenerating(true);
     setResult(null);
 
-    const startTime = Date.now();
-    const reportNumber = `RPT-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, "0")}`;
-
     try {
-      // Collect data based on active modules
-      const summaryData: Record<string, any> = {};
-
-      // CORE data
-      const { data: lots } = await supabase.from("parking_lots").select("id, name, lot_type, total_spaces, status");
-      summaryData.lots = {
-        total: lots?.length || 0,
-        active: lots?.filter((l) => l.status === "active").length || 0,
-        totalSpaces: lots?.reduce((s, l) => s + (l.total_spaces || 0), 0) || 0,
-      };
-
-      if (activeModules.has("REVENUE") && params.date) {
-        const { data: rev } = await supabase.from("revenue_daily").select("*").gte("revenue_date", params.date || params.month || "").limit(100);
-        summaryData.revenue = { records: rev?.length || 0 };
-      }
-
-      if (activeModules.has("COMPLAINT")) {
-        const { data: comp } = await supabase.from("complaints").select("id, status, category").limit(100);
-        summaryData.complaints = { total: comp?.length || 0 };
-      }
-
-      if (activeModules.has("FACILITY")) {
-        const { data: equip } = await supabase.from("equipment").select("id, status").limit(100);
-        summaryData.equipment = { total: equip?.length || 0 };
-      }
-
-      const periodStart = params.date || params.week_start || params.month ? `${params.month}-01` : params.period_start || null;
-      const periodEnd = params.period_end || periodStart;
-
-      const { data: inserted, error } = await supabase.from("report_generated").insert({
-        report_number: reportNumber,
-        template_id: selectedTemplate.id,
+      const inserted = await generateReport({
+        template: selectedTemplate,
         title: title || selectedTemplate.name,
-        period_start: periodStart,
-        period_end: periodEnd,
-        parameters_used: params,
-        file_format: outputFormat,
-        summary_data: summaryData,
-        data_snapshot: summaryData,
-        status: "completed",
-        generation_time_ms: Date.now() - startTime,
-        generated_by: user.id,
-      }).select().single();
-
-      if (error) throw error;
+        description,
+        parameters: params,
+        outputFormat: outputFormat as "pdf" | "pdf+xlsx",
+        userId: user.id,
+        authorName: profile?.name || user.email || "",
+        aiSummary,
+      });
 
       await logActivity({
         module: "REPORT",
@@ -132,6 +137,12 @@ export default function ReportGenerate() {
         targetType: "report",
         targetId: inserted.id,
         targetName: title || selectedTemplate.name,
+      });
+      await reviewAIAssistance(aiMeta?.id, {
+        applied: Boolean(aiSummary),
+        edited: Boolean(aiMeta && aiSummary !== aiMeta.initial),
+        targetType: "report",
+        targetId: inserted.id,
       });
 
       setResult({ status: "completed", id: inserted.id });
@@ -182,7 +193,10 @@ export default function ReportGenerate() {
   return (
     <DashboardLayout>
       <div className="space-y-6 max-w-3xl mx-auto">
-        <h1 className="text-xl font-bold">보고서 생성</h1>
+        <div>
+          <h1 className="text-xl font-bold">{sourceId ? "보고서 조건 복사 작성" : "보고서 생성"}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{sourceId ? "기존 조건을 불러왔습니다. 필요한 내용을 수정하면 새 보고서번호로 생성됩니다." : "업무 데이터에서 보고서 파일을 생성하고 이력에 보관합니다."}</p>
+        </div>
 
         {/* Step indicators */}
         <div className="flex items-center gap-2 text-sm">
@@ -232,6 +246,15 @@ export default function ReportGenerate() {
                 <Label>보고서 제목</Label>
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
+              <div>
+                <Label>작성 목적 및 설명</Label>
+                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="보고 대상, 작성 목적, 포함할 특이사항을 입력하세요" />
+              </div>
+              <div>
+                <Label>관련 공문 문서번호</Label>
+                <Input value={params.official_document_number || ""} onChange={(e) => setParams({ ...params, official_document_number: e.target.value })} placeholder="예: 제주시청-차량관리과운영팀-2026-0142" />
+                <p className="mt-1 text-xs text-muted-foreground">시행·접수 공문과 비교하거나 다시 찾을 때 사용하는 기관 문서번호입니다.</p>
+              </div>
               {Array.isArray(selectedTemplate.parameters) && selectedTemplate.parameters.map((p: any) => (
                 <div key={p.name}>
                   <Label>{p.label}{p.required && <span className="text-destructive">*</span>}</Label>
@@ -265,6 +288,8 @@ export default function ReportGenerate() {
                 <span className="font-medium">{selectedTemplate.name}</span>
                 <span className="text-muted-foreground">제목</span>
                 <span className="font-medium">{title}</span>
+                <span className="text-muted-foreground">작성 목적</span>
+                <span className="font-medium whitespace-pre-wrap">{description || "-"}</span>
                 {Object.entries(params).map(([k, v]) => (
                   <React.Fragment key={k}><span className="text-muted-foreground">{k}</span><span>{v}</span></React.Fragment>
                 ))}
@@ -281,14 +306,17 @@ export default function ReportGenerate() {
                       onClick={async () => {
                         setAiSummaryLoading(true);
                         try {
+                          const evidence = await getReportEvidence(params);
                           const result = await callAI({
                             task: 'summarize_report',
-                            input: { template: selectedTemplate?.name, params },
+                            input: { template: selectedTemplate?.name, parameters: params, ...evidence },
                             context: `기관: ${config?.org_name || ''}\n보고서: ${title}\n기간: ${params.date || params.month || params.period_start || ''}~${params.period_end || ''}`,
                           });
-                          setAiSummary(result.result || JSON.stringify(result));
+                          const summary = result.result || "";
+                          setAiSummary(summary);
+                          setAiMeta({ id: result.assistanceId, confidence: result.confidence, sources: result.sources, initial: summary });
                           await logActivity({ module: 'ai', action: 'summarize_report' });
-                        } catch (e: any) { /* ignore */ }
+                        } catch (e: any) { toast.error(e.message || "AI 총평 생성에 실패했습니다"); }
                         finally { setAiSummaryLoading(false); }
                       }}>
                       <Sparkles className="h-3 w-3" />{aiSummaryLoading ? '생성 중...' : 'AI 총평 생성'}
@@ -297,7 +325,11 @@ export default function ReportGenerate() {
                   {aiSummary && (
                     <>
                       <Textarea value={aiSummary} onChange={e => setAiSummary(e.target.value)} rows={6} className="text-sm" />
-                      <p className="text-[10px] text-muted-foreground italic">※ AI가 생성한 초안입니다. 검토 후 사용하세요.</p>
+                      <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+                        <span>AI 초안, 검토 후 보고서에 반영</span>
+                        {aiMeta?.confidence != null && <Badge variant="outline" className="text-[9px]">신뢰도 {Math.round(aiMeta.confidence * 100)}%</Badge>}
+                        {aiMeta?.sources.slice(0, 5).map((source) => <Badge key={source.path} variant="secondary" className="text-[9px]">근거 {source.label}</Badge>)}
+                      </div>
                     </>
                   )}
                 </div>

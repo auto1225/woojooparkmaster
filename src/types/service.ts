@@ -175,8 +175,9 @@ export const RESULT_COLORS: Record<string, string> = {
   fail: 'bg-destructive/10 text-destructive',
 };
 
-export function formatServiceAmount(amount: number): string {
-  if (amount >= 100000000) return `${(amount / 100000000).toFixed(1)}억`;
-  if (amount >= 10000) return `${Math.round(amount / 10000).toLocaleString()}만`;
-  return amount.toLocaleString();
+export function formatServiceAmount(amount?: number | null): string {
+  const value = Number.isFinite(Number(amount)) ? Number(amount) : 0;
+  if (value >= 100000000) return `${(value / 100000000).toFixed(1)}억`;
+  if (value >= 10000) return `${Math.round(value / 10000).toLocaleString()}만`;
+  return value.toLocaleString();
 }

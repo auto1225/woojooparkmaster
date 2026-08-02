@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { KpiCard } from "@/components/KpiCard";
@@ -13,16 +13,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Cpu, CheckCircle, WifiOff, BatteryLow, AlertTriangle, Plus } from "lucide-react";
+import { Cpu, CheckCircle, WifiOff, BatteryLow, AlertTriangle, Plus, Wrench, Radar, Loader2 } from "lucide-react";
 import { AuthorField } from "@/components/common/AuthorField";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { SENSOR_TYPE_LABELS, SENSOR_STATUS_LABELS, SENSOR_STATUS_COLORS, MOUNTING_TYPE_LABELS } from "@/types/realtime";
+import { advanceSensorIncident } from "@/lib/workflow-commands";
+import { useNavigate } from "react-router-dom";
 
 const STATUS_SORT: Record<string, number> = { error: 0, offline: 1, low_battery: 2, active: 3, maintenance: 4, decommissioned: 5 };
 
 export default function RealtimeSensors() {
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const canEdit = profile && ['admin', 'manager'].includes(profile.role);
@@ -30,6 +33,7 @@ export default function RealtimeSensors() {
   const [statusFilter, setStatusFilter] = useState("__all__");
   const [showRegister, setShowRegister] = useState(false);
   const [showDetail, setShowDetail] = useState<any>(null);
+  const [recoveryNote, setRecoveryNote] = useState("");
   const [form, setForm] = useState<Record<string, any>>({});
 
   const { data: lots } = useQuery({
@@ -65,6 +69,43 @@ export default function RealtimeSensors() {
     },
   });
 
+  const { data: incidents } = useQuery({
+    queryKey: ["sensor-incidents"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("sensor_incidents")
+        .select("*, sensor_devices(device_id, device_name), parking_lots(name), maintenance_logs(log_number, status)")
+        .in("status", ["open", "acknowledged", "recovery_detected"])
+        .order("first_detected_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const monitorMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await (supabase.rpc as any)("monitor_sensor_anomalies");
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["sensor-incidents"] });
+      queryClient.invalidateQueries({ queryKey: ["maintenance-logs"] });
+      toast({ title: `이상 탐지 완료`, description: `신규 ${data?.created || 0}건, 갱신 ${data?.updated || 0}건` });
+    },
+    onError: (error: Error) => toast({ title: "이상 탐지 실패", description: error.message, variant: "destructive" }),
+  });
+
+  const incidentMutation = useMutation({
+    mutationFn: ({ id, action, note }: { id: string; action: "acknowledge" | "confirm_recovery"; note?: string }) =>
+      advanceSensorIncident(id, action, note),
+    onSuccess: () => {
+      setRecoveryNote("");
+      queryClient.invalidateQueries({ queryKey: ["sensor-incidents"] });
+      toast({ title: "센서 사건 상태를 변경했습니다" });
+    },
+    onError: (error: Error) => toast({ title: "사건 처리 실패", description: error.message, variant: "destructive" }),
+  });
+
   const sorted = [...(sensors || [])].sort((a, b) => (STATUS_SORT[a.status] ?? 9) - (STATUS_SORT[b.status] ?? 9));
 
   const totalCount = sorted.length;
@@ -75,6 +116,8 @@ export default function RealtimeSensors() {
   }).length;
   const lowBatteryCount = sorted.filter(s => s.battery_level != null && Number(s.battery_level) < 20).length;
   const errorCount = sorted.filter(s => s.status === 'error').length;
+  const incidentBySensor = new Map((incidents || []).map((incident: any) => [incident.sensor_id, incident]));
+  const detailIncident = showDetail ? incidentBySensor.get(showDetail.id) as any : null;
 
   const updateForm = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
 
@@ -124,7 +167,15 @@ export default function RealtimeSensors() {
             <h2 className="text-xl font-bold">센서 모니터링</h2>
             <p className="text-sm text-muted-foreground">60GHz 레이더 센서 상태 관리</p>
           </div>
-          {canEdit && <Button onClick={() => setShowRegister(true)}><Plus className="h-4 w-4 mr-1" />센서 등록</Button>}
+          <div className="flex gap-2">
+            {canEdit && (
+              <Button variant="outline" onClick={() => monitorMutation.mutate()} disabled={monitorMutation.isPending}>
+                {monitorMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Radar className="h-4 w-4 mr-1" />}
+                이상 탐지
+              </Button>
+            )}
+            {canEdit && <Button onClick={() => setShowRegister(true)}><Plus className="h-4 w-4 mr-1" />센서 등록</Button>}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -152,6 +203,44 @@ export default function RealtimeSensors() {
           </Select>
         </div>
 
+        {!!incidents?.length && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />미종결 센서 사건 {incidents.length}건
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>사건번호</TableHead><TableHead>센서</TableHead><TableHead>주차장</TableHead>
+                  <TableHead>이상</TableHead><TableHead>탐지</TableHead><TableHead>상태</TableHead><TableHead>조치</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{incidents.map((incident: any) => (
+                  <TableRow key={incident.id}>
+                    <TableCell className="font-mono text-xs">{incident.incident_number}</TableCell>
+                    <TableCell className="font-mono text-xs">{incident.sensor_devices?.device_id}</TableCell>
+                    <TableCell className="text-sm">{incident.parking_lots?.name || "-"}</TableCell>
+                    <TableCell className="text-xs">{{ device_error: "장치 오류", offline: "통신 두절", low_battery: "배터리 부족" }[incident.anomaly_type as string] || incident.anomaly_type}</TableCell>
+                    <TableCell className="text-xs">{new Date(incident.first_detected_at).toLocaleString("ko-KR")}</TableCell>
+                    <TableCell><Badge variant="outline" className="text-[10px]">
+                      {{ open: "미접수", acknowledged: "조치 중", recovery_detected: "복구 확인 대기" }[incident.status as string] || incident.status}
+                    </Badge></TableCell>
+                    <TableCell><div className="flex gap-1">
+                      {incident.status === "open" && canEdit && (
+                        <Button size="sm" variant="outline" onClick={() => incidentMutation.mutate({ id: incident.id, action: "acknowledge" })}>접수</Button>
+                      )}
+                      <Button size="icon" variant="ghost" title="연결 작업지시" onClick={() => navigate("/facility/maintenance")}>
+                        <Wrench className="h-3.5 w-3.5" />
+                      </Button>
+                    </div></TableCell>
+                  </TableRow>
+                ))}</TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardContent className="p-0">
             {isLoading ? <Skeleton className="h-64 m-4" /> : (
@@ -167,6 +256,7 @@ export default function RealtimeSensors() {
                     <TableHead>신호</TableHead>
                     <TableHead>마지막 통신</TableHead>
                     <TableHead>상태</TableHead>
+                    <TableHead>사건</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -191,6 +281,9 @@ export default function RealtimeSensors() {
                             </div>
                           ) : '—'}
                         </TableCell>
+                        <TableCell>
+                          {incidentBySensor.has(s.id) && <Badge variant="destructive" className="text-[10px]">조치 필요</Badge>}
+                        </TableCell>
                         <TableCell className="text-xs">{s.rssi != null ? `${s.rssi} dBm` : '—'}</TableCell>
                         <TableCell className="text-xs">{minutesAgo(s.last_heartbeat)}</TableCell>
                         <TableCell>
@@ -202,7 +295,7 @@ export default function RealtimeSensors() {
                     );
                   })}
                   {!sorted.length && (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">등록된 센서가 없습니다</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">등록된 센서가 없습니다</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -316,6 +409,28 @@ export default function RealtimeSensors() {
                 <Badge className={`${SENSOR_STATUS_COLORS[showDetail.status] || ''}`}>
                   {SENSOR_STATUS_LABELS[showDetail.status] || showDetail.status}
                 </Badge>
+                {detailIncident && (
+                  <div className="border-t pt-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">{detailIncident.incident_number}</p>
+                        <p className="text-xs text-muted-foreground">작업지시 {detailIncident.maintenance_logs?.log_number || "생성 대기"}</p>
+                      </div>
+                      <Badge variant="outline">{{ open: "미접수", acknowledged: "조치 중", recovery_detected: "복구 확인 대기" }[detailIncident.status as string]}</Badge>
+                    </div>
+                    {detailIncident.status === "open" && canEdit && (
+                      <Button className="w-full" variant="outline" onClick={() => incidentMutation.mutate({ id: detailIncident.id, action: "acknowledge" })}>사건 접수</Button>
+                    )}
+                    {detailIncident.status === "recovery_detected" && canEdit && (
+                      <div className="space-y-2">
+                        <Label>복구 확인 내용</Label>
+                        <Input value={recoveryNote} onChange={(event) => setRecoveryNote(event.target.value)} placeholder="현장 확인 및 정상 통신 확인" />
+                        <Button className="w-full" disabled={recoveryNote.trim().length < 3 || incidentMutation.isPending} onClick={() => incidentMutation.mutate({ id: detailIncident.id, action: "confirm_recovery", note: recoveryNote })}>복구 확인 및 종결</Button>
+                      </div>
+                    )}
+                    <Button className="w-full" variant="ghost" onClick={() => navigate("/facility/maintenance")}><Wrench className="h-4 w-4 mr-1" />작업지시 보기</Button>
+                  </div>
+                )}
               </div>
             )}
           </DialogContent>

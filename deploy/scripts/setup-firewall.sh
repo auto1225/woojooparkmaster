@@ -1,22 +1,26 @@
-#!/bin/bash
-# ParkMaster™ 서버 방화벽 설정 (SEC-WEB-7)
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-echo "=== ParkMaster 방화벽 설정 ==="
+INTERNAL_CIDR="${PARKMASTER_INTERNAL_CIDR:-}"
+MANAGEMENT_CIDR="${PARKMASTER_MANAGEMENT_CIDR:-$INTERNAL_CIDR}"
 
-# 기본 정책: 모든 인바운드 차단
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
+if [ -z "$INTERNAL_CIDR" ]; then
+  echo "PARKMASTER_INTERNAL_CIDR is required." >&2
+  exit 1
+fi
 
-# 허용 포트
-sudo ufw allow 22/tcp    # SSH (관리자 접속)
-sudo ufw allow 80/tcp    # HTTP (→ HTTPS 리다이렉트)
-sudo ufw allow 443/tcp   # HTTPS
+if ! command -v ufw >/dev/null 2>&1; then
+  echo "ufw is required on the target Linux server." >&2
+  exit 1
+fi
 
-# PostgreSQL 외부 접근 차단 확인
-sudo ufw deny 5432/tcp
-
-# 방화벽 활성화
-sudo ufw --force enable
-sudo ufw status verbose
-
-echo "=== 방화벽 설정 완료 ==="
+ufw default deny incoming
+ufw allow from "$MANAGEMENT_CIDR" to any port 22 proto tcp comment 'ParkMaster administration'
+ufw allow from "$INTERNAL_CIDR" to any port 80 proto tcp comment 'ParkMaster HTTPS redirect'
+ufw allow from "$INTERNAL_CIDR" to any port 443 proto tcp comment 'ParkMaster application'
+ufw deny 5432/tcp
+ufw deny 6543/tcp
+ufw deny 8000/tcp
+ufw deny 8443/tcp
+ufw --force enable
+ufw status verbose

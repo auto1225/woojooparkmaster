@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
-import { logActivity } from "@/lib/activity-logger";
 import { SURVEY_STATUS_LABELS, SURVEY_STATUS_COLORS } from "@/types/survey";
 import type { SurveyStatus, SurveyBasicInfo, SurveyOperation, SurveyInfra, SurveyUsage, SurveySensorPlan, SurveyPhoto } from "@/types/survey";
 import { ArrowLeft, Check, Save } from "lucide-react";
@@ -19,6 +18,8 @@ import { StepUsage } from "@/components/survey/StepUsage";
 import { StepSensorPlan } from "@/components/survey/StepSensorPlan";
 import { StepPhotos } from "@/components/survey/StepPhotos";
 import { StepReview } from "@/components/survey/StepReview";
+import { submitSurvey } from "@/lib/workflow-commands";
+import { saveSurveyOffline } from "@/lib/offline-survey";
 
 const STEPS = [
   { label: "기본현황", key: "basic" },
@@ -71,20 +72,36 @@ export default function SurveyWizardPage() {
 
   const survey = data?.survey;
   const lot = survey?.parking_lots as any;
-  const isReadOnly = false;
+  const isReadOnly = ["submitted", "review", "approved"].includes(survey?.status || "");
 
   const saveStep = useCallback(async (stepData: any, tableName: string, recordId: string) => {
     setSaving(true);
     try {
+      if (!navigator.onLine) {
+        await saveSurveyOffline(id!, tableName, recordId, stepData);
+        toast({ title: "오프라인 저장됨", description: "네트워크가 연결되면 자동으로 동기화합니다." });
+        return;
+      }
       const { error } = await supabase.from(tableName as any).update(stepData).eq("id", recordId);
       if (error) throw error;
       toast({ title: "저장되었습니다" });
       refetch();
     } catch (err: any) {
-      toast({ title: "저장 실패", description: err.message, variant: "destructive" });
+      if (!navigator.onLine || /fetch|network|connection/i.test(err.message || "")) {
+        await saveSurveyOffline(id!, tableName, recordId, stepData);
+        toast({ title: "오프라인 저장됨", description: "연결 복구 후 자동으로 동기화합니다." });
+      } else {
+        toast({ title: "저장 실패", description: err.message, variant: "destructive" });
+      }
     } finally {
       setSaving(false);
     }
+  }, [id, refetch]);
+
+  useEffect(() => {
+    const refreshAfterSync = () => refetch();
+    window.addEventListener("parkmaster:offline-sync", refreshAfterSync);
+    return () => window.removeEventListener("parkmaster:offline-sync", refreshAfterSync);
   }, [refetch]);
 
   const handleNext = async () => {
@@ -95,27 +112,7 @@ export default function SurveyWizardPage() {
     if (!id) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("surveys").update({
-        status: "submitted" as any,
-        submitted_at: new Date().toISOString(),
-      }).eq("id", id);
-      if (error) throw error;
-
-      // Create notification for reviewers
-      const { data: managers } = await supabase.from("profiles").select("id").in("role", ["admin", "manager"]);
-      if (managers?.length) {
-        await supabase.from("notifications").insert(
-          managers.map((m: any) => ({
-            user_id: m.id,
-            module: "survey",
-            title: "조사 제출됨",
-            message: `${lot?.name} 현황조사가 제출되었습니다.`,
-            link: `/surveys/${id}/review`,
-          }))
-        );
-      }
-
-      await logActivity({ module: "survey", action: "submit", targetType: "survey", targetId: id, targetName: lot?.name });
+      await submitSurvey(id, survey?.updated_at);
       toast({ title: "제출이 완료되었습니다" });
       queryClient.invalidateQueries({ queryKey: ["surveys"] });
       navigate("/surveys");
@@ -177,11 +174,11 @@ export default function SurveyWizardPage() {
         {/* Step Content */}
         <Card>
           <CardContent className="pt-6">
-            {step === 0 && <StepBasicInfo data={data?.basic} onSave={(d) => saveStep(d, "survey_basic_info", data?.basic?.id!)} readOnly={isReadOnly} />}
-            {step === 1 && <StepOperation data={data?.operation} onSave={(d) => saveStep(d, "survey_operation", data?.operation?.id!)} readOnly={isReadOnly} />}
-            {step === 2 && <StepInfra data={data?.infra} onSave={(d) => saveStep(d, "survey_infra", data?.infra?.id!)} readOnly={isReadOnly} />}
-            {step === 3 && <StepUsage data={data?.usage} onSave={(d) => saveStep(d, "survey_usage", data?.usage?.id!)} readOnly={isReadOnly} />}
-            {step === 4 && <StepSensorPlan data={data?.sensor} onSave={(d) => saveStep(d, "survey_sensor_plan", data?.sensor?.id!)} readOnly={isReadOnly} />}
+            {step === 0 && <StepBasicInfo data={data?.basic} onSave={(d) => saveStep(d, "survey_basic_info", data?.basic?.id || '')} readOnly={isReadOnly} />}
+            {step === 1 && <StepOperation data={data?.operation} onSave={(d) => saveStep(d, "survey_operation", data?.operation?.id || '')} readOnly={isReadOnly} />}
+            {step === 2 && <StepInfra data={data?.infra} onSave={(d) => saveStep(d, "survey_infra", data?.infra?.id || '')} readOnly={isReadOnly} />}
+            {step === 3 && <StepUsage data={data?.usage} onSave={(d) => saveStep(d, "survey_usage", data?.usage?.id || '')} readOnly={isReadOnly} />}
+            {step === 4 && <StepSensorPlan data={data?.sensor} onSave={(d) => saveStep(d, "survey_sensor_plan", data?.sensor?.id || '')} readOnly={isReadOnly} />}
             {step === 5 && <StepPhotos surveyId={id!} photos={data?.photos || []} onRefresh={refetch} readOnly={isReadOnly} />}
             {step === 6 && <StepReview data={data!} onGoToStep={setStep} onSubmit={handleSubmit} isReadOnly={isReadOnly} />}
           </CardContent>

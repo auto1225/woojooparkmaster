@@ -33,9 +33,11 @@ function generateApiKey(): string {
   return key;
 }
 
-function maskKey(key: string): string {
-  if (key.length <= 12) return key;
-  return key.slice(0, 8) + '••••••••' + key.slice(-4);
+function maskKey(key?: string | null): string {
+  const value = key || '';
+  if (!value) return '-';
+  if (value.length <= 12) return value;
+  return value.slice(0, 8) + '••••••••' + value.slice(-4);
 }
 
 export default function RealtimeApi() {
@@ -258,12 +260,12 @@ export default function RealtimeApi() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <span className="font-mono text-xs">{showKeys[k.id] ? k.api_key : maskKey(k.api_key)}</span>
+                          <span className="font-mono text-xs">{showKeys[k.id] ? (k.api_key || '-') : maskKey(k.api_key)}</span>
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleKey(k.id)}>
                             {showKeys[k.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                           </Button>
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
-                            navigator.clipboard.writeText(k.api_key);
+                            navigator.clipboard.writeText(k.api_key || '');
                             toast({ title: "클립보드에 복사되었습니다" });
                           }}>
                             <Copy className="h-3 w-3" />

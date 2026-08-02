@@ -30,13 +30,15 @@ export default function OpsPassesPage() {
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
 
-  const { data: passes } = useQuery({ queryKey: ["monthly-passes"], queryFn: async () => {
-    const { data } = await supabase.from("monthly_passes").select("*, parking_lots(code, name)").order("created_at", { ascending: false });
+  const { data: passes, error: passesError } = useQuery({ queryKey: ["monthly-passes"], queryFn: async () => {
+    const { data, error } = await supabase.from("monthly_passes").select("*, parking_lots(code, name)").order("created_at", { ascending: false });
+    if (error) throw error;
     return data || [];
   }});
 
-  const { data: lots } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
-    const { data } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+  const { data: lots, error: lotsError } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
+    const { data, error } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+    if (error) throw error;
     return data || [];
   }});
 
@@ -81,10 +83,12 @@ export default function OpsPassesPage() {
       const { id, parking_lots, created_at, updated_at, ...payload } = form;
       if (!editing) payload.issued_by = user?.id;
       if (editing) {
-        await supabase.from("monthly_passes").update(payload).eq("id", editing.id);
+        const { error } = await supabase.from("monthly_passes").update(payload).eq("id", editing.id);
+        if (error) throw error;
         await logActivity({ module: "ops", action: "update", targetType: "monthly_pass", targetId: editing.id, targetName: form.vehicle_number });
       } else {
-        await supabase.from("monthly_passes").insert(payload);
+        const { error } = await supabase.from("monthly_passes").insert(payload);
+        if (error) throw error;
         await logActivity({ module: "ops", action: "create", targetType: "monthly_pass", targetName: form.vehicle_number });
       }
       toast({ title: "저장됨" });
@@ -95,21 +99,38 @@ export default function OpsPassesPage() {
   };
 
   const handleRenew = async (p: any) => {
-    const newStart = new Date(new Date(p.pass_end).getTime() + 86400000).toISOString().split("T")[0];
-    const newEnd = new Date(new Date(newStart).getTime() + 30 * 86400000).toISOString().split("T")[0];
-    const { data, error } = await supabase.from("monthly_passes").insert({
-      lot_id: p.lot_id, pass_number: generatePassNumber(), vehicle_number: p.vehicle_number,
-      vehicle_type: p.vehicle_type, holder_name: p.holder_name, holder_phone: p.holder_phone,
-      pass_start: newStart, pass_end: newEnd, fee_amount: p.fee_amount, fee_paid: 0,
-      status: "active", auto_renew: p.auto_renew, renewal_count: (p.renewal_count || 0) + 1,
-      previous_pass_id: p.id, issued_by: user?.id,
-    }).select().single();
-    if (error) { toast({ title: "갱신 실패", description: error.message, variant: "destructive" }); return; }
-    await supabase.from("monthly_passes").update({ status: "expired" }).eq("id", p.id);
-    await logActivity({ module: "ops", action: "renew", targetType: "monthly_pass", targetName: p.vehicle_number });
-    toast({ title: "갱신 완료" });
-    queryClient.invalidateQueries({ queryKey: ["monthly-passes"] });
+    try {
+      const newStart = new Date(new Date(p.pass_end).getTime() + 86400000).toISOString().split("T")[0];
+      const newEnd = new Date(new Date(newStart).getTime() + 30 * 86400000).toISOString().split("T")[0];
+      const { error: insertError } = await supabase.from("monthly_passes").insert({
+        lot_id: p.lot_id, pass_number: generatePassNumber(), vehicle_number: p.vehicle_number,
+        vehicle_type: p.vehicle_type, holder_name: p.holder_name, holder_phone: p.holder_phone,
+        pass_start: newStart, pass_end: newEnd, fee_amount: p.fee_amount, fee_paid: 0,
+        status: "active", auto_renew: p.auto_renew, renewal_count: (p.renewal_count || 0) + 1,
+        previous_pass_id: p.id, issued_by: user?.id,
+      });
+      if (insertError) throw insertError;
+
+      const { error: expireError } = await supabase.from("monthly_passes").update({ status: "expired" }).eq("id", p.id);
+      if (expireError) throw expireError;
+
+      await logActivity({ module: "ops", action: "renew", targetType: "monthly_pass", targetName: p.vehicle_number });
+      toast({ title: "갱신 완료" });
+      queryClient.invalidateQueries({ queryKey: ["monthly-passes"] });
+    } catch (err: any) {
+      toast({ title: "갱신 실패", description: err.message, variant: "destructive" });
+    }
   };
+
+  const queryError = passesError || lotsError;
+
+  if (queryError) {
+    return (
+      <DashboardLayout>
+        <Card><CardContent className="py-10 text-center text-destructive">월정기권을 불러오지 못했습니다: {queryError.message}</CardContent></Card>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

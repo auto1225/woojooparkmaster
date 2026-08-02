@@ -36,9 +36,10 @@ export default function ServiceProjects() {
   const { data: projects } = useQuery({
     queryKey: ["service-projects"],
     queryFn: async () => {
-      const { data } = await supabase.from("service_projects")
+      const { data, error } = await supabase.from("service_projects")
         .select("*, parking_lots(code, name), supervisor:profiles!service_projects_supervisor_id_fkey(name)")
         .order("created_at", { ascending: false });
+      if (error) throw error;
       return data || [];
     },
   });
@@ -49,7 +50,9 @@ export default function ServiceProjects() {
     if (tab === "warranty" && p.status !== "warranty") return false;
     if (tab === "closed" && !["closed", "terminated"].includes(p.status)) return false;
     if (typeFilter !== "all" && p.service_type !== typeFilter) return false;
-    if (search && !p.title.includes(search) && !p.project_number.includes(search) && !p.contractor_name.includes(search)) return false;
+    const query = search.trim().toLocaleLowerCase("ko-KR");
+    if (query && ![p.title, p.project_number, p.contractor_name, p.contractor_manager, p.contractor_phone, p.contractor_manager_phone, p.contractor_email]
+      .some((value) => String(value || "").toLocaleLowerCase("ko-KR").includes(query))) return false;
     return true;
   });
 
@@ -68,7 +71,7 @@ export default function ServiceProjects() {
         <div className="flex gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="사업명, 번호, 업체 검색" value={search} onChange={e => setSearch(e.target.value)} className="pl-8" />
+            <Input placeholder="사업명, 번호, 업체, 담당자, 연락처 검색" value={search} onChange={e => setSearch(e.target.value)} className="pl-8" />
           </div>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
@@ -111,7 +114,7 @@ export default function ServiceProjects() {
                         <TableCell className="text-xs font-mono">{p.project_number}</TableCell>
                         <TableCell className="text-sm font-medium max-w-[200px] truncate">{p.title}</TableCell>
                         <TableCell><Badge variant="outline" className="text-[10px]">{SERVICE_TYPE_LABELS[p.service_type] || p.service_type}</Badge></TableCell>
-                        <TableCell className="text-sm">{p.contractor_name}</TableCell>
+                        <TableCell className="text-sm"><p>{p.contractor_name}</p>{p.contractor_manager && <p className="text-xs text-muted-foreground">{p.contractor_manager}{p.contractor_manager_phone ? ` · ${p.contractor_manager_phone}` : ""}</p>}</TableCell>
                         <TableCell className="text-right text-sm">{formatServiceAmount(p.total_amount)}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{p.start_date}~{p.end_date}</TableCell>
                         <TableCell>

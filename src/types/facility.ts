@@ -8,6 +8,10 @@ export interface Equipment {
   name: string;
   model?: string;
   manufacturer?: string;
+  vendor_name?: string;
+  vendor_manager?: string;
+  vendor_phone?: string;
+  vendor_email?: string;
   serial_number?: string;
   specification?: Record<string, unknown>;
   install_date?: string;
@@ -37,7 +41,7 @@ export interface Equipment {
   registered_by?: string;
   created_at: string;
   updated_at: string;
-  parking_lots?: { code: string; name: string };
+  parking_lots?: { code: string; name: string; lot_type?: string };
 }
 
 export type EquipmentStatus = 'normal' | 'warning' | 'broken' | 'maintenance' | 'decommissioned';
@@ -53,6 +57,9 @@ export interface MaintenanceSchedule {
   assigned_team?: string;
   assigned_to?: string;
   vendor_name?: string;
+  vendor_manager?: string;
+  vendor_phone?: string;
+  vendor_email?: string;
   estimated_cost?: number;
   estimated_hours?: number;
   last_completed?: string;
@@ -63,7 +70,7 @@ export interface MaintenanceSchedule {
   created_by?: string;
   created_at: string;
   updated_at: string;
-  parking_lots?: { code: string; name: string };
+  parking_lots?: { code: string; name: string; lot_type?: string };
   equipment?: { name: string; equipment_type: string };
   assignee?: { name: string };
 }
@@ -76,6 +83,12 @@ export interface MaintenanceLog {
   lot_id: string;
   equipment_id?: string;
   schedule_id?: string;
+  source_module?: string;
+  source_record_id?: string;
+  source_item_key?: string;
+  next_action?: string;
+  idempotency_key?: string;
+  row_version?: number;
   maintenance_type: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
   title: string;
@@ -87,8 +100,12 @@ export interface MaintenanceLog {
   reported_at?: string;
   assigned_to?: string;
   assigned_at?: string;
+  due_date?: string;
   vendor_name?: string;
   vendor_contact?: string;
+  vendor_manager?: string;
+  vendor_phone?: string;
+  vendor_email?: string;
   parts_used?: { name: string; qty: number; unit_cost: number }[];
   labor_hours?: number;
   parts_cost: number;
@@ -102,13 +119,15 @@ export interface MaintenanceLog {
   after_photo?: string;
   checklist_results?: Record<string, unknown>[];
   status: MaintenanceLogStatus;
+  verified_by?: string;
+  verified_at?: string;
   closed_by?: string;
   closed_at?: string;
   satisfaction_score?: number;
   notes?: string;
   created_at: string;
   updated_at: string;
-  parking_lots?: { code: string; name: string };
+  parking_lots?: { code: string; name: string; lot_type?: string };
   equipment?: { name: string; equipment_type: string };
   reporter?: { name: string };
   assignee?: { name: string };
@@ -144,7 +163,7 @@ export interface SafetyInspection {
   created_by?: string;
   created_at: string;
   updated_at: string;
-  parking_lots?: { code: string; name: string };
+  parking_lots?: { code: string; name: string; lot_type?: string };
 }
 
 export interface ChecklistItem {
@@ -180,7 +199,7 @@ export interface SurfaceMarking {
   notes?: string;
   created_at: string;
   updated_at: string;
-  parking_lots?: { code: string; name: string };
+  parking_lots?: { code: string; name: string; lot_type?: string };
 }
 
 export type MarkingCondition = 'good' | 'fair' | 'poor' | 'faded' | 'damaged' | 'missing';
@@ -217,6 +236,7 @@ export const MAINT_STATUS_LABELS: Record<MaintenanceLogStatus, string> = {
 export const MAINT_TYPE_LABELS: Record<string, string> = {
   scheduled: '정기점검', emergency: '긴급수리', repair: '일반수리',
   replacement: '교체', inspection: '안전점검', cleaning: '청소', painting: '도색/노면시공',
+  safety_correction: '안전점검 시정', sensor_fault: '센서 장애',
 };
 
 export const CONDITION_LABELS: Record<MarkingCondition, string> = {

@@ -40,7 +40,7 @@ export function ExcelExportButton({
     } catch {
       // Fallback to legacy
       const data = getData();
-      exportToExcel({
+      await exportToExcel({
         fileName,
         title,
         headers,

@@ -1,5 +1,5 @@
 /** P6-4: 시설/장비 분석 대시보드 */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ export default function FacilityAnalysis() {
   const abnormalCount = equipment.filter((e: any) => ['warning', 'broken'].includes(e.status)).length;
   const operationRate = totalEquip > 0 ? (normalCount / totalEquip) * 100 : 0;
 
-  const now = new Date();
+  const [now] = useState(() => new Date());
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const monthlyMaintCost = maintenance
     .filter((m: any) => (m.completed_at || m.reported_at || m.created_at || '').slice(0, 10) >= monthStart)
@@ -101,7 +101,7 @@ export default function FacilityAnalysis() {
       })
       .filter((e: any) => e.ratio >= 80)
       .sort((a: any, b: any) => b.ratio - a.ratio);
-  }, [equipment]);
+  }, [equipment, now]);
 
   const handleExcelExport = () => {
     createExcelWorkbook({

@@ -53,7 +53,7 @@ export function StepBasicInfo({ data, onSave, readOnly }: Props) {
           {[
             { value: "offstreet", label: "노외" },
             { value: "onstreet", label: "노상" },
-            { value: "multilevel", label: "복층화" },
+            { value: "multilevel", label: "주차빌딩" },
             { value: "vacant_lot", label: "공한지" },
             { value: "underground", label: "지하" },
           ].map(o => (

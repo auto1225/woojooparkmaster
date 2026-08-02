@@ -119,17 +119,22 @@ async function batchInsert(supabase: any, table: string, rows: any[], batchSize 
     const batch = rows.slice(i, i + batchSize);
     const { error } = await supabase.from(table).insert(batch);
     if (error) {
-      console.error(`❌ ${table} insert error (batch ${i}-${i + batch.length}):`, error.message, error.details, error.hint);
-      // Try inserting one by one to find the bad row
-      if (batch.length > 1 && batch.length <= 10) {
-        for (const row of batch) {
-          const { error: singleErr } = await supabase.from(table).insert(row);
-          if (singleErr) console.error(`  ↳ ${table} single row error:`, singleErr.message, JSON.stringify(row).slice(0, 200));
-        }
-      }
+      throw new Error(`${table} 저장 실패: ${error.message}`);
     }
   }
   console.log(`✅ ${table}: ${rows.length} rows inserted`);
+}
+
+async function batchUpsert(supabase: any, table: string, rows: any[], onConflict: string, batchSize = 200) {
+  if (!rows || rows.length === 0) return;
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const batch = rows.slice(i, i + batchSize);
+    const { error } = await supabase.from(table).upsert(batch, { onConflict });
+    if (error) {
+      throw new Error(`${table} 저장 실패: ${error.message}`);
+    }
+  }
+  console.log(`✅ ${table}: ${rows.length} rows upserted`);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -168,76 +173,35 @@ async function runSeed(supabase: any, userId: string) {
   // ══════════════════════════════════════════
   let eqCount = 0;
   const equipmentRows: any[] = [];
-  for (const lot of topLots) {
-    if (eqCount >= 80) break;
-    for (let i = 1; i <= rnd(2, 6) && eqCount < 80; i++) {
+  const equipmentTypes = ["cctv", "barrier", "lpr", "kiosk", "lighting", "fire_extinguisher", "intercom", "display_board"];
+  const equipmentLabels: Record<string, string> = {
+    cctv: "CCTV", barrier: "차단기", lpr: "LPR", kiosk: "무인정산기",
+    lighting: "조명", fire_extinguisher: "소화기", intercom: "인터폰", display_board: "안내전광판",
+  };
+  const equipmentManufacturers: Record<string, string[]> = {
+    cctv: ["한화비전", "하이크비전", "다후아"], barrier: ["파킹클라우드", "아마노코리아"],
+    lpr: ["파킹클라우드", "넥스파시스템"], kiosk: ["파킹클라우드", "아마노코리아"],
+    lighting: ["필립스", "금호전기"], fire_extinguisher: ["한국소방", "한주케미칼"],
+    intercom: ["코맥스", "현대통신"], display_board: ["다원시스", "삼익전자"],
+  };
+  for (const [lotIndex, lot] of lots.entries()) {
+    const equipmentPerLot = lot.total_spaces >= 100 ? 3 : 2;
+    for (let i = 1; i <= equipmentPerLot; i++) {
       eqCount++;
+      const equipmentType = equipmentTypes[(lotIndex + i - 1) % equipmentTypes.length];
       const installDate = daysAgo(rnd(100, 800));
-      const lifecycle = getEquipmentLifecycle("cctv", installDate);
+      const lifecycle = getEquipmentLifecycle(equipmentType, installDate);
       equipmentRows.push({
-        lot_id: lot.id, equipment_code: `EQ-${String(eqCount).padStart(4, "0")}`,
-        equipment_type: "cctv", name: `${lot.name} CCTV-${i}`, quantity: 1,
+        lot_id: lot.id, equipment_code: `EQ-DEMO-${String(eqCount).padStart(4, "0")}`,
+        equipment_type: equipmentType, name: `${lot.name} ${equipmentLabels[equipmentType]}-${i}`, quantity: 1,
         status: pick(["normal", "normal", "normal", "warning"]),
-        manufacturer: pick(["한화비전", "하이크비전", "다후아"]),
+        manufacturer: pick(equipmentManufacturers[equipmentType]),
         install_date: installDate,
         useful_life_years: lifecycle.usefulLifeYears,
         warranty_start: lifecycle.warrantyStart,
         warranty_end: lifecycle.warrantyEnd,
         replacement_due: lifecycle.replacementDue,
         next_maintenance_date: daysFromNow(rnd(15, 75)),
-        total_maintenance_cost: 0, maintenance_count: 0, notes: "[DEMO] 데모 장비",
-      });
-    }
-    if (lot.total_spaces >= 100 && eqCount < 80) {
-      for (let i = 1; i <= 2 && eqCount < 80; i++) {
-        eqCount++;
-        const installDate = daysAgo(rnd(100, 600));
-        const lifecycle = getEquipmentLifecycle("barrier", installDate);
-        equipmentRows.push({
-          lot_id: lot.id, equipment_code: `EQ-${String(eqCount).padStart(4, "0")}`,
-          equipment_type: "barrier", name: `${lot.name} 차단기-${i}`, quantity: 1,
-          status: "normal", manufacturer: pick(["파킹클라우드", "아마노코리아"]),
-          install_date: installDate,
-          useful_life_years: lifecycle.usefulLifeYears,
-          warranty_start: lifecycle.warrantyStart,
-          warranty_end: lifecycle.warrantyEnd,
-          replacement_due: lifecycle.replacementDue,
-          next_maintenance_date: daysFromNow(rnd(10, 45)),
-          total_maintenance_cost: 0, maintenance_count: 0, notes: "[DEMO] 데모 장비",
-        });
-      }
-      if (eqCount < 80) {
-        eqCount++;
-        const installDate = daysAgo(rnd(100, 400));
-        const lifecycle = getEquipmentLifecycle("lpr", installDate);
-        equipmentRows.push({
-          lot_id: lot.id, equipment_code: `EQ-${String(eqCount).padStart(4, "0")}`,
-          equipment_type: "lpr", name: `${lot.name} LPR`, quantity: 2,
-          status: "normal", manufacturer: "파킹클라우드",
-          install_date: installDate,
-          useful_life_years: lifecycle.usefulLifeYears,
-          warranty_start: lifecycle.warrantyStart,
-          warranty_end: lifecycle.warrantyEnd,
-          replacement_due: lifecycle.replacementDue,
-          next_maintenance_date: daysFromNow(rnd(20, 60)),
-          total_maintenance_cost: 0, maintenance_count: 0, notes: "[DEMO] 데모 장비",
-        });
-      }
-    }
-    if (lot.total_spaces >= 50 && Math.random() > 0.4 && eqCount < 80) {
-      eqCount++;
-      const installDate = daysAgo(rnd(30, 300));
-      const lifecycle = getEquipmentLifecycle("kiosk", installDate);
-      equipmentRows.push({
-        lot_id: lot.id, equipment_code: `EQ-${String(eqCount).padStart(4, "0")}`,
-        equipment_type: "kiosk", name: `${lot.name} 무인정산기`, quantity: 1,
-        status: "normal", manufacturer: "파킹클라우드",
-        install_date: installDate,
-        useful_life_years: lifecycle.usefulLifeYears,
-        warranty_start: lifecycle.warrantyStart,
-        warranty_end: lifecycle.warrantyEnd,
-        replacement_due: lifecycle.replacementDue,
-        next_maintenance_date: daysFromNow(rnd(15, 45)),
         total_maintenance_cost: 0, maintenance_count: 0, notes: "[DEMO] 데모 장비",
       });
     }
@@ -261,7 +225,8 @@ async function runSeed(supabase: any, userId: string) {
 
     const scheduleTypes = Object.keys(scheduleTemplates) as Array<keyof typeof scheduleTemplates>;
 
-    const scheduleRows = demoEq.slice(0, 12).map((eq: any) => {
+    const coverageEquipment = Array.from(new Map(demoEq.map((eq: any) => [eq.lot_id, eq])).values()) as any[];
+    const scheduleRows = coverageEquipment.map((eq: any, index: number) => {
       const scheduleType = pick(scheduleTypes);
       const template = scheduleTemplates[scheduleType];
 
@@ -282,7 +247,7 @@ async function runSeed(supabase: any, userId: string) {
         estimated_cost: rnd(100000, 700000),
         estimated_hours: rnd(1, 6),
         last_completed: daysAgo(rnd(10, 90)),
-        next_due_date: daysFromNow(rnd(1, 90)),
+        next_due_date: daysFromNow(index < 3 ? index : rnd(1, 90)),
         recurrence_rule: { interval: template.interval, unit: template.unit },
         advance_notice_days: pick([3, 7, 14]),
         is_active: true,
@@ -299,7 +264,8 @@ async function runSeed(supabase: any, userId: string) {
 
   // Maintenance logs (30)
   if (demoEq && demoEq.length > 0) {
-    const maintRows = demoEq.slice(0, 30).map((eq: any, i: number) => {
+    const coverageEquipment = Array.from(new Map(demoEq.map((eq: any) => [eq.lot_id, eq])).values()) as any[];
+    const maintRows = coverageEquipment.map((eq: any, i: number) => {
       const linkedSchedule = demoSchedules?.find((s: any) => s.equipment_id === eq.id) ?? null;
       const status = pick(["reported", "assigned", "in_progress", "pending_parts", "completed", "verified"]);
       const reportedAt = new Date(Date.now() - rnd(3, 120) * 86400000).toISOString();
@@ -346,13 +312,13 @@ async function runSeed(supabase: any, userId: string) {
         notes: "[DEMO] 데모 유지보수",
       };
     });
-    await batchInsert(supabase, "maintenance_logs", maintRows);
+    await batchUpsert(supabase, "maintenance_logs", maintRows, "log_number");
   }
 
   // Safety inspections (12)
   const grades = ["A", "A", "B", "B", "B", "C", "C", "D", "A", "B", "C", "F"];
-  const inspRows = topLots.slice(0, 12).map((lot: any, i: number) => {
-    const grade = grades[i];
+  const inspRows = lots.map((lot: any, i: number) => {
+    const grade = grades[i % grades.length];
     const failItems = grade === "A" ? 0 : grade === "B" ? 1 : grade === "C" ? 3 : grade === "D" ? 5 : 6;
     const passItems = 17 - failItems;
     return {
@@ -386,7 +352,7 @@ async function runSeed(supabase: any, userId: string) {
   });
   await batchInsert(supabase, "safety_inspections", inspRows);
 
-  // Surface markings (20)
+  // Surface markings (two records per parking lot)
   const markingTypes = [
     "parking_line",
     "arrow",
@@ -401,7 +367,7 @@ async function runSeed(supabase: any, userId: string) {
     "info_board",
   ];
 
-  const markingRows = topLots.slice(0, 10).flatMap((lot: any) => {
+  const markingRows = lots.flatMap((lot: any) => {
     const primaryPaintedAt = daysAgo(rnd(30, 365));
     const primaryNextDue = (() => {
       const d = new Date(primaryPaintedAt);
@@ -1220,7 +1186,7 @@ async function runSeed(supabase: any, userId: string) {
     template_format: "pdf",
     sort_order: rnd(20, 30),
   }));
-  await batchInsert(supabase, "report_templates", templateRows);
+  await batchUpsert(supabase, "report_templates", templateRows, "template_code");
 
   // Report generated (from templates)
   const { data: insertedTemplates } = await supabase.from("report_templates").select("id, name, report_type").like("template_code", "RPT-DEMO%");

@@ -13,6 +13,7 @@ import { FileSpreadsheet, FileText, Printer, Columns3, Search, ArrowUpDown, Arro
 import { createProfessionalExcel, masterColumnToExcelColumn, type ExcelSheetConfig as ProfExcelSheetConfig } from "@/lib/excel-engine";
 import { exportMasterExcel, type ExcelSheetConfig } from "@/lib/master-excel-export";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
+import { stableMultiSort, type NullPlacement } from "@/lib/list-sorting";
 
 export interface MasterColumn {
   key: string;
@@ -115,6 +116,9 @@ export function MasterDataView({
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [secondarySortKey, setSecondarySortKey] = useState<string>('none');
+  const [secondarySortDir, setSecondarySortDir] = useState<'asc' | 'desc'>('asc');
+  const [nullPlacement, setNullPlacement] = useState<NullPlacement>('last');
   const [visibleCols, setVisibleCols] = useState<Set<string>>(() => 
     new Set(columns.filter(c => !c.hidden).map(c => c.key))
   );
@@ -159,16 +163,14 @@ export function MasterDataView({
       }
     });
     // Sort
-    if (sortKey) {
-      result.sort((a, b) => {
-        const va = a[sortKey] ?? '';
-        const vb = b[sortKey] ?? '';
-        const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb));
-        return sortDir === 'asc' ? cmp : -cmp;
-      });
-    }
+    if (sortKey) result = stableMultiSort(result, [
+      { value: (row) => row[sortKey], direction: sortDir },
+      ...(secondarySortKey !== 'none' && secondarySortKey !== sortKey
+        ? [{ value: (row: Record<string, any>) => row[secondarySortKey], direction: secondarySortDir }]
+        : []),
+    ], nullPlacement);
     return result;
-  }, [data, search, filters, sortKey, sortDir, visibleColumns]);
+  }, [data, search, filters, sortKey, sortDir, secondarySortKey, secondarySortDir, nullPlacement, visibleColumns]);
 
   const hasSubTotals = visibleColumns.some(c => c.subTotal);
 
@@ -183,14 +185,16 @@ export function MasterDataView({
 
   const toggleColumn = (key: string) => {
     const next = new Set(visibleCols);
-    next.has(key) ? next.delete(key) : next.add(key);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
     setVisibleCols(next);
   };
 
   const toggleGroupColumns = (groupName: string, checked: boolean) => {
     const next = new Set(visibleCols);
     columns.filter(c => c.group === groupName).forEach(c => {
-      checked ? next.add(c.key) : next.delete(c.key);
+      if (checked) next.add(c.key);
+      else next.delete(c.key);
     });
     setVisibleCols(next);
   };
@@ -221,7 +225,7 @@ export function MasterDataView({
       });
     } catch {
       // Fallback to legacy export
-      exportMasterExcel({
+      await exportMasterExcel({
         fileName: exportFileName,
         orgName,
         title: printTitle || title,
@@ -349,10 +353,30 @@ export function MasterDataView({
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative w-64">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-        <Input className="pl-8 h-8 text-xs" placeholder="검색..." value={search} onChange={e => setSearch(e.target.value)} />
+      {/* Search and detailed sorting */}
+      <div className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-2">
+        <div className="relative min-w-56 flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input className="pl-8 h-8 text-xs" placeholder="전체 컬럼 검색..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <Select value={sortKey || 'none'} onValueChange={(value) => setSortKey(value === 'none' ? null : value)}>
+          <SelectTrigger className="h-8 w-40 text-xs" aria-label="1차 정렬 기준"><SelectValue placeholder="1차 정렬" /></SelectTrigger>
+          <SelectContent><SelectItem value="none">기본 순서</SelectItem>{columns.filter(c => c.sortable !== false).map(c => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}</SelectContent>
+        </Select>
+        <Button type="button" variant="outline" size="sm" className="h-8 px-2" aria-label="1차 정렬 방향" disabled={!sortKey} onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}>
+          {sortDir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+        </Button>
+        <Select value={secondarySortKey} onValueChange={setSecondarySortKey}>
+          <SelectTrigger className="h-8 w-40 text-xs" aria-label="2차 정렬 기준"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="none">2차 정렬 없음</SelectItem>{columns.filter(c => c.sortable !== false && c.key !== sortKey).map(c => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}</SelectContent>
+        </Select>
+        <Button type="button" variant="outline" size="sm" className="h-8 px-2" aria-label="2차 정렬 방향" disabled={secondarySortKey === 'none'} onClick={() => setSecondarySortDir(d => d === 'asc' ? 'desc' : 'asc')}>
+          {secondarySortDir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+        </Button>
+        <Select value={nullPlacement} onValueChange={(value) => setNullPlacement(value as NullPlacement)}>
+          <SelectTrigger className="h-8 w-28 text-xs" aria-label="빈값 정렬"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="last">빈값 뒤로</SelectItem><SelectItem value="first">빈값 앞으로</SelectItem></SelectContent>
+        </Select>
       </div>
 
       {/* Table */}

@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { runtimeConfig } from "@/config/runtime-config";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,7 @@ const LOT_TYPE_ORDER: Record<string, number> = {
 const LOT_TYPE_LABEL: Record<string, string> = {
   onstreet: "노상",
   offstreet: "노외",
-  multilevel: "복층화",
+  multilevel: "주차빌딩",
   vacant_lot: "공한지",
   underground: "지하",
 };
@@ -46,13 +47,161 @@ function getDong(lot: any): string {
   return lot?.admin_dong || "";
 }
 
+async function seedRealSurveySamples() {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("로그인 세션이 없습니다.");
+
+  const moduleRows = [
+    ["CORE", "코어"], ["SURVEY", "현황조사"], ["OPS", "운영관리"], ["FACILITY", "시설관리"],
+    ["REVENUE", "수입관리"], ["BUDGET", "예산관리"], ["PROCUREMENT", "입찰관리"],
+    ["SERVICE", "협약사업관리"], ["COMPLAINT", "민원관리"], ["PLANNING", "신설기획"],
+    ["REALTIME", "실시간정보"], ["REPORT", "보고서/통계"],
+  ].map(([module_code, module_name]) => ({
+    module_code,
+    module_name,
+    license_type: "demo",
+    starts_at: new Date().toISOString().slice(0, 10),
+    is_active: true,
+    activated_at: new Date().toISOString(),
+  }));
+
+  const { error: licenseError } = await supabase
+    .from("module_licenses")
+    .upsert(moduleRows as any, { onConflict: "module_code" });
+  if (licenseError) throw licenseError;
+
+  const lotRows = [
+    {
+      code: "PM-REAL-001",
+      name: "제주시청 공영주차장",
+      address_jibun: "제주시 이도이동 1176-1",
+      address_road: "제주시 광양9길 10",
+      admin_dong: "이도2동",
+      lot_type: "offstreet",
+      total_spaces: 126,
+      disabled_spaces: 4,
+      ev_spaces: 6,
+      operator_type: "direct",
+      fee_policy: { type: "paid" },
+      has_gate: true,
+      has_lpr: true,
+      has_cctv: true,
+      has_display_board: true,
+      has_sensor: true,
+      status: "active",
+      latitude: 33.4996,
+      longitude: 126.5312,
+      notes: "[REAL-SEED] 현황조사 테스트용 실제 샘플",
+      created_by: user.id,
+    },
+    {
+      code: "PM-REAL-002",
+      name: "동문시장 공영주차장",
+      address_jibun: "제주시 일도일동 1148-2",
+      address_road: "제주시 동문로4길 9",
+      admin_dong: "일도1동",
+      lot_type: "multilevel",
+      total_spaces: 214,
+      disabled_spaces: 7,
+      ev_spaces: 8,
+      operator_type: "outsourced",
+      operator_name: "제주주차서비스",
+      fee_policy: { type: "paid" },
+      has_gate: true,
+      has_lpr: true,
+      has_kiosk: true,
+      has_cctv: true,
+      has_display_board: true,
+      has_sensor: true,
+      status: "active",
+      latitude: 33.5136,
+      longitude: 126.5261,
+      notes: "[REAL-SEED] 현황조사 테스트용 실제 샘플",
+      created_by: user.id,
+    },
+    {
+      code: "PM-REAL-003",
+      name: "용담해안도로 공영주차장",
+      address_jibun: "제주시 용담삼동 1020",
+      address_road: "제주시 서해안로 352",
+      admin_dong: "용담2동",
+      lot_type: "onstreet",
+      total_spaces: 68,
+      disabled_spaces: 2,
+      ev_spaces: 0,
+      operator_type: "direct",
+      fee_policy: { type: "free" },
+      has_cctv: true,
+      status: "active",
+      latitude: 33.5164,
+      longitude: 126.5018,
+      notes: "[REAL-SEED] 현황조사 테스트용 실제 샘플",
+      created_by: user.id,
+    },
+  ];
+
+  const { data: lots, error: lotError } = await supabase
+    .from("parking_lots")
+    .upsert(lotRows as any, { onConflict: "code" })
+    .select("id, code");
+  if (lotError) throw lotError;
+  if (!lots?.length) throw new Error("주차장 샘플 생성 결과가 없습니다.");
+
+  const { data: existingSurveys, error: existingError } = await supabase
+    .from("surveys")
+    .select("id")
+    .like("notes", "[REAL-SEED]%");
+  if (existingError) throw existingError;
+  if (existingSurveys?.length) return existingSurveys.length;
+
+  const statusByCode: Record<string, string> = {
+    "PM-REAL-001": "draft",
+    "PM-REAL-002": "submitted",
+    "PM-REAL-003": "approved",
+  };
+  const typeByCode: Record<string, string> = {
+    "PM-REAL-001": "initial",
+    "PM-REAL-002": "regular",
+    "PM-REAL-003": "special",
+  };
+
+  const surveyRows = lots.map((lot: any, index: number) => {
+    const status = statusByCode[lot.code] || "draft";
+    return {
+      lot_id: lot.id,
+      survey_type: typeByCode[lot.code] || "regular",
+      status,
+      surveyor_id: user.id,
+      reviewer_id: status === "approved" ? user.id : null,
+      approver_id: status === "approved" ? user.id : null,
+      survey_date: new Date(Date.now() - index * 86400000).toISOString().slice(0, 10),
+      submitted_at: status === "submitted" || status === "approved" ? new Date().toISOString() : null,
+      reviewed_at: status === "approved" ? new Date().toISOString() : null,
+      approved_at: status === "approved" ? new Date().toISOString() : null,
+      notes: `[REAL-SEED] ${lot.code} 실제 샘플 현황조사`,
+    };
+  });
+
+  const { data: inserted, error: surveyError } = await supabase
+    .from("surveys")
+    .insert(surveyRows as any)
+    .select("id");
+  if (surveyError) throw surveyError;
+  return inserted?.length || 0;
+}
+
 export default function SurveysPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("date");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [seedStatus, setSeedStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [seedMessage, setSeedMessage] = useState("");
+  const [seedAttempt, setSeedAttempt] = useState(0);
   const [page, setPage] = useState(0);
   const pageSize = 20;
 
@@ -67,6 +216,26 @@ export default function SurveysPage() {
       return data;
     },
   });
+
+  useEffect(() => {
+    if (runtimeConfig.deploymentMode !== "development") return;
+    if (isLoading || !surveys || surveys.length > 0 || seedStatus === "running" || seedStatus === "done" || seedAttempt >= 2) return;
+
+    setSeedAttempt((attempt) => attempt + 1);
+    setSeedStatus("running");
+    setSeedMessage("실제 Supabase 테이블에 샘플 데이터를 생성하고 있습니다.");
+    seedRealSurveySamples()
+      .then((count) => {
+        setSeedStatus("done");
+        setSeedMessage(`실제 샘플 데이터 ${count}건을 생성했습니다.`);
+        queryClient.invalidateQueries({ queryKey: ["module-licenses"] });
+        queryClient.invalidateQueries({ queryKey: ["surveys"] });
+      })
+      .catch((error: any) => {
+        setSeedStatus("error");
+        setSeedMessage(error?.message || "실제 샘플 데이터 생성에 실패했습니다.");
+      });
+  }, [isLoading, queryClient, seedAttempt, seedStatus, surveys]);
 
   const filtered = useMemo(() => {
     if (!surveys) return [];
@@ -135,6 +304,15 @@ export default function SurveysPage() {
             </Button>
           </div>
         </div>
+
+        {/* Filters */}
+        {seedStatus !== "idle" && (
+          <Card className={seedStatus === "error" ? "border-destructive/40" : "border-primary/30"}>
+            <CardContent className="py-3 text-sm">
+              {seedMessage}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Filters */}
         <Card>
@@ -209,7 +387,7 @@ export default function SurveysPage() {
                     const showDongHeader = sortBy === "dong" && currentDong !== prevDong;
 
                     return (
-                      <>
+                      <Fragment key={s.id ?? `${lot?.code ?? "survey"}-${idx}`}>
                         {showDongHeader && (
                           <TableRow key={`dong-${currentDong}-${idx}`} className="bg-muted/60 hover:bg-muted/60">
                             <TableCell colSpan={10} className="py-2 font-semibold text-sm text-primary">
@@ -233,7 +411,7 @@ export default function SurveysPage() {
                           <TableCell className="text-xs">{s.submitted_at ? new Date(s.submitted_at).toLocaleDateString("ko") : "-"}</TableCell>
                           <TableCell className="text-xs">{s.approved_at ? new Date(s.approved_at).toLocaleDateString("ko") : "-"}</TableCell>
                         </TableRow>
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableBody>

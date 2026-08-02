@@ -12,6 +12,8 @@ import { KPICard } from "@/components/common/KPICard";
 import { AnimatedPage, StaggerContainer, StaggerItem } from "@/components/common/AnimatedPage";
 import { useNavigate } from "react-router-dom";
 import type { LotType, LotStatus } from "@/types/database";
+import { MyWorkQueue } from "@/components/work/MyWorkQueue";
+import { formatActivityAction, formatActivityTarget } from "@/lib/activity-format";
 
 const COLORS = ["hsl(221,83%,53%)", "hsl(160,84%,39%)", "hsl(37,92%,50%)", "hsl(271,65%,57%)", "hsl(0,72%,51%)"];
 
@@ -84,6 +86,8 @@ export default function Index() {
             <span className="text-caption text-muted-foreground hidden sm:block">{dateStr}</span>
           </div>
 
+          <MyWorkQueue />
+
           {/* KPI Cards */}
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -92,7 +96,7 @@ export default function Index() {
           ) : (
             <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <StaggerItem>
-                <KPICard title="총 주차장" value={activeLots.length} icon={Building2} color="bg-primary/10 text-primary" />
+                <KPICard title="운영 주차장" value={activeLots.length} sub="현재 운영 중" icon={Building2} color="bg-primary/10 text-primary" />
               </StaggerItem>
               <StaggerItem>
                 <KPICard title="총 주차면" value={totalSpaces} sub="전체 주차장 합계" icon={Car} color="bg-success/10 text-success" />
@@ -181,8 +185,8 @@ export default function Index() {
                           <div className="flex items-center gap-2">
                             <span className="text-[13px] font-medium">{log.user_name || "시스템"}</span>
                             <span className="text-caption text-muted-foreground">—</span>
-                            <span className="text-caption text-muted-foreground">{log.action}</span>
-                            {log.target_name && <span className="text-caption text-foreground font-medium">"{log.target_name}"</span>}
+                            <span className="text-caption text-muted-foreground">{formatActivityAction(log.action)}</span>
+                            {log.target_name && <span className="text-caption text-foreground font-medium">{formatActivityTarget(log.target_name)}</span>}
                           </div>
                           <span className="text-[11px] font-mono text-muted-foreground/60">
                             {log.created_at ? new Date(log.created_at).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}

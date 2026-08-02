@@ -28,13 +28,15 @@ export default function OpsStaffPage() {
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
 
-  const { data: staffList } = useQuery({ queryKey: ["ops-staff-list"], queryFn: async () => {
-    const { data } = await supabase.from("operations_staff").select("*, parking_lots(code, name)").order("created_at", { ascending: false });
+  const { data: staffList, error: staffError } = useQuery({ queryKey: ["ops-staff-list"], queryFn: async () => {
+    const { data, error } = await supabase.from("operations_staff").select("*, parking_lots(code, name)").order("created_at", { ascending: false });
+    if (error) throw error;
     return data || [];
   }});
 
-  const { data: lots } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
-    const { data } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+  const { data: lots, error: lotsError } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
+    const { data, error } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+    if (error) throw error;
     return data || [];
   }});
 
@@ -59,10 +61,12 @@ export default function OpsStaffPage() {
     try {
       const { id, parking_lots, ...payload } = form;
       if (editing) {
-        await supabase.from("operations_staff").update(payload).eq("id", editing.id);
+        const { error } = await supabase.from("operations_staff").update(payload).eq("id", editing.id);
+        if (error) throw error;
         await logActivity({ module: "ops", action: "update", targetType: "staff", targetId: editing.id, targetName: form.staff_name });
       } else {
-        await supabase.from("operations_staff").insert(payload);
+        const { error } = await supabase.from("operations_staff").insert(payload);
+        if (error) throw error;
         await logActivity({ module: "ops", action: "create", targetType: "staff", targetName: form.staff_name });
       }
       toast({ title: "저장되었습니다" });
@@ -74,14 +78,28 @@ export default function OpsStaffPage() {
 
   const handleDelete = async () => {
     if (!editing) return;
-    await supabase.from("operations_staff").delete().eq("id", editing.id);
-    await logActivity({ module: "ops", action: "delete", targetType: "staff", targetId: editing.id, targetName: editing.staff_name });
-    toast({ title: "삭제되었습니다" });
-    queryClient.invalidateQueries({ queryKey: ["ops-staff-list"] });
-    setDialogOpen(false);
+    try {
+      const { error } = await supabase.from("operations_staff").delete().eq("id", editing.id);
+      if (error) throw error;
+      await logActivity({ module: "ops", action: "delete", targetType: "staff", targetId: editing.id, targetName: editing.staff_name });
+      toast({ title: "삭제되었습니다" });
+      queryClient.invalidateQueries({ queryKey: ["ops-staff-list"] });
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast({ title: "삭제 실패", description: err.message, variant: "destructive" });
+    }
   };
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  const queryError = staffError || lotsError;
+
+  if (queryError) {
+    return (
+      <DashboardLayout>
+        <Card><CardContent className="py-10 text-center text-destructive">관리인력을 불러오지 못했습니다: {queryError.message}</CardContent></Card>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

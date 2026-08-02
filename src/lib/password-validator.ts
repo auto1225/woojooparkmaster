@@ -13,7 +13,7 @@ export function validatePassword(password: string, email?: string, minLength = 8
     hasUppercase: /[A-Z]/.test(password),
     hasLowercase: /[a-z]/.test(password),
     hasNumber: /[0-9]/.test(password),
-    hasSpecial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+    hasSpecial: /[^A-Za-z0-9\s]/.test(password),
     noSequential: !/(.)\1{2}|abc|bcd|cde|def|efg|123|234|345|456|567|678|789/i.test(password),
     noUserId: email ? !password.toLowerCase().includes(email.split('@')[0].toLowerCase()) : true,
     noCommonPassword: !COMMON_PASSWORDS.includes(password.toLowerCase()),
@@ -23,8 +23,8 @@ export function validatePassword(password: string, email?: string, minLength = 8
   const score = Math.round((passedCount / Object.keys(checks).length) * 100);
 
   return {
-    isValid: checks.minLength && checks.hasUppercase && checks.hasLowercase && checks.hasNumber && checks.hasSpecial,
-    strength: score >= 87 ? 'strong' : score >= 62 ? 'medium' : 'weak',
+    isValid: Object.values(checks).every(Boolean),
+    strength: score === 100 ? 'strong' : score >= 62 ? 'medium' : 'weak',
     score,
     checks,
   };
