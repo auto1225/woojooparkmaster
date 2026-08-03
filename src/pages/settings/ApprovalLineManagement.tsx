@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, GitBranch } from "lucide-react";
+import { Plus, Trash2, GitBranch, Pencil, CircleAlert } from "lucide-react";
 import { AuthorField } from "@/components/common/AuthorField";
 
 const MODULE_OPTIONS = [
@@ -43,6 +43,7 @@ export default function ApprovalLineManagement() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', module: '', docType: '', isDefault: false });
   const [steps, setSteps] = useState<StepDef[]>([
     { step: 1, role: 'editor', label: '기안' },
@@ -50,18 +51,26 @@ export default function ApprovalLineManagement() {
     { step: 3, role: 'admin', label: '승인' },
   ]);
 
-  const { data: lines } = useQuery({
+  const { data: lines, error: linesError, isLoading } = useQuery({
     queryKey: ['approval-lines'],
     queryFn: async () => {
-      const { data } = await supabase.from('approval_lines').select('*').order('module, document_type');
+      const { data, error } = await supabase.from('approval_lines').select('*').order('module, document_type');
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const createMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async () => {
       if (!form.name || !form.module || !form.docType) throw new Error('필수 항목을 입력하세요');
-      const { error } = await supabase.from('approval_lines').insert({
+      if (!steps.length || steps.some((step) => !step.label.trim())) throw new Error('결재 단계와 명칭을 확인하세요');
+      if (form.isDefault) {
+        let clearDefault = supabase.from('approval_lines').update({ is_default: false }).eq('module', form.module).eq('document_type', form.docType);
+        if (editingId) clearDefault = clearDefault.neq('id', editingId);
+        const { error } = await clearDefault;
+        if (error) throw error;
+      }
+      const payload = {
         line_name: form.name,
         module: form.module,
         document_type: form.docType,
@@ -69,17 +78,37 @@ export default function ApprovalLineManagement() {
         is_default: form.isDefault,
         created_by: profile?.id,
         author_name: (form as any).author_name || null,
-      } as any);
+      } as any;
+      const request = editingId
+        ? supabase.from('approval_lines').update(payload).eq('id', editingId)
+        : supabase.from('approval_lines').insert(payload);
+      const { error } = await request;
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approval-lines'] });
       setDialog(false);
+      setEditingId(null);
       setForm({ name: '', module: '', docType: '', isDefault: false });
-      toast.success('결재선이 등록되었습니다');
+      setSteps([{ step: 1, role: 'editor', label: '기안' }, { step: 2, role: 'manager', label: '검토' }, { step: 3, role: 'admin', label: '승인' }]);
+      toast.success(editingId ? '결재선을 수정했습니다' : '결재선을 등록했습니다');
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm({ name: '', module: '', docType: '', isDefault: false });
+    setSteps([{ step: 1, role: 'editor', label: '기안' }, { step: 2, role: 'manager', label: '검토' }, { step: 3, role: 'admin', label: '승인' }]);
+    setDialog(true);
+  };
+
+  const openEdit = (line: any) => {
+    setEditingId(line.id);
+    setForm({ name: line.line_name || '', module: line.module || '', docType: line.document_type || '', isDefault: Boolean(line.is_default), author_name: line.author_name || '' } as any);
+    setSteps(((line.steps as StepDef[]) || []).map((step, index) => ({ ...step, step: index + 1 })));
+    setDialog(true);
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -90,6 +119,7 @@ export default function ApprovalLineManagement() {
       queryClient.invalidateQueries({ queryKey: ['approval-lines'] });
       toast.success('삭제되었습니다');
     },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const addStep = () => {
@@ -112,14 +142,16 @@ export default function ApprovalLineManagement() {
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <GitBranch className="h-4 w-4" />결재선 관리
         </h3>
-        <Button size="sm" onClick={() => setDialog(true)}>
+        <Button size="sm" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5 mr-1" />결재선 등록
         </Button>
       </div>
 
+      {linesError && <div role="alert" className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"><CircleAlert className="h-4 w-4" />결재선 정보를 불러오지 못했습니다.</div>}
+
       <Card>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="max-w-full overflow-x-auto p-0">
+          <Table className="min-w-[720px]">
             <TableHeader>
               <TableRow>
                 <TableHead>결재선명</TableHead>
@@ -137,7 +169,7 @@ export default function ApprovalLineManagement() {
                   <TableRow key={line.id}>
                     <TableCell className="text-sm font-medium">{line.line_name}</TableCell>
                     <TableCell className="text-xs">{MODULE_OPTIONS.find(m => m.value === line.module)?.label || line.module}</TableCell>
-                    <TableCell className="text-xs">{line.document_type}</TableCell>
+                    <TableCell className="text-xs">{DOC_TYPE_OPTIONS[line.module]?.find((item) => item.value === line.document_type)?.label || line.document_type}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         {lineSteps.map((s, i) => (
@@ -147,16 +179,18 @@ export default function ApprovalLineManagement() {
                     </TableCell>
                     <TableCell>{line.is_default && <Badge className="text-[9px] bg-primary">기본</Badge>}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteMutation.mutate(line.id)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="결재선 수정" onClick={() => openEdit(line)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="결재선 삭제" onClick={() => window.confirm(`'${line.line_name}' 결재선을 삭제하시겠습니까?`) && deleteMutation.mutate(line.id)}>
                         <Trash2 className="h-3.5 w-3.5 text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>
                 );
               })}
-              {(!lines || lines.length === 0) && (
+              {!isLoading && !linesError && (!lines || lines.length === 0) && (
                 <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">등록된 결재선이 없습니다</TableCell></TableRow>
               )}
+              {isLoading && <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">결재선을 불러오는 중입니다</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
@@ -164,7 +198,7 @@ export default function ApprovalLineManagement() {
 
       <Dialog open={dialog} onOpenChange={setDialog}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>결재선 등록</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingId ? '결재선 수정' : '결재선 등록'}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <Label className="text-xs">결재선명</Label>
@@ -226,7 +260,7 @@ export default function ApprovalLineManagement() {
             <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(f => ({ ...f, author_name: v } as any))} />
           </div>
           <DialogFooter>
-            <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>등록</Button>
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{editingId ? '수정 저장' : '등록'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

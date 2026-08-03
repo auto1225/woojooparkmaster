@@ -1,4 +1,4 @@
-/** SEC-2/3: 로그인 보안 + 세션 관리 */
+/** Authentication security and active-session management. */
 import { supabase } from '@/integrations/supabase/client';
 import type { LoginResult } from '@/types/security';
 
@@ -18,55 +18,60 @@ function getDeviceInfo() {
   };
 }
 
+function isMissingRpc(error: unknown) {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: string; message?: string; details?: string };
+  const combined = `${candidate.code || ''} ${candidate.message || ''} ${candidate.details || ''}`.toLowerCase();
+  return combined.includes('pgrst202') || combined.includes('could not find the function') || combined.includes('404');
+}
+
 export async function logSecurityAudit(
   eventType: string,
   severity: 'info' | 'warning' | 'critical',
-  detail?: Record<string, any>,
-  options?: { success?: boolean; failureReason?: string; userId?: string; userName?: string }
+  detail?: Record<string, unknown>,
+  options?: { success?: boolean; failureReason?: string; userId?: string; userName?: string },
 ) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    await (supabase.from('security_audit_logs') as any).insert({
-      event_type: eventType,
-      severity,
-      user_id: options?.userId || user?.id || null,
-      user_name: options?.userName || user?.email?.split('@')[0] || null,
-      action_detail: detail || null,
-      success: options?.success ?? true,
-      failure_reason: options?.failureReason || null,
-      user_agent: navigator.userAgent,
-      request_path: window.location.pathname,
+    await (supabase.rpc as any)('write_security_audit_event', {
+      p_event_type: eventType,
+      p_severity: severity,
+      p_detail: { ...(detail || {}), request_path: window.location.pathname, user_agent: navigator.userAgent },
+      p_success: options?.success ?? true,
+      p_failure_reason: options?.failureReason || null,
     });
   } catch {
-    // Silent fail for audit logging
+    // Authentication must remain available when audit storage is temporarily unavailable.
   }
 }
 
-export async function registerSession(userId: string, token: string) {
+export async function registerSession(userId: string, token: string): Promise<boolean> {
   try {
     const maxSessions = parseInt(await getConfig('security_max_concurrent_sessions') || '3');
     const timeoutMinutes = parseInt(await getConfig('security_session_timeout_minutes') || '30');
 
-    const { data: sessions } = await (supabase.from('active_sessions') as any)
+    const { data: sessions, error: sessionsError } = await (supabase.from('active_sessions') as any)
       .select('*')
       .eq('user_id', userId)
       .eq('is_active', true)
       .order('started_at', { ascending: true });
+    if (sessionsError) return false;
 
     if (sessions && sessions.length >= maxSessions) {
       const oldest = sessions[0];
-      await (supabase.from('active_sessions') as any).update({ is_active: false }).eq('id', oldest.id);
+      const { error } = await (supabase.from('active_sessions') as any).update({ is_active: false }).eq('id', oldest.id);
+      if (error) return false;
     }
 
-    await (supabase.from('active_sessions') as any).insert({
+    const { error } = await (supabase.from('active_sessions') as any).insert({
       user_id: userId,
       session_token: token.substring(0, 200),
       user_agent: navigator.userAgent,
       device_info: getDeviceInfo(),
       expires_at: new Date(Date.now() + timeoutMinutes * 60000).toISOString(),
     });
+    return !error;
   } catch {
-    // Silent fail
+    return false;
   }
 }
 
@@ -76,82 +81,74 @@ export async function deactivateSession(userId: string) {
       .update({ is_active: false })
       .eq('user_id', userId)
       .eq('is_active', true);
-  } catch {}
+  } catch {
+    // Supabase authentication still clears the local and server auth session.
+  }
 }
 
 export async function secureLogin(
   email: string,
   password: string,
-  signInFn: (e: string, p: string) => Promise<{ error: Error | null }>
+  signInFn: (e: string, p: string) => Promise<{ error: Error | null }>,
 ): Promise<LoginResult> {
-  // 1. Check lock
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, login_fail_count, locked_until, password_changed_at, must_change_password')
-    .eq('email', email)
-    .maybeSingle();
-
-  if (profile?.locked_until) {
-    const lockedUntil = new Date(profile.locked_until as string);
-    if (lockedUntil > new Date()) {
-      const remainingMinutes = Math.ceil((lockedUntil.getTime() - Date.now()) / 60000);
-      await logSecurityAudit('auth_login_failed', 'warning', { reason: 'account_locked', email }, { success: false, failureReason: 'account_locked' });
-      return { success: false, error: `계정이 잠겨있습니다. ${remainingMinutes}분 후 다시 시도해주세요.`, locked: true, remainingMinutes };
-    }
+  const { data: lockRows, error: lockError } = await (supabase.rpc as any)('check_login_lock_status', { p_email: email });
+  const legacySecurityMode = isMissingRpc(lockError);
+  if (lockError && !legacySecurityMode) {
+    return { success: false, error: '로그인 보안 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' };
   }
 
-  // 2. Attempt login
+  const lock = Array.isArray(lockRows) ? lockRows[0] : lockRows;
+  if (!legacySecurityMode && lock?.locked) {
+    const remainingMinutes = Math.max(Math.ceil(Number(lock.remaining_seconds || 0) / 60), 1);
+    return { success: false, error: `계정이 잠겨 있습니다. ${remainingMinutes}분 후 다시 시도해 주세요.`, locked: true, remainingMinutes };
+  }
+
   const { error } = await signInFn(email, password);
-
   if (error) {
-    const maxAttempts = parseInt(await getConfig('security_max_login_attempts') || '5');
-    const lockoutMinutes = parseInt(await getConfig('security_lockout_minutes') || '5');
-    const newCount = ((profile?.login_fail_count as number) || 0) + 1;
-
-    const updates: any = { login_fail_count: newCount };
-    if (newCount >= maxAttempts) {
-      updates.locked_until = new Date(Date.now() + lockoutMinutes * 60000).toISOString();
-      await logSecurityAudit('auth_locked', 'critical', { email, attempts: newCount }, { success: false, failureReason: 'max_attempts' });
-    }
-
-    if (profile) {
-      await supabase.from('profiles').update(updates).eq('email', email);
-    }
-
-    await logSecurityAudit('auth_login_failed', 'warning', { email, attempt: newCount }, { success: false, failureReason: error.message });
-
-    const remaining = maxAttempts - newCount;
-    if (remaining > 0) {
-      return { success: false, error: `이메일 또는 비밀번호가 올바르지 않습니다. (${remaining}회 남음)` };
-    }
-    return { success: false, error: `로그인 시도 횟수를 초과했습니다. ${lockoutMinutes}분 후 다시 시도해주세요.`, locked: true };
+    // Supabase Auth performs server-side abuse prevention. A public custom
+    // failure counter would let an attacker lock another user's account.
+    return { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
   }
 
-  // 3. Success — reset counters
   const { data: { session } } = await supabase.auth.getSession();
-  await supabase.from('profiles').update({
-    login_fail_count: 0,
-    locked_until: null,
-    last_login_at: new Date().toISOString(),
-  } as any).eq('email', email);
+  if (!session) return { success: false, error: '로그인 세션을 확인하지 못했습니다.' };
 
-  // 4. Register session
-  if (session) {
-    await registerSession(session.user.id, session.access_token);
+  const { error: resetError } = await (supabase.rpc as any)('reset_login_security_state');
+  if (resetError && isMissingRpc(resetError)) {
+    const { error: fallbackResetError } = await (supabase.from('profiles') as any)
+      .update({ login_fail_count: 0, locked_until: null, last_login_at: new Date().toISOString() })
+      .eq('id', session.user.id);
+    if (fallbackResetError) {
+      await supabase.auth.signOut();
+      return { success: false, error: '로그인 보안 상태를 초기화하지 못했습니다.' };
+    }
+  } else if (resetError) {
+    await supabase.auth.signOut();
+    return { success: false, error: '로그인 보안 상태를 초기화하지 못했습니다.' };
   }
 
-  // 5. Check password expiry
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, password_changed_at, must_change_password')
+    .eq('id', session.user.id)
+    .single();
+  if (profileError) {
+    await supabase.auth.signOut();
+    return { success: false, error: '사용자 보안 정보를 불러오지 못했습니다.' };
+  }
+
+  const sessionRegistered = await registerSession(session.user.id, session.access_token);
+  if (!sessionRegistered) {
+    await supabase.auth.signOut();
+    return { success: false, error: '활성 세션을 등록하지 못했습니다. 관리자에게 문의하세요.' };
+  }
+
   const expiryDays = parseInt(await getConfig('security_password_expiry_days') || '90');
   if (expiryDays > 0 && profile?.password_changed_at) {
     const daysSinceChange = (Date.now() - new Date(profile.password_changed_at as string).getTime()) / 86400000;
-    if (daysSinceChange > expiryDays) {
-      return { success: true, mustChangePassword: true };
-    }
+    if (daysSinceChange > expiryDays) return { success: true, mustChangePassword: true };
   }
-
-  if (profile?.must_change_password) {
-    return { success: true, mustChangePassword: true };
-  }
+  if (profile?.must_change_password) return { success: true, mustChangePassword: true };
 
   await logSecurityAudit('auth_login', 'info', { email });
   return { success: true };

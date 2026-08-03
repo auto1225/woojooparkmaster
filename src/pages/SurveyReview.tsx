@@ -14,9 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { SURVEY_STATUS_LABELS, SURVEY_STATUS_COLORS, SURVEY_TYPE_LABELS, PHOTO_CATEGORIES } from "@/types/survey";
+import { SURVEY_STATUS_LABELS, SURVEY_STATUS_COLORS, SURVEY_TYPE_LABELS, getSurveyPhotoCategories } from "@/types/survey";
 import type { SurveyStatus } from "@/types/survey";
-import { ArrowLeft, CheckCircle, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, Clock, Printer } from "lucide-react";
 import { useState } from "react";
 import { decideSurvey } from "@/lib/workflow-commands";
 
@@ -115,7 +115,7 @@ export default function SurveyReviewPage() {
         </Button>
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-xl font-bold">{lot?.name}</h2>
@@ -128,6 +128,9 @@ export default function SurveyReviewPage() {
               조사자: {surveyor?.name || "-"} | 조사일: {survey.survey_date || "-"} | 유형: {SURVEY_TYPE_LABELS[survey.survey_type] || survey.survey_type}
             </p>
           </div>
+          <Button variant="outline" onClick={() => navigate(`/surveys/${survey.id}/print`)}>
+            <Printer className="mr-1 h-4 w-4" /> 조사표 인쇄
+          </Button>
         </div>
 
         <DocumentLinksPanel module="SURVEY" recordId={survey.id} recordPath={`/surveys/${survey.id}/review`} recordTitle={`${lot?.name || "주차장"} 현황조사`} />
@@ -156,7 +159,7 @@ export default function SurveyReviewPage() {
 
         <Card><CardHeader className="pb-2"><CardTitle className="text-xs">사진대장</CardTitle></CardHeader><CardContent>
           <div className="flex flex-wrap gap-1">
-            {PHOTO_CATEGORIES.map(c => {
+            {getSurveyPhotoCategories(data?.basic?.lot_type).map(c => {
               const count = data?.photos.filter((p: any) => p.category === c.code).length || 0;
               return <Badge key={c.code} variant={count > 0 ? "default" : "outline"} className="text-[10px]">{c.label} {count}</Badge>;
             })}

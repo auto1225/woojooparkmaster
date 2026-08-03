@@ -93,6 +93,7 @@ export const SERVICE_TYPE_LABELS: Record<string, string> = {
   facility_maintenance: '시설보수', cleaning: '청소', landscaping: '조경',
   security: '보안/경비', consulting: '컨설팅', it_service: 'IT용역',
   survey: '현황조사', construction_supervision: '감리', other: '기타',
+  maintenance: '시설보수', construction: '시설공사',
 };
 
 export const PROJECT_STATUS_LABELS: Record<string, string> = {

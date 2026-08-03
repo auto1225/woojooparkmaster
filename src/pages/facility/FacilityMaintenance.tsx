@@ -27,6 +27,7 @@ import { uploadMaintenanceEvidence } from "@/lib/facility-field-work";
 import { useAuthorization } from "@/hooks/useAuthorization";
 import { FacilityLotCombobox } from "@/components/facility/FacilityLotCombobox";
 import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
+import { OPEN_MAINTENANCE_STATUS_SET } from "@/lib/work-status";
 
 const KANBAN_COLS: MaintenanceLogStatus[] = ["reported", "assigned", "in_progress", "pending_parts", "completed", "verified"];
 const PAGE_SIZE = 50;
@@ -36,6 +37,12 @@ const MAINTENANCE_PRESETS = [
   { label: "CCTV·통신", title: "CCTV·통신 상태 이상", maintenance_type: "repair", priority: "high" },
   { label: "파손·안전", title: "시설물 파손 및 안전 조치", maintenance_type: "repair", priority: "urgent" },
 ] as const;
+
+function defaultMaintenanceDueDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 2);
+  return date.toISOString().slice(0, 10);
+}
 
 async function createEvidenceVerificationFile() {
   const canvas = document.createElement("canvas");
@@ -73,8 +80,8 @@ export default function FacilityMaintenance() {
   const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "all");
-  const [lotFilter, setLotFilter] = useState("all");
-  const [lotTypeFilter, setLotTypeFilter] = useState("all");
+  const [lotFilter, setLotFilter] = useState(() => searchParams.get("lot") || "all");
+  const [lotTypeFilter, setLotTypeFilter] = useState(() => searchParams.get("lotType") || "all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [sortKey, setSortKey] = useState("reported_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -133,8 +140,14 @@ export default function FacilityMaintenance() {
     const next = new URLSearchParams(searchParams);
     if (detailOpen && selectedLogId) next.set("work", selectedLogId);
     else next.delete("work");
+    if (statusFilter !== "all") next.set("status", statusFilter);
+    else next.delete("status");
+    if (lotTypeFilter !== "all") next.set("lotType", lotTypeFilter);
+    else next.delete("lotType");
+    if (lotFilter !== "all") next.set("lot", lotFilter);
+    else next.delete("lot");
     if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
-  }, [detailOpen, searchParams, selectedLogId, setSearchParams]);
+  }, [detailOpen, lotFilter, lotTypeFilter, searchParams, selectedLogId, setSearchParams, statusFilter]);
 
   const [selectedLot, setSelectedLot] = useState("");
   const { data: lotEquipment = [] } = useQuery({
@@ -155,7 +168,7 @@ export default function FacilityMaintenance() {
     title: "",
     symptom: "",
     assigned_to: "",
-    due_date: "",
+    due_date: defaultMaintenanceDueDate(),
     vendor_name: "",
     vendor_manager: "",
     vendor_phone: "",
@@ -203,7 +216,7 @@ export default function FacilityMaintenance() {
       queryClient.invalidateQueries({ queryKey: ["facility-maint-logs"] });
       setDialogOpen(false);
       setShowIntakeDetails(false);
-      setForm({ lot_id: "", equipment_id: "", maintenance_type: "repair", priority: "medium", title: "", symptom: "", assigned_to: "", due_date: "", vendor_name: "", vendor_manager: "", vendor_phone: "", vendor_email: "" });
+      setForm({ lot_id: "", equipment_id: "", maintenance_type: "repair", priority: "medium", title: "", symptom: "", assigned_to: "", due_date: defaultMaintenanceDueDate(), vendor_name: "", vendor_manager: "", vendor_phone: "", vendor_email: "" });
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -305,8 +318,14 @@ export default function FacilityMaintenance() {
       return log.reported_at || log.created_at || "";
     };
     const matching = logs.filter((log) => {
-      const statusMatch = statusFilter === "all" || (statusFilter === "pending" && !["completed", "verified", "cancelled"].includes(log.status)) || (statusFilter === "done" && ["completed", "verified"].includes(log.status));
-      if (!statusMatch || (lotFilter !== "all" && log.lot_id !== lotFilter) || (lotTypeFilter !== "all" && log.parking_lots?.lot_type !== lotTypeFilter) || (typeFilter !== "all" && log.maintenance_type !== typeFilter)) return false;
+      const statusMatch = statusFilter === "all"
+        || (statusFilter === "active" && OPEN_MAINTENANCE_STATUS_SET.has(log.status))
+        || (statusFilter === "pending" && !["completed", "verified", "cancelled"].includes(log.status))
+        || (statusFilter === "done" && ["completed", "verified"].includes(log.status));
+      const lotTypeMatch = lotTypeFilter === "all"
+        || (lotTypeFilter === "other" && !["offstreet", "multilevel", "onstreet"].includes(log.parking_lots?.lot_type || ""))
+        || log.parking_lots?.lot_type === lotTypeFilter;
+      if (!statusMatch || (lotFilter !== "all" && log.lot_id !== lotFilter) || !lotTypeMatch || (typeFilter !== "all" && log.maintenance_type !== typeFilter)) return false;
       return !query || [log.title, log.log_number, log.parking_lots?.name, log.equipment?.name, log.assignee?.name, log.vendor_name, log.vendor_manager, log.vendor_phone, log.vendor_email].some((value) => String(value || "").toLowerCase().includes(query));
     });
     return stableMultiSort(matching, [
@@ -443,13 +462,13 @@ export default function FacilityMaintenance() {
           </div>
         </div>
 
-        <div className="flex justify-end"><Select value={lotTypeFilter} onValueChange={setLotTypeFilter}><SelectTrigger aria-label="주차장 형태 필터" className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">전체 주차장 형태</SelectItem>{Object.entries(LOT_TYPE_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div>
+        <div className="flex justify-end"><Select value={lotTypeFilter} onValueChange={setLotTypeFilter}><SelectTrigger aria-label="주차장 형태 필터" className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">전체 주차장 형태</SelectItem>{Object.entries(LOT_TYPE_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}<SelectItem value="other">기타·미지정</SelectItem></SelectContent></Select></div>
 
         <OperationalListControls
           search={search} onSearchChange={setSearch} searchPlaceholder="제목, 접수번호, 장비, 담당자, 업체 검색"
           lots={lots.map((lot: { id: string; name: string; code: string }) => ({ value: lot.id, label: `${lot.name} (${lot.code})` }))} lotId={lotFilter} onLotChange={setLotFilter}
           categoryLabel="전체 유형" categories={Object.entries(MAINT_TYPE_LABELS).map(([value, label]) => ({ value, label }))} category={typeFilter} onCategoryChange={setTypeFilter}
-          statuses={[{ value: "pending", label: "미완료" }, { value: "done", label: "완료" }]} status={statusFilter} onStatusChange={setStatusFilter}
+          statuses={[{ value: "active", label: "진행·검증대기" }, { value: "pending", label: "미완료" }, { value: "done", label: "완료" }]} status={statusFilter} onStatusChange={setStatusFilter}
           sortOptions={[{ value: "reported_at", label: "접수일순" }, { value: "due_date", label: "처리기한순" }, { value: "priority", label: "우선순위순" }, { value: "total_cost", label: "비용순" }, { value: "lot", label: "주차장순" }, { value: "type", label: "유형순" }, { value: "title", label: "제목순" }]}
           sortKey={sortKey} onSortKeyChange={setSortKey} sortDirection={sortDirection} onSortDirectionChange={setSortDirection}
           secondarySortKey={secondarySortKey} onSecondarySortKeyChange={setSecondarySortKey} nullPlacement={nullPlacement} onNullPlacementChange={setNullPlacement}
@@ -495,12 +514,12 @@ export default function FacilityMaintenance() {
                   <TableRow>
                     <TableHead>번호</TableHead><TableHead>우선순위</TableHead><TableHead>제목</TableHead>
                     <TableHead>주차장</TableHead><TableHead>장비</TableHead><TableHead>유형</TableHead>
-                    <TableHead>담당자</TableHead><TableHead>기한</TableHead><TableHead>상태</TableHead><TableHead className="text-right">비용</TableHead>
+                    <TableHead>담당자</TableHead><TableHead>기한</TableHead><TableHead>상태</TableHead><TableHead className="text-right">비용</TableHead><TableHead className="text-right">다음 작업</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {groupedLogs.map((group) => <Fragment key={group.key}>
-                    {groupByLot && <TableRow className="bg-muted/60 hover:bg-muted/60"><TableCell colSpan={10} className="py-2 font-semibold">{group.label}<Badge variant="secondary" className="ml-2">{group.items.length}건</Badge></TableCell></TableRow>}
+                    {groupByLot && <TableRow className="bg-muted/60 hover:bg-muted/60"><TableCell colSpan={11} className="py-2 font-semibold">{group.label}<Badge variant="secondary" className="ml-2">{group.items.length}건</Badge></TableCell></TableRow>}
                     {group.items.map((log) => (
                     <TableRow key={log.id} className="cursor-pointer hover:bg-muted/40" onClick={() => openLogDetail(log)}>
                       <TableCell className="font-mono text-xs">{log.log_number}</TableCell>
@@ -513,10 +532,17 @@ export default function FacilityMaintenance() {
                       <TableCell className={`text-sm ${log.due_date && log.due_date < new Date().toISOString().slice(0, 10) ? "font-semibold text-destructive" : ""}`}>{log.due_date || "-"}</TableCell>
                       <TableCell><Badge variant="outline">{MAINT_STATUS_LABELS[log.status]}</Badge></TableCell>
                       <TableCell className="text-right text-sm">{formatCost(log.total_cost)}</TableCell>
+                      <TableCell className="text-right">
+                        {canEdit && nextActionLabel(log) ? (
+                          <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); runNextAction(log); }}>
+                            {nextActionLabel(log)}
+                          </Button>
+                        ) : <span className="text-xs text-muted-foreground">-</span>}
+                      </TableCell>
                     </TableRow>
                     ))}
                   </Fragment>)}
-                  {filtered.length === 0 && <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">{isLoading ? "로딩 중..." : "유지보수 기록이 없습니다"}</TableCell></TableRow>}
+                  {filtered.length === 0 && <TableRow><TableCell colSpan={11} className="py-8 text-center text-muted-foreground">{isLoading ? "로딩 중..." : "유지보수 기록이 없습니다"}</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </CardContent>

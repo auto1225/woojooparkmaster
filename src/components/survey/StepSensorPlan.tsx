@@ -10,11 +10,12 @@ import { AuthorField } from "@/components/common/AuthorField";
 
 interface Props {
   data: SurveySensorPlan | null | undefined;
-  onSave: (data: Partial<SurveySensorPlan>) => void;
+  onSave: (data: Partial<SurveySensorPlan>) => Promise<void> | void;
+  onNext?: () => void;
   readOnly?: boolean;
 }
 
-export function StepSensorPlan({ data, onSave, readOnly }: Props) {
+export function StepSensorPlan({ data, onSave, onNext, readOnly }: Props) {
   const [form, setForm] = useState<Partial<SurveySensorPlan>>({});
   useEffect(() => { if (data) setForm({ ...data }); }, [data]);
   const set = (key: string, val: any) => setForm(f => ({ ...f, [key]: val }));
@@ -72,8 +73,8 @@ export function StepSensorPlan({ data, onSave, readOnly }: Props) {
 
       {!readOnly && (
         <div className="flex justify-end">
-          <Button onClick={() => { const { id: _id, survey_id, ...rest } = form as any; onSave(rest); }}>
-            <Save className="h-4 w-4 mr-1" /> 저장
+          <Button onClick={async () => { const { id: _id, survey_id, ...rest } = form as any; await onSave(rest); onNext?.(); }}>
+            <Save className="h-4 w-4 mr-1" /> 저장 후 다음
           </Button>
         </div>
       )}

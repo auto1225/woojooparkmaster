@@ -24,7 +24,13 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveSurveyOffline(surveyId: string, table: string, recordId: string, data: any) {
+export async function saveSurveyOffline(
+  surveyId: string,
+  table: string,
+  recordId: string,
+  data: any,
+  baseSurveyUpdatedAt?: string | null,
+) {
   const db = await openDB();
   const tx = db.transaction(STORE_SURVEYS, "readwrite");
   tx.objectStore(STORE_SURVEYS).put({
@@ -33,6 +39,8 @@ export async function saveSurveyOffline(surveyId: string, table: string, recordI
     table,
     record_id: recordId,
     data,
+    base_survey_updated_at: baseSurveyUpdatedAt || null,
+    client_mutation_id: crypto.randomUUID(),
     timestamp: Date.now(),
   });
   await new Promise<void>((resolve, reject) => {
@@ -88,21 +96,56 @@ export async function syncOfflineData(): Promise<{ surveys: number; photos: numb
     toast.info(`${surveys.length}건 동기화 중...`);
   }
 
-  for (const s of surveys) {
+  const surveysByRecord = new Map<string, any[]>();
+  for (const pending of surveys) {
+    const group = surveysByRecord.get(pending.survey_id) || [];
+    group.push(pending);
+    surveysByRecord.set(pending.survey_id, group);
+  }
+
+  for (const [surveyId, pendingSteps] of surveysByRecord) {
     try {
-      const { error } = await (supabase
-        .from(s.table as any) as any)
-        .update(s.data)
-        .eq("id", s.record_id);
-      if (!error) {
-        const db = await openDB();
-        const tx = db.transaction(STORE_SURVEYS, "readwrite");
-        tx.objectStore(STORE_SURVEYS).delete(s.id);
-        await new Promise<void>((res) => { tx.oncomplete = () => res(); });
-        syncedSurveys++;
+      const { data: parent, error: parentError } = await supabase
+        .from("surveys")
+        .select("status, updated_at")
+        .eq("id", surveyId)
+        .single();
+      if (parentError) throw parentError;
+      if (!["draft", "in_progress", "rejected"].includes(parent.status)) {
+        toast.error("제출·승인된 조사의 오프라인 변경은 동기화하지 않았습니다.");
+        continue;
       }
+
+      const baseTimes = pendingSteps.map(step => step.base_survey_updated_at).filter(Boolean);
+      if (baseTimes.length > 0 && !baseTimes.includes(parent.updated_at)) {
+        toast.error("다른 사용자가 먼저 현황조사를 수정했습니다. 변경 내용을 확인한 뒤 다시 저장해 주세요.");
+        continue;
+      }
+
+      let groupSucceeded = true;
+      for (const pending of pendingSteps) {
+        const { error } = await (supabase.from(pending.table as any) as any)
+          .update(pending.data)
+          .eq("id", pending.record_id);
+        if (error) {
+          groupSucceeded = false;
+          console.error("Survey sync failed:", pending.survey_id, error);
+          break;
+        }
+      }
+      if (!groupSucceeded) continue;
+
+      await supabase.from("surveys").update({ updated_at: new Date().toISOString() }).eq("id", surveyId);
+      const db = await openDB();
+      const tx = db.transaction(STORE_SURVEYS, "readwrite");
+      for (const pending of pendingSteps) tx.objectStore(STORE_SURVEYS).delete(pending.id);
+      await new Promise<void>((res, reject) => {
+        tx.oncomplete = () => res();
+        tx.onerror = () => reject(tx.error);
+      });
+      syncedSurveys += pendingSteps.length;
     } catch (e) {
-      console.error("Survey sync failed:", s.survey_id, e);
+      console.error("Survey sync failed:", surveyId, e);
     }
   }
 
@@ -110,8 +153,14 @@ export async function syncOfflineData(): Promise<{ surveys: number; photos: numb
   const photos = await getPendingPhotos();
   for (const p of photos) {
     try {
-      const path = `surveys/${p.survey_id}/${p.file_name}`;
-      const { error } = await supabase.storage.from("survey-photos").upload(path, p.blob, { upsert: true });
+      const { data: parent, error: parentError } = await supabase.from("surveys").select("status").eq("id", p.survey_id).single();
+      if (parentError) throw parentError;
+      if (!["draft", "in_progress", "rejected"].includes(parent.status)) {
+        toast.error("제출·승인된 조사의 대기 사진은 업로드하지 않았습니다.");
+        continue;
+      }
+      const path = `${p.survey_id}/${p.category}/${p.file_name}`;
+      const { error } = await supabase.storage.from("survey-photos").upload(path, p.blob, { upsert: false });
       if (!error) {
         const { error: metadataError } = await supabase.from("survey_photos").insert({
           survey_id: p.survey_id,
@@ -119,7 +168,10 @@ export async function syncOfflineData(): Promise<{ surveys: number; photos: numb
           file_path: path,
           sort_order: p.sort_order,
         });
-        if (metadataError) continue;
+        if (metadataError) {
+          await supabase.storage.from("survey-photos").remove([path]);
+          continue;
+        }
         const db = await openDB();
         const tx = db.transaction(STORE_PHOTOS, "readwrite");
         tx.objectStore(STORE_PHOTOS).delete(p.id);

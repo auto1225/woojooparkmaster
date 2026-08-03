@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,11 +9,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/EmptyState";
-import { FileSpreadsheet, FileText, Printer, Columns3, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, FileSpreadsheet, FileText, Printer, Columns3, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, RefreshCw, X } from "lucide-react";
 import { createProfessionalExcel, masterColumnToExcelColumn, type ExcelSheetConfig as ProfExcelSheetConfig } from "@/lib/excel-engine";
 import { exportMasterExcel, type ExcelSheetConfig } from "@/lib/master-excel-export";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { stableMultiSort, type NullPlacement } from "@/lib/list-sorting";
+import { useAuthorization } from "@/hooks/useAuthorization";
 
 export interface MasterColumn {
   key: string;
@@ -53,6 +54,9 @@ interface MasterDataViewProps {
   printUrl?: string;
   filterConfig?: FilterDef[];
   onRowClick?: (row: Record<string, any>) => void;
+  error?: boolean;
+  onRetry?: () => void;
+  moduleCode?: string;
 }
 
 const GROUP_COLORS: Record<string, string> = {
@@ -67,6 +71,10 @@ const GROUP_COLORS: Record<string, string> = {
 };
 
 function formatCell(value: any, col: MasterColumn): React.ReactNode {
+  if ((value == null || value === '') && col.format === 'badge' && col.badgeMap?.__unassigned) {
+    const badge = col.badgeMap.__unassigned;
+    return <Badge className={`text-[10px] ${badge.color}`}>{badge.label}</Badge>;
+  }
   if (value == null || value === '') return <span className="text-muted-foreground">-</span>;
   switch (col.format) {
     case 'currency':
@@ -96,22 +104,27 @@ function formatCell(value: any, col: MasterColumn): React.ReactNode {
 
 function calcSubTotal(data: Record<string, any>[], col: MasterColumn): string {
   if (!col.subTotal) return '';
-  const vals = data.map(r => Number(r[col.key]) || 0);
+  const vals = data
+    .map((row) => row[col.key])
+    .filter((value) => value !== null && value !== undefined && value !== '')
+    .map(Number)
+    .filter(Number.isFinite);
   switch (col.subTotal) {
     case 'sum': return vals.reduce((a, b) => a + b, 0).toLocaleString();
     case 'avg': return vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : '0';
-    case 'count': return vals.filter(v => v !== 0).length.toString();
-    case 'max': return Math.max(...vals).toLocaleString();
-    case 'min': return Math.min(...vals).toLocaleString();
+    case 'count': return vals.length.toString();
+    case 'max': return vals.length ? Math.max(...vals).toLocaleString() : '0';
+    case 'min': return vals.length ? Math.min(...vals).toLocaleString() : '0';
     default: return '';
   }
 }
 
 export function MasterDataView({
   title, subtitle, columns, data, loading, frozenColumns = 3,
-  exportFileName, exportSheets, printTitle, printUrl, filterConfig, onRowClick,
+  exportFileName, exportSheets, printTitle, printUrl, filterConfig, onRowClick, error = false, onRetry, moduleCode,
 }: MasterDataViewProps) {
   const { data: config } = useSystemConfig();
+  const { canExport } = useAuthorization(moduleCode);
   const orgName = config?.org_name || '';
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -124,6 +137,9 @@ export function MasterDataView({
   );
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [showFilters, setShowFilters] = useState(false);
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(1);
+  const [columnPickerOpen, setColumnPickerOpen] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
 
   const activeFilterCount = Object.values(filters).filter(v => v && v !== '__all__').length;
@@ -159,7 +175,9 @@ export function MasterDataView({
     // Filters
     Object.entries(filters).forEach(([key, val]) => {
       if (val && val !== '__all__') {
-        result = result.filter(r => String(r[key]) === val);
+        result = result.filter((row) => val === '__unassigned'
+          ? row[key] == null || row[key] === ''
+          : String(row[key]) === val);
       }
     });
     // Sort
@@ -173,6 +191,16 @@ export function MasterDataView({
   }, [data, search, filters, sortKey, sortDir, secondarySortKey, secondarySortDir, nullPlacement, visibleColumns]);
 
   const hasSubTotals = visibleColumns.some(c => c.subTotal);
+  const pageCount = Math.max(1, Math.ceil(processed.length / pageSize));
+  const paged = processed.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, filters, sortKey, sortDir, secondarySortKey, secondarySortDir, nullPlacement, pageSize]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -268,12 +296,16 @@ export function MasterDataView({
           <Badge variant="secondary" className="text-xs">총 {processed.length}건</Badge>
           
           {/* Column selector */}
-          <Popover>
+          <Popover open={columnPickerOpen} onOpenChange={setColumnPickerOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm"><Columns3 className="h-3.5 w-3.5 mr-1" />컬럼 선택</Button>
             </PopoverTrigger>
             <PopoverContent className="w-72 max-h-80 overflow-y-auto" align="end">
               <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold">표시할 컬럼</span>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label="컬럼 선택 닫기" onClick={() => setColumnPickerOpen(false)}><X className="h-3.5 w-3.5" /></Button>
+                </div>
                 {Array.from(colGroups.entries()).map(([grp, cols]) => (
                   <div key={grp}>
                     <div className="flex items-center gap-2 mb-1">
@@ -298,7 +330,7 @@ export function MasterDataView({
           </Popover>
 
           {/* Excel dropdown */}
-          <DropdownMenu>
+          {canExport ? <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm"><FileSpreadsheet className="h-3.5 w-3.5 mr-1" />엑셀</Button>
             </DropdownMenuTrigger>
@@ -307,16 +339,16 @@ export function MasterDataView({
               <DropdownMenuItem onClick={() => handleExcel('full')}>전체 항목 엑셀</DropdownMenuItem>
               {exportSheets && <DropdownMenuItem onClick={() => handleExcel('multi')}>멀티시트 분석 엑셀</DropdownMenuItem>}
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu> : null}
 
-          {printUrl && (
+          {canExport && printUrl && (
             <Button variant="outline" size="sm" onClick={() => window.open(printUrl, '_blank')}>
               <FileText className="h-3.5 w-3.5 mr-1" />PDF
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
+          {canExport ? <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer className="h-3.5 w-3.5 mr-1" />인쇄
-          </Button>
+          </Button> : null}
         </div>
       </div>
 
@@ -382,6 +414,12 @@ export function MasterDataView({
       {/* Table */}
       {loading ? (
         <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+      ) : error ? (
+        <div className="flex min-h-48 flex-col items-center justify-center gap-3 border py-8 text-center">
+          <AlertTriangle className="h-6 w-6 text-destructive" />
+          <div><p className="text-sm font-medium">종합 자료를 불러오지 못했습니다</p><p className="mt-1 text-xs text-muted-foreground">0건이 아니라 조회 실패 상태입니다.</p></div>
+          {onRetry ? <Button variant="outline" size="sm" onClick={onRetry}><RefreshCw className="mr-1 h-3.5 w-3.5" />다시 조회</Button> : null}
+        </div>
       ) : processed.length === 0 ? (
         <EmptyState icon={Search} title="조회 결과가 없습니다" />
       ) : (
@@ -433,11 +471,14 @@ export function MasterDataView({
               </tr>
             </thead>
             <tbody>
-              {processed.map((row, ri) => (
+              {paged.map((row, ri) => (
                 <tr
-                  key={ri}
+                  key={row.id || `${page}-${ri}`}
                   className={`border-b hover:bg-primary/[0.03] ${ri % 2 === 1 ? 'bg-muted/20' : ''} ${onRowClick ? 'cursor-pointer' : ''}`}
                   onClick={() => onRowClick?.(row)}
+                  onKeyDown={(event) => { if (onRowClick && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onRowClick(row); } }}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  aria-label={onRowClick ? `${title} ${row._no || (page - 1) * pageSize + ri + 1}번 상세 열기` : undefined}
                 >
                   {visibleColumns.map((col, ci) => {
                     const isSticky = ci < frozenColumns;
@@ -484,6 +525,20 @@ export function MasterDataView({
           </table>
         </div>
       )}
+      {!loading && !error && processed.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t pb-14 pr-16 pt-3 text-xs text-muted-foreground md:pb-0">
+          <span>{processed.length.toLocaleString()}건 중 {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, processed.length)}건</span>
+          <div className="flex items-center gap-2">
+            <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
+              <SelectTrigger aria-label="페이지당 행 수" className="h-8 w-24 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="50">50건씩</SelectItem><SelectItem value="100">100건씩</SelectItem></SelectContent>
+            </Select>
+            <Button type="button" variant="outline" size="icon" className="h-8 w-8" aria-label="이전 페이지" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="min-w-16 text-center tabular-nums">{page} / {pageCount}</span>
+            <Button type="button" variant="outline" size="icon" className="h-8 w-8" aria-label="다음 페이지" disabled={page >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}><ChevronRight className="h-4 w-4" /></Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

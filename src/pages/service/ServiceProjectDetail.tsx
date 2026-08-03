@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
+import { LinkedBusinessContacts } from "@/components/business-cards/LinkedBusinessContacts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -27,8 +28,16 @@ import {
   SEVERITY_LABELS, SEVERITY_COLORS, ISSUE_STATUS_LABELS,
   RESULT_LABELS, RESULT_COLORS, formatServiceAmount,
 } from "@/types/service";
-import { ArrowLeft, CheckCircle, Circle, AlertCircle, Plus, Pencil } from "lucide-react";
+import { ArrowLeft, CheckCircle, Circle, AlertCircle, Plus, Pencil, FileDown, FileUp, LoaderCircle } from "lucide-react";
 import { advanceServicePayment, createServiceInspection, decideServiceInspection, requestServicePayment } from "@/lib/workflow-commands";
+import { getParkingLotTypeLabel } from "@/lib/parking-lot-type-labels";
+import { getSecureUploadPath, validateUploadFile } from "@/lib/file-security";
+
+const DELIVERABLE_TYPE_OPTIONS: Record<string, string> = {
+  initial: "착수 성과물", progress: "기성 성과물", interim: "중간 성과물",
+  final: "최종 성과물", completion: "준공 성과물", report: "보고서",
+  data: "데이터", manual: "매뉴얼", other: "기타",
+};
 
 function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
   return (
@@ -54,6 +63,14 @@ export default function ServiceProjectDetail() {
   const [correctionDeadline, setCorrectionDeadline] = useState("");
   const [workflowPending, setWorkflowPending] = useState<string | null>(null);
   const [issueOpen, setIssueOpen] = useState(false);
+  const [issueResolution, setIssueResolution] = useState<any | null>(null);
+  const [resolutionText, setResolutionText] = useState("");
+  const [deliverableOpen, setDeliverableOpen] = useState(false);
+  const [deliverableSaving, setDeliverableSaving] = useState(false);
+  const [deliverableFile, setDeliverableFile] = useState<File | null>(null);
+  const [deliverableForm, setDeliverableForm] = useState({ milestoneId: "none", documentNumber: "", title: "", type: "progress", description: "" });
+  const [deliverableReview, setDeliverableReview] = useState<any | null>(null);
+  const [deliverableReviewNote, setDeliverableReviewNote] = useState("");
   const [issueForm, setIssueForm] = useState({
     type: "delay",
     severity: "medium",
@@ -79,7 +96,7 @@ export default function ServiceProjectDetail() {
     queryKey: ["service-project", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("service_projects")
-        .select("*, parking_lots(code, name), supervisor:profiles!service_projects_supervisor_id_fkey(name), inspector:profiles!service_projects_inspector_id_fkey(name)")
+        .select("*, parking_lots(code, name, lot_type), supervisor:profiles!service_projects_supervisor_id_fkey(name), inspector:profiles!service_projects_inspector_id_fkey(name)")
         .eq("id", id!).single();
       if (error) throw error;
       return data;
@@ -148,9 +165,15 @@ export default function ServiceProjectDetail() {
 
   const handleStatusChange = async (newStatus: string, extra: Record<string, any> = {}) => {
     if (!project) return;
-    const { error } = await supabase.from("service_projects").update({
-      status: newStatus, status_changed_at: new Date().toISOString(), ...extra,
-    } as any).eq("id", project.id);
+    const reason = ["suspended", "terminated"].includes(newStatus)
+      ? window.prompt(newStatus === "suspended" ? "중지 사유를 입력하세요." : "해지 사유를 입력하세요.")
+      : null;
+    if (["suspended", "terminated"].includes(newStatus) && !reason?.trim()) return;
+    const { error } = await supabase.rpc("transition_service_project" as any, {
+      p_project_id: project.id,
+      p_target_status: newStatus,
+      p_reason: reason?.trim() || null,
+    } as any);
     if (error) { toast({ title: "상태 변경 실패", description: error.message, variant: "destructive" }); return; }
     await logActivity({ module: "service", action: "status_change", targetType: "service_project", targetId: project.id, targetName: project.title, details: { from: project.status, to: newStatus } });
     toast({ title: `상태가 "${PROJECT_STATUS_LABELS[newStatus]}"(으)로 변경되었습니다` });
@@ -159,9 +182,13 @@ export default function ServiceProjectDetail() {
 
   const handleMilestoneComplete = async (msId: string) => {
     const today = new Date().toISOString().slice(0, 10);
-    const { error } = await supabase.from("service_milestones").update({ status: "completed", actual_date: today } as any).eq("id", msId);
-    if (error) { toast({ title: "실패", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "마일스톤 완료 처리됨 (진척률 자동 갱신)" });
+    const { error } = await supabase.rpc("complete_service_milestone" as any, {
+      p_milestone_id: msId,
+      p_actual_date: today,
+      p_note: null,
+    } as any);
+    if (error) { toast({ title: "마일스톤 처리 실패", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "마일스톤을 완료하고 진척률을 갱신했습니다." });
     invalidateAll();
   };
 
@@ -222,7 +249,7 @@ export default function ServiceProjectDetail() {
     setWorkflowPending(payment.id);
     try {
       await advanceServicePayment(payment.id, action);
-      toast({ title: action === "approve" ? "지급을 승인했습니다" : "지급 완료로 처리했습니다" });
+      toast({ title: action === "approve" ? "지급을 승인했습니다" : "지급과 예산집행을 완료했습니다" });
       invalidateAll();
     } catch (error: any) {
       toast({ title: "지급 처리 실패", description: error.message, variant: "destructive" });
@@ -234,25 +261,22 @@ export default function ServiceProjectDetail() {
   const handleCreateIssue = async () => {
     if (!id || !project || !issueForm.title.trim() || !issueForm.description.trim()) return;
     setWorkflowPending("create-issue");
-    const issueNumber = `${project.project_number}-ISS-${String((issues?.length || 0) + 1).padStart(2, "0")}`;
-    const { error } = await supabase.from("service_issues").insert({
-      project_id: id,
-      issue_number: issueNumber,
-      issue_type: issueForm.type,
-      severity: issueForm.severity,
-      title: issueForm.title.trim(),
-      description: issueForm.description.trim(),
-      impact_amount: issueForm.impactAmount || null,
-      impact_days: issueForm.impactDays || null,
-      status: "open",
-      reported_at: new Date().toISOString(),
-      reported_by: profile?.id || null,
-    });
+    const { data, error } = await supabase.rpc("create_service_issue" as any, {
+      p_project_id: id,
+      p_issue_type: issueForm.type,
+      p_severity: issueForm.severity,
+      p_title: issueForm.title.trim(),
+      p_description: issueForm.description.trim(),
+      p_impact_amount: issueForm.impactAmount || 0,
+      p_impact_days: issueForm.impactDays || 0,
+      p_client_mutation_id: crypto.randomUUID(),
+    } as any);
     setWorkflowPending(null);
     if (error) {
       toast({ title: "이슈 등록 실패", description: error.message, variant: "destructive" });
       return;
     }
+    const issueNumber = (data as any)?.[0]?.issue_number || project.project_number;
     await logActivity({ module: "service", action: "create", targetType: "service_issue", targetName: issueNumber, details: { project_id: id } });
     toast({ title: "이슈를 등록했습니다" });
     setIssueOpen(false);
@@ -261,17 +285,42 @@ export default function ServiceProjectDetail() {
   };
 
   const handleIssueStatus = async (issue: any, status: "in_progress" | "resolved") => {
+    if (status === "resolved") {
+      setIssueResolution(issue);
+      setResolutionText("");
+      return;
+    }
     setWorkflowPending(issue.id);
-    const { error } = await supabase.from("service_issues").update({
-      status,
-      ...(status === "resolved" ? { resolved_at: new Date().toISOString(), resolved_by: profile?.id || null } : {}),
-    }).eq("id", issue.id);
+    const { error } = await supabase.rpc("transition_service_issue" as any, {
+      p_issue_id: issue.id,
+      p_target_status: status,
+      p_resolution: null,
+    } as any);
     setWorkflowPending(null);
     if (error) {
       toast({ title: "이슈 처리 실패", description: error.message, variant: "destructive" });
       return;
     }
     toast({ title: status === "resolved" ? "이슈를 해결 처리했습니다" : "이슈 처리를 시작했습니다" });
+    invalidateAll();
+  };
+
+  const resolveIssue = async () => {
+    if (!issueResolution || !resolutionText.trim()) return;
+    setWorkflowPending(issueResolution.id);
+    const { error } = await supabase.rpc("transition_service_issue" as any, {
+      p_issue_id: issueResolution.id,
+      p_target_status: "resolved",
+      p_resolution: resolutionText.trim(),
+    } as any);
+    setWorkflowPending(null);
+    if (error) {
+      toast({ title: "이슈 해결 처리 실패", description: error.message, variant: "destructive" });
+      return;
+    }
+    setIssueResolution(null);
+    setResolutionText("");
+    toast({ title: "이슈를 해결 처리했습니다" });
     invalidateAll();
   };
 
@@ -293,8 +342,17 @@ export default function ServiceProjectDetail() {
   const saveContact = async () => {
     if (!project || !contactForm.contractor_name.trim()) return;
     setContactSaving(true);
-    const payload = Object.fromEntries(Object.entries(contactForm).map(([key, value]) => [key, value.trim() || null]));
-    const { error } = await supabase.from("service_projects").update(payload).eq("id", project.id);
+    const { error } = await supabase.rpc("update_service_contractor_contact" as any, {
+      p_project_id: project.id,
+      p_name: contactForm.contractor_name,
+      p_business_number: contactForm.contractor_business_number,
+      p_representative: contactForm.contractor_representative,
+      p_address: contactForm.contractor_address,
+      p_phone: contactForm.contractor_phone,
+      p_email: contactForm.contractor_email,
+      p_manager: contactForm.contractor_manager,
+      p_manager_phone: contactForm.contractor_manager_phone,
+    } as any);
     setContactSaving(false);
     if (error) {
       toast({ title: "업체 연락망 저장 실패", description: error.message, variant: "destructive" });
@@ -305,6 +363,83 @@ export default function ServiceProjectDetail() {
     queryClient.invalidateQueries({ queryKey: ["service-projects"] });
     setContactOpen(false);
     toast({ title: "수행업체 연락망을 수정했습니다" });
+  };
+
+  const openDeliverableRegister = () => {
+    setDeliverableForm({
+      milestoneId: "none",
+      documentNumber: `${project?.document_number || project?.project_number}-성과물-${String((deliverables?.length || 0) + 1).padStart(2, "0")}`,
+      title: "",
+      type: "progress",
+      description: "",
+    });
+    setDeliverableFile(null);
+    setDeliverableOpen(true);
+  };
+
+  const submitDeliverable = async () => {
+    const actorId = profile?.id;
+    if (!project || !actorId || !deliverableFile || !deliverableForm.documentNumber.trim() || !deliverableForm.title.trim()) return;
+    setDeliverableSaving(true);
+    let bucket = "official-documents";
+    let path = "";
+    try {
+      const validation = await validateUploadFile(deliverableFile, "document");
+      if (!validation.isValid) throw new Error(validation.errors.join(" "));
+      path = `${actorId}/service/${project.id}/${getSecureUploadPath("document", deliverableFile.name)}`;
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(path, deliverableFile, { upsert: false });
+      if (uploadError) {
+        const fallbackAllowed = import.meta.env.DEV && /bucket not found/i.test(uploadError.message);
+        if (!fallbackAllowed) throw uploadError;
+        bucket = "reports";
+        const { error: fallbackError } = await supabase.storage.from(bucket).upload(path, deliverableFile, { upsert: false });
+        if (fallbackError) throw fallbackError;
+      }
+      const { error } = await supabase.rpc("register_service_deliverable" as any, {
+        p_project_id: project.id,
+        p_milestone_id: deliverableForm.milestoneId === "none" ? null : deliverableForm.milestoneId,
+        p_document_number: deliverableForm.documentNumber.trim(),
+        p_title: deliverableForm.title.trim(),
+        p_deliverable_type: deliverableForm.type,
+        p_description: deliverableForm.description.trim() || null,
+        p_file_path: `${bucket}://${path}`,
+        p_file_format: deliverableFile.name.split(".").pop()?.toLowerCase() || null,
+        p_file_size: deliverableFile.size,
+        p_file_hash: null,
+        p_client_mutation_id: crypto.randomUUID(),
+      } as any);
+      if (error) throw error;
+      setDeliverableOpen(false);
+      setDeliverableFile(null);
+      toast({ title: "성과물 원문을 제출했습니다" });
+      invalidateAll();
+    } catch (error: any) {
+      if (path) await supabase.storage.from(bucket).remove([path]);
+      toast({ title: "성과물 제출 실패", description: error.message, variant: "destructive" });
+    } finally {
+      setDeliverableSaving(false);
+    }
+  };
+
+  const openDeliverableFile = async (filePath: string) => {
+    const match = filePath?.match(/^([a-z0-9-]+):\/\/(.+)$/i);
+    if (!match) { toast({ title: "성과물 파일 경로를 확인할 수 없습니다", variant: "destructive" }); return; }
+    const { data, error } = await supabase.storage.from(match[1]).createSignedUrl(match[2], 60);
+    if (error) { toast({ title: "성과물 열기 실패", description: error.message, variant: "destructive" }); return; }
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const reviewDeliverable = async (deliverable: any, decision: "approved" | "revision_required", note?: string) => {
+    const { error } = await supabase.rpc("review_service_deliverable" as any, {
+      p_deliverable_id: deliverable.id,
+      p_decision: decision,
+      p_note: note?.trim() || null,
+    } as any);
+    if (error) { toast({ title: "성과물 검토 실패", description: error.message, variant: "destructive" }); return; }
+    setDeliverableReview(null);
+    setDeliverableReviewNote("");
+    toast({ title: decision === "approved" ? "성과물을 승인했습니다" : "성과물 보완을 요구했습니다" });
+    invalidateAll();
   };
 
   if (isLoading) return <DashboardLayout><div className="space-y-4 max-w-5xl"><Skeleton className="h-10 w-48" /><Skeleton className="h-64" /></div></DashboardLayout>;
@@ -339,6 +474,7 @@ export default function ServiceProjectDetail() {
         </div>
 
         <DocumentLinksPanel module="SERVICE" recordId={p.id} recordPath={`/service/projects/${p.id}`} recordTitle={p.title} />
+        <LinkedBusinessContacts module="SERVICE_PROJECT" recordId={p.id} title="연결된 수행업체 담당자" />
 
         {/* Milestone Timeline */}
         {milestones && milestones.length > 0 && (
@@ -387,9 +523,11 @@ export default function ServiceProjectDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card><CardHeader className="pb-2"><CardTitle className="text-xs uppercase text-muted-foreground font-mono">기본 정보</CardTitle></CardHeader>
                 <CardContent>
+                  <InfoRow label="근거 문서번호" value={p.document_number} />
                   <InfoRow label="유형" value={SERVICE_TYPE_LABELS[p.service_type]} />
                   <InfoRow label="분류" value={p.service_category} />
                   <InfoRow label="관련 주차장" value={(p.parking_lots as any)?.name} />
+                  <InfoRow label="주차장 형태" value={getParkingLotTypeLabel((p.parking_lots as any)?.lot_type)} />
                   <InfoRow label="감독관" value={(p.supervisor as any)?.name} />
                   <InfoRow label="검수관" value={(p.inspector as any)?.name} />
                 </CardContent>
@@ -469,28 +607,21 @@ export default function ServiceProjectDetail() {
 
           {/* Tab 3: Deliverables */}
           <TabsContent value="deliverables">
-            <Card><CardContent className="p-0">
-              <Table>
-                <TableHeader><TableRow>
-                  <TableHead>번호</TableHead><TableHead>제목</TableHead><TableHead>유형</TableHead>
-                  <TableHead>형식</TableHead><TableHead>제출일</TableHead><TableHead>상태</TableHead><TableHead>보완</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {deliverables?.map((d: any) => (
-                    <TableRow key={d.id}>
-                      <TableCell className="text-xs font-mono">{d.deliverable_number}</TableCell>
-                      <TableCell className="text-sm">{d.title}</TableCell>
-                      <TableCell className="text-xs">{d.deliverable_type}</TableCell>
-                      <TableCell className="text-xs">{d.format_required || "-"}</TableCell>
-                      <TableCell className="text-xs">{d.submitted_at ? new Date(d.submitted_at).toLocaleDateString() : "-"}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-[10px]">{DELIVERABLE_STATUS_LABELS[d.status] || d.status}</Badge></TableCell>
-                      <TableCell className="text-xs">{d.revision_count}</TableCell>
-                    </TableRow>
-                  ))}
-                  {!deliverables?.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">성과물 없음</TableCell></TableRow>}
-                </TableBody>
+            {canEdit && <div className="mb-3 flex justify-end"><Button size="sm" onClick={openDeliverableRegister}><FileUp className="mr-1 h-4 w-4" />성과물 제출</Button></div>}
+            <div className="space-y-3 md:hidden">
+              {deliverables?.map((d: any) => <Card key={d.id}><CardContent className="space-y-3 p-4">
+                <div><p className="font-mono text-xs text-muted-foreground">{d.document_number || d.deliverable_number}</p><p className="font-medium">{d.title}</p></div>
+                <div className="flex flex-wrap gap-1"><Badge variant="outline">{DELIVERABLE_TYPE_OPTIONS[d.deliverable_type] || d.deliverable_type}</Badge><Badge variant="outline">{DELIVERABLE_STATUS_LABELS[d.status] || d.status}</Badge></div>
+                <p className="text-xs text-muted-foreground">{d.submitted_at ? new Date(d.submitted_at).toLocaleDateString() : "미제출"} · 보완 {d.revision_count || 0}회</p>
+                <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => openDeliverableFile(d.file_path)}><FileDown className="mr-1 h-4 w-4" />원문</Button>{canApprove && ["submitted","revision_submitted"].includes(d.status) && <><Button size="sm" onClick={() => reviewDeliverable(d, "approved")}>승인</Button><Button size="sm" variant="outline" onClick={() => { setDeliverableReview(d); setDeliverableReviewNote(""); }}>보완 요구</Button></>}</div>
+              </CardContent></Card>)}
+              {!deliverables?.length && <p className="py-8 text-center text-sm text-muted-foreground">제출된 성과물이 없습니다.</p>}
+            </div>
+            <Card className="hidden md:block"><CardContent className="p-0"><div className="overflow-x-auto">
+              <Table><TableHeader><TableRow><TableHead>문서번호</TableHead><TableHead>제목·유형</TableHead><TableHead>형식</TableHead><TableHead>제출일</TableHead><TableHead>상태</TableHead><TableHead>보완</TableHead><TableHead className="text-right">실행</TableHead></TableRow></TableHeader>
+                <TableBody>{deliverables?.map((d: any) => <TableRow key={d.id}><TableCell className="text-xs font-mono">{d.document_number || d.deliverable_number}</TableCell><TableCell><p className="text-sm font-medium">{d.title}</p><p className="text-xs text-muted-foreground">{DELIVERABLE_TYPE_OPTIONS[d.deliverable_type] || d.deliverable_type}</p></TableCell><TableCell className="text-xs">{d.file_format || "-"}</TableCell><TableCell className="text-xs">{d.submitted_at ? new Date(d.submitted_at).toLocaleDateString() : "-"}</TableCell><TableCell><Badge variant="outline" className="text-[10px]">{DELIVERABLE_STATUS_LABELS[d.status] || d.status}</Badge></TableCell><TableCell className="text-xs">{d.revision_count || 0}회</TableCell><TableCell><div className="flex justify-end gap-1"><Button size="icon" variant="ghost" title="원문 열기" onClick={() => openDeliverableFile(d.file_path)}><FileDown className="h-4 w-4" /></Button>{canApprove && ["submitted","revision_submitted"].includes(d.status) && <><Button size="sm" onClick={() => reviewDeliverable(d, "approved")}>승인</Button><Button size="sm" variant="outline" onClick={() => { setDeliverableReview(d); setDeliverableReviewNote(""); }}>보완</Button></>}</div></TableCell></TableRow>)}{!deliverables?.length && <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">제출된 성과물이 없습니다.</TableCell></TableRow>}</TableBody>
               </Table>
-            </CardContent></Card>
+            </div></CardContent></Card>
           </TabsContent>
 
           {/* Tab 4: Inspections */}
@@ -670,6 +801,43 @@ export default function ServiceProjectDetail() {
                 {inspectionAction?.action === "require_correction" ? "보완 요구" : "제출"}
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={Boolean(issueResolution)} onOpenChange={(open) => { if (!open) setIssueResolution(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>이슈 해결 완료</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>해결 내용 및 확인 결과 *</Label>
+                <Textarea rows={5} value={resolutionText} onChange={(event) => setResolutionText(event.target.value)} placeholder="조치 내용, 현장 확인 결과, 증빙 위치를 입력하세요." />
+              </div>
+              <Button className="w-full" onClick={resolveIssue} disabled={!resolutionText.trim() || Boolean(workflowPending)}>해결 완료 저장</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={deliverableOpen} onOpenChange={setDeliverableOpen}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader><DialogTitle>성과물 제출</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>문서번호 *</Label><Input value={deliverableForm.documentNumber} onChange={(event) => setDeliverableForm((form) => ({ ...form, documentNumber: event.target.value }))} /></div>
+              <div><Label>성과물 제목 *</Label><Input value={deliverableForm.title} onChange={(event) => setDeliverableForm((form) => ({ ...form, title: event.target.value }))} /></div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div><Label>유형</Label><Select value={deliverableForm.type} onValueChange={(type) => setDeliverableForm((form) => ({ ...form, type }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(DELIVERABLE_TYPE_OPTIONS).map(([key,label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}</SelectContent></Select></div>
+                <div><Label>마일스톤</Label><Select value={deliverableForm.milestoneId} onValueChange={(milestoneId) => setDeliverableForm((form) => ({ ...form, milestoneId }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">연결 안 함</SelectItem>{milestones?.map((milestone: any) => <SelectItem key={milestone.id} value={milestone.id}>{milestone.milestone_number}. {milestone.title}</SelectItem>)}</SelectContent></Select></div>
+              </div>
+              <div><Label>설명</Label><Textarea rows={3} value={deliverableForm.description} onChange={(event) => setDeliverableForm((form) => ({ ...form, description: event.target.value }))} /></div>
+              <div><Label>원문 파일 *</Label><Input type="file" accept=".pdf,.xlsx,.xls,.docx,.hwp,.hwpx,.zip" onChange={(event) => setDeliverableFile(event.target.files?.[0] || null)} /><p className="mt-1 text-xs text-muted-foreground">{deliverableFile ? `${deliverableFile.name} · ${(deliverableFile.size / 1024).toFixed(1)}KB` : "검토 가능한 원문 파일을 선택하세요."}</p></div>
+              <Button className="w-full" onClick={submitDeliverable} disabled={deliverableSaving || !deliverableFile || !deliverableForm.documentNumber.trim() || !deliverableForm.title.trim()}>{deliverableSaving ? <><LoaderCircle className="mr-1 h-4 w-4 animate-spin" />제출 중...</> : <><FileUp className="mr-1 h-4 w-4" />성과물 제출</>}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={Boolean(deliverableReview)} onOpenChange={(open) => { if (!open) setDeliverableReview(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>성과물 보완 요구</DialogTitle></DialogHeader>
+            <div className="space-y-3"><div><Label>보완 사유 *</Label><Textarea rows={5} value={deliverableReviewNote} onChange={(event) => setDeliverableReviewNote(event.target.value)} /></div><Button className="w-full" onClick={() => deliverableReview && reviewDeliverable(deliverableReview, "revision_required", deliverableReviewNote)} disabled={!deliverableReviewNote.trim()}>보완 요구 저장</Button></div>
           </DialogContent>
         </Dialog>
 

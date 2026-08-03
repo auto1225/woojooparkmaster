@@ -15,8 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { getWorkflowTransitionError, type DomainWorkflowConfig, type DomainWorkflowField } from "@/config/domain-workflows";
-import { archiveTeamWorkRecord, createTeamWorkRecord, isTeamWorkOverdue, listTeamWorkRecords, updateTeamWorkRecord, updateTeamWorkStatus } from "@/lib/team-work-registry";
+import { archiveTeamWorkRecord, createTeamWorkRecord, isTeamWorkOverdue, listTeamWorkOptions, listTeamWorkRecords, updateTeamWorkRecord, updateTeamWorkStatus } from "@/lib/team-work-registry";
 import type { TeamWorkInput, TeamWorkRecord, TeamWorkStatus } from "@/types/team-work";
+import { supabase } from "@/integrations/supabase/client";
+
+const WORKFLOW_LOT_LABELS: Record<string, string> = { offstreet: "노외", multilevel: "주차빌딩", onstreet: "노상" };
 
 function stageIndex(config: DomainWorkflowConfig, status: TeamWorkStatus) {
   return config.stages.findIndex((stage) => stage.status === status);
@@ -32,13 +35,15 @@ function valueToString(value: TeamWorkRecord["payload"][string]) {
 
 function initialForm(config: DomainWorkflowConfig, record?: TeamWorkRecord | null) {
   if (!record) {
+    const due = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
     return Object.fromEntries([
-      ["title", ""], ["parkingLot", ""], ["ownerName", ""], ["dueDate", ""], ["documentNumber", ""],
-      ...config.fields.map((field) => [field.key, field.options?.[0] || ""]),
+      ["title", ""], ["parkingLotId", ""], ["parkingLot", ""], ["parkingLotType", ""], ["sourceRecordId", ""], ["ownerId", ""], ["ownerName", ""], ["reviewerName", ""], ["dueDate", due], ["documentNumber", ""],
+      ...config.fields.map((field) => [field.key, field.options?.[0] || (field.type === "date" && field.required ? today : "")]),
     ]);
   }
   return Object.fromEntries([
-    ["title", record.title], ["parkingLot", record.parkingLot || ""], ["ownerName", record.ownerName || ""], ["dueDate", record.dueDate || ""], ["documentNumber", record.documentNumber || ""],
+    ["title", record.title], ["parkingLotId", record.parkingLotId || ""], ["parkingLot", record.parkingLot || ""], ["parkingLotType", record.parkingLotType || ""], ["sourceRecordId", record.sourceRecordId || ""], ["ownerId", record.ownerId || ""], ["ownerName", record.ownerName || ""], ["reviewerName", record.reviewerName || ""], ["dueDate", record.dueDate || ""], ["documentNumber", record.documentNumber || ""],
     ...config.fields.map((field) => [field.key, valueToString(record.payload[field.key])]),
   ]);
 }
@@ -51,9 +56,19 @@ function WorkflowField({ field, value, onChange }: { field: DomainWorkflowField;
 
 function RecordDialog({ config, open, record, onOpenChange }: { config: DomainWorkflowConfig; open: boolean; record: TeamWorkRecord | null; onOpenChange: (open: boolean) => void }) {
   const queryClient = useQueryClient();
+  const { data: options } = useQuery({ queryKey: ["team-work-options"], queryFn: listTeamWorkOptions });
+  const { data: projects = [] } = useQuery({
+    queryKey: ["planning-workflow-project-options"],
+    enabled: config.source === "construction_project",
+    queryFn: async () => {
+      const { data, error } = await supabase.from("construction_projects").select("id, project_number, project_name, lot_type_snapshot, phase, status").is("archived_at", null).order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const [form, setForm] = useState<Record<string, string>>(() => initialForm(config, record));
   const set = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }));
-  const requiredMissing = !form.title?.trim() || !form.parkingLot?.trim() || config.fields.some((field) => field.required && !form[field.key]?.trim());
+  const requiredMissing = !form.title?.trim() || !(config.source === "construction_project" ? form.sourceRecordId?.trim() : form.parkingLotId?.trim()) || config.fields.some((field) => field.required && !form[field.key]?.trim());
   const mutation = useMutation({
     mutationFn: async () => {
       const payload = Object.fromEntries(config.fields.map((field) => [field.key, field.type === "number" ? Number(form[field.key] || 0) : form[field.key] || null]));
@@ -62,10 +77,17 @@ function RecordDialog({ config, open, record, onOpenChange }: { config: DomainWo
         team: config.team,
         title: form.title.trim(),
         category: config.category,
+        parkingLotId: form.parkingLotId,
         parkingLot: form.parkingLot.trim(),
+        parkingLotType: form.parkingLotType,
+        sourceModule: config.source === "construction_project" ? "PLANNING" : record?.sourceModule || undefined,
+        sourceRecordId: config.source === "construction_project" ? form.sourceRecordId : record?.sourceRecordId || undefined,
+        sourcePath: config.source === "construction_project" && form.sourceRecordId ? `/planning/projects/${form.sourceRecordId}` : record?.sourcePath || undefined,
+        ownerId: form.ownerId,
         ownerName: form.ownerName.trim(),
         dueDate: form.dueDate,
         documentNumber: form.documentNumber.trim(),
+        reviewerName: form.reviewerName.trim(),
         priority: record?.priority || "normal",
         status: record?.status || "registered",
         amount: config.key === "capital_procedure" ? Number(form.budget || 0) : record?.amount || 0,
@@ -82,10 +104,11 @@ function RecordDialog({ config, open, record, onOpenChange }: { config: DomainWo
   });
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto"><DialogHeader><DialogTitle>{config.itemLabel} {record ? "수정" : "등록"}</DialogTitle><DialogDescription>담당자·기한·문서번호와 단계별 처리 근거를 함께 저장합니다.</DialogDescription></DialogHeader><div className="grid gap-4 sm:grid-cols-2">
     <div className="space-y-2 sm:col-span-2"><Label htmlFor="workflow-title">{config.itemLabel}명 *</Label><Input id="workflow-title" value={form.title} onChange={(event) => set("title", event.target.value)} /></div>
-    <div className="space-y-2 sm:col-span-2"><Label htmlFor="workflow-location">{config.locationLabel} *</Label><Input id="workflow-location" value={form.parkingLot} onChange={(event) => set("parkingLot", event.target.value)} /></div>
-    <div className="space-y-2"><Label htmlFor="workflow-owner">담당자</Label><Input id="workflow-owner" value={form.ownerName} placeholder="담당자 또는 담당 연락처" onChange={(event) => set("ownerName", event.target.value)} /></div>
+    <div className="space-y-2 sm:col-span-2"><Label htmlFor="workflow-location">{config.locationLabel} *</Label>{config.source === "construction_project" ? <Select value={form.sourceRecordId} onValueChange={(value) => { const project = projects.find((item) => item.id === value); setForm((current) => ({ ...current, sourceRecordId: value, parkingLotId: "", parkingLot: project?.project_name || "", parkingLotType: project?.lot_type_snapshot || "" })); }}><SelectTrigger id="workflow-location"><SelectValue placeholder="신설기획 공사사업에서 선택" /></SelectTrigger><SelectContent>{projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.project_number} {project.project_name} · {WORKFLOW_LOT_LABELS[project.lot_type_snapshot || ""] || "형태 미정"}</SelectItem>)}</SelectContent></Select> : <Select value={form.parkingLotId} onValueChange={(value) => { const lot = options?.parkingLots.find((item) => item.id === value); setForm((current) => ({ ...current, parkingLotId: value, parkingLot: lot?.name || "", parkingLotType: lot?.lotType || "" })); }}><SelectTrigger id="workflow-location"><SelectValue placeholder="주차장 원장에서 선택" /></SelectTrigger><SelectContent>{options?.parkingLots.map((lot) => <SelectItem key={lot.id} value={lot.id}>{lot.code} {lot.name} · {WORKFLOW_LOT_LABELS[lot.lotType || ""] || "기타"}</SelectItem>)}</SelectContent></Select>}</div>
+    <div className="space-y-2"><Label htmlFor="workflow-owner">담당자</Label><Select value={form.ownerId} onValueChange={(value) => { const owner = options?.assignees.find((item) => item.id === value); setForm((current) => ({ ...current, ownerId: value, ownerName: owner?.name || "" })); }}><SelectTrigger id="workflow-owner"><SelectValue placeholder="담당자 선택" /></SelectTrigger><SelectContent>{options?.assignees.map((owner) => <SelectItem key={owner.id} value={owner.id}>{owner.name} · {owner.team || "부서 미지정"}</SelectItem>)}</SelectContent></Select></div>
     <div className="space-y-2"><Label htmlFor="workflow-due">처리기한</Label><Input id="workflow-due" type="date" value={form.dueDate} onChange={(event) => set("dueDate", event.target.value)} /></div>
-    <div className="space-y-2 sm:col-span-2"><Label htmlFor="workflow-document">관련 문서번호</Label><Input id="workflow-document" placeholder="제주시청-차량관리과운영팀-2026-0142" value={form.documentNumber} onChange={(event) => set("documentNumber", event.target.value)} /></div>
+    <div className="space-y-2 sm:col-span-2"><Label htmlFor="workflow-document">관련 문서번호</Label><Input id="workflow-document" placeholder="문서대장에 등록된 문서번호" value={form.documentNumber} onChange={(event) => set("documentNumber", event.target.value)} /></div>
+    <div className="space-y-2 sm:col-span-2"><Label htmlFor="workflow-reviewer">검토자</Label><Input id="workflow-reviewer" value={form.reviewerName} placeholder="종결 검토 담당자" onChange={(event) => set("reviewerName", event.target.value)} /></div>
     {config.fields.map((field) => <div key={field.key} className={`space-y-2 ${field.type === "textarea" ? "sm:col-span-2" : ""}`}><Label htmlFor={`workflow-${field.key}`}>{field.label}{field.required ? " *" : ""}</Label><WorkflowField field={field} value={form[field.key] || ""} onChange={(value) => set(field.key, value)} /></div>)}
   </div><DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>취소</Button><Button disabled={requiredMissing || mutation.isPending} onClick={() => mutation.mutate()}>{mutation.isPending ? "저장 중..." : "저장"}</Button></DialogFooter></DialogContent></Dialog>;
 }
@@ -104,6 +127,7 @@ export function DomainWorkflowPage({ config }: { config: DomainWorkflowConfig })
   const [editing, setEditing] = useState<TeamWorkRecord | null>(null);
   const [detail, setDetail] = useState<TeamWorkRecord | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<TeamWorkRecord | null>(null);
+  const [archiveReason, setArchiveReason] = useState("");
   const { data = [], isLoading, isError, refetch } = useQuery({ queryKey: ["domain-workflow", config.key], queryFn: async () => (await listTeamWorkRecords(config.recordType)).filter((record) => record.payload.workflow_key === config.key) });
   const filtered = useMemo(() => data.filter((record) => `${record.recordNumber} ${record.title} ${record.parkingLot || ""} ${record.ownerName || ""} ${record.documentNumber || ""}`.toLocaleLowerCase("ko").includes(search.toLocaleLowerCase("ko"))), [data, search]);
   const statusCounts = config.stages.map((stage) => ({ ...stage, count: data.filter((record) => record.status === stage.status).length }));
@@ -119,7 +143,7 @@ export function DomainWorkflowPage({ config }: { config: DomainWorkflowConfig })
     onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["domain-workflow", config.key] }); toast.success("처리 단계를 변경했습니다."); },
     onError: (error: Error) => toast.error(error.message),
   });
-  const archiveMutation = useMutation({ mutationFn: archiveTeamWorkRecord, onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["domain-workflow", config.key] }); setArchiveTarget(null); toast.success(`${config.itemLabel}을 보관했습니다.`); } });
+  const archiveMutation = useMutation({ mutationFn: ({ record, reason }: { record: TeamWorkRecord; reason: string }) => archiveTeamWorkRecord(record, reason), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["domain-workflow", config.key] }); setArchiveTarget(null); setArchiveReason(""); toast.success(`${config.itemLabel}을 보관했습니다.`); } });
   const sampleMutation = useMutation({
     mutationFn: async () => { for (const sample of config.samples) if (!data.some((record) => record.title === sample.title)) await createTeamWorkRecord(sample); },
     onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["domain-workflow", config.key] }); toast.success("실무 샘플 데이터를 등록했습니다."); },
@@ -134,5 +158,5 @@ export function DomainWorkflowPage({ config }: { config: DomainWorkflowConfig })
     <Card><CardHeader className="border-b p-4"><div className="flex flex-wrap items-center justify-between gap-3"><CardTitle className="text-base">{config.itemLabel} 처리대장</CardTitle><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input aria-label={`${config.itemLabel} 검색`} className="w-72 pl-9" placeholder="번호, 장소, 담당자, 문서번호" value={search} onChange={(event) => setSearch(event.target.value)} /></div></div></CardHeader><CardContent className="p-0"><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>관리번호</TableHead><TableHead>{config.itemLabel}·{config.locationLabel}</TableHead><TableHead>담당자</TableHead><TableHead>기한</TableHead><TableHead>문서번호</TableHead><TableHead>처리단계</TableHead><TableHead className="text-right">다음 조치</TableHead></TableRow></TableHeader><TableBody>
       {isLoading ? <TableRow><TableCell colSpan={7} className="h-32 text-center">불러오는 중...</TableCell></TableRow> : isError ? <TableRow><TableCell colSpan={7} className="h-32 text-center"><Button variant="outline" onClick={() => refetch()}>다시 시도</Button></TableCell></TableRow> : filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="h-40 text-center text-muted-foreground"><CheckCircle2 className="mx-auto mb-2 h-7 w-7" />등록된 {config.itemLabel}이 없습니다.</TableCell></TableRow> : filtered.map((record) => { const index = stageIndex(config, record.status); const stage = config.stages[index]; const next = config.stages[index + 1]; return <TableRow key={record.id} className={isTeamWorkOverdue(record) ? "bg-destructive/5" : ""}><TableCell className="font-mono text-xs">{record.recordNumber}</TableCell><TableCell><button className="text-left" onClick={() => setDetail(record)}><span className="block font-medium hover:underline">{record.title}</span><span className="text-xs text-muted-foreground">{record.parkingLot}</span></button></TableCell><TableCell>{record.ownerName || <span className="text-muted-foreground">미지정</span>}</TableCell><TableCell className={isTeamWorkOverdue(record) ? "font-semibold text-destructive" : ""}>{record.dueDate || "-"}</TableCell><TableCell className="max-w-52 truncate" title={record.documentNumber || undefined}><FileText className="mr-1 inline h-3.5 w-3.5" />{record.documentNumber || "미연결"}</TableCell><TableCell><Badge variant={record.status === "completed" ? "secondary" : "outline"}>{stage?.label}</Badge></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button size="icon" variant="ghost" title="상세" onClick={() => setDetail(record)}><Eye className="h-4 w-4" /></Button>{next && <Button size="sm" variant="outline" disabled={transition.isPending} onClick={() => transition.mutate(record)}>{stage?.action}</Button>}</div></TableCell></TableRow>; })}
     </TableBody></Table></div></CardContent></Card>
-  </div><RecordDialog key={`${dialogOpen}-${editing?.id || "new"}`} config={config} open={dialogOpen} record={editing} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditing(null); }} />{detail && <DetailDialog config={config} record={detail} onClose={() => setDetail(null)} onEdit={() => { setEditing(detail); setDetail(null); setDialogOpen(true); }} onArchive={() => { setArchiveTarget(detail); setDetail(null); }} onDocumentLinked={async (documentNumber) => { const updated = await updateTeamWorkRecord(detail, { recordType: detail.recordType, team: detail.team, title: detail.title, category: detail.category, parkingLot: detail.parkingLot || "", ownerName: detail.ownerName || "", priority: detail.priority, status: detail.status, dueDate: detail.dueDate || "", amount: detail.amount, documentNumber, payload: detail.payload }, { linkDocument: false }); setDetail(updated); await queryClient.invalidateQueries({ queryKey: ["domain-workflow", config.key] }); }} />}<AlertDialog open={Boolean(archiveTarget)} onOpenChange={(open) => !open && setArchiveTarget(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{config.itemLabel}을 보관하시겠습니까?</AlertDialogTitle><AlertDialogDescription>{archiveTarget?.recordNumber}은 활성 처리대장에서 제외되며 감사이력은 유지됩니다.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>취소</AlertDialogCancel><AlertDialogAction disabled={archiveMutation.isPending} onClick={() => archiveTarget && archiveMutation.mutate(archiveTarget)}>보관</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></DashboardLayout>;
+  </div><RecordDialog key={`${dialogOpen}-${editing?.id || "new"}`} config={config} open={dialogOpen} record={editing} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditing(null); }} />{detail && <DetailDialog config={config} record={detail} onClose={() => setDetail(null)} onEdit={() => { setEditing(detail); setDetail(null); setDialogOpen(true); }} onArchive={() => { setArchiveTarget(detail); setArchiveReason(""); setDetail(null); }} onDocumentLinked={async (documentNumber) => { const updated = await updateTeamWorkRecord(detail, { recordType: detail.recordType, team: detail.team, title: detail.title, category: detail.category, parkingLot: detail.parkingLot || "", parkingLotId: detail.parkingLotId, parkingLotType: detail.parkingLotType, ownerName: detail.ownerName || "", ownerId: detail.ownerId, reviewerName: detail.reviewerName || "", priority: detail.priority, status: detail.status, dueDate: detail.dueDate || "", amount: detail.amount, documentNumber, payload: detail.payload }, { linkDocument: false }); setDetail(updated); await queryClient.invalidateQueries({ queryKey: ["domain-workflow", config.key] }); }} />}<AlertDialog open={Boolean(archiveTarget)} onOpenChange={(open) => { if (!open) { setArchiveTarget(null); setArchiveReason(""); } }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{config.itemLabel}을 보관하시겠습니까?</AlertDialogTitle><AlertDialogDescription>{archiveTarget?.recordNumber}은 활성 처리대장에서 제외되며 감사이력은 유지됩니다.</AlertDialogDescription></AlertDialogHeader><div className="space-y-2"><Label htmlFor="archive-reason">보관 사유 *</Label><Textarea id="archive-reason" value={archiveReason} onChange={(event) => setArchiveReason(event.target.value)} placeholder="종결, 중복등록, 업무이관 등 보관 근거를 입력하세요." /></div><AlertDialogFooter><AlertDialogCancel>취소</AlertDialogCancel><AlertDialogAction disabled={archiveMutation.isPending || !archiveReason.trim()} onClick={() => archiveTarget && archiveMutation.mutate({ record: archiveTarget, reason: archiveReason.trim() })}>보관</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></DashboardLayout>;
 }

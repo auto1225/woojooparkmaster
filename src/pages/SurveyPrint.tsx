@@ -6,6 +6,7 @@ import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { LOT_TYPE_LABELS, OPERATOR_LABELS, SURFACE_LABELS, POWER_LABELS } from "@/types/database";
 import type { LotType, OperatorType, SurfaceType, PowerStatus } from "@/types/database";
 import { Camera } from "lucide-react";
+import { getSurveyPhotoCategories } from "@/types/survey";
 
 function Check({ checked }: { checked: boolean }) {
   return <span>{checked ? "☑" : "☐"}</span>;
@@ -59,19 +60,23 @@ export default function SurveyPrint() {
   const { data: photos } = useQuery({
     queryKey: ["survey-photos-print", id],
     queryFn: async () => {
-      const { data } = await supabase.from("survey_photos").select("*").eq("survey_id", id!).order("category");
-      return data || [];
+      const { data, error } = await supabase.from("survey_photos").select("*").eq("survey_id", id!).order("category");
+      if (error) throw error;
+      return Promise.all((data || []).map(async (photo: any) => {
+        const signed = await supabase.storage.from("survey-photos").createSignedUrl(photo.file_path, 60 * 10);
+        return { ...photo, signed_url: signed.error ? null : signed.data.signedUrl };
+      }));
     },
     enabled: !!id,
   });
 
   // Auto print after load
   useEffect(() => {
-    if (survey && basicInfo) {
+    if (survey && basicInfo && photos) {
       const timer = setTimeout(() => window.print(), 500);
       return () => clearTimeout(timer);
     }
-  }, [survey, basicInfo]);
+  }, [survey, basicInfo, photos]);
 
   if (!survey) {
     return <div className="flex items-center justify-center min-h-screen text-muted-foreground">로딩 중...</div>;
@@ -81,32 +86,26 @@ export default function SurveyPrint() {
   const orgName = config?.org_name || "제주시";
   const surveyDate = survey.survey_date ? new Date(survey.survey_date).toLocaleDateString("ko-KR") : "—";
   const surveyorName = (survey.profiles as any)?.name || "—";
+  const surveyLotType = basicInfo?.lot_type || lot?.lot_type;
+  const feeType = lot?.fee_policy?.type === "free" ? "무료" : "유료";
 
-  const PHOTO_CATEGORIES = [
-    { key: "overview", label: "전경", size: "large" },
-    { key: "full_view", label: "주차장 전체", size: "large" },
-    { key: "entrance", label: "입구", size: "medium" },
-    { key: "exit", label: "출구", size: "medium" },
-    { key: "display_board", label: "안내전광판", size: "medium" },
-    { key: "gateway", label: "게이트웨이", size: "medium" },
-    { key: "booth", label: "관제부스", size: "medium" },
-    { key: "gate_lpr", label: "차단기/LPR", size: "medium" },
-    { key: "kiosk", label: "무인정산기", size: "medium" },
-    { key: "cctv", label: "CCTV", size: "medium" },
-  ];
+  const PHOTO_CATEGORIES = getSurveyPhotoCategories(surveyLotType).map(category => ({
+    key: category.code,
+    label: category.label,
+    size: category.code === "panorama" ? "large" : "medium",
+  }));
 
   const getPhotoUrl = (category: string) => {
     const photo = photos?.find((p: any) => p.category === category);
     if (!photo) return null;
-    const { data } = supabase.storage.from("survey-photos").getPublicUrl(photo.file_path);
-    return data.publicUrl;
+    return photo.signed_url || null;
   };
 
   return (
     <div style={{ fontFamily: "Malgun Gothic, sans-serif", fontSize: 12, padding: "20mm", maxWidth: "210mm", margin: "0 auto" }}>
       {/* Page 1: 현황조사표 */}
       <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: "bold", marginBottom: 16 }}>
-        {orgName} 유료 공영주차장 현황조사표
+        {orgName} {feeType} 공영주차장 현황조사표
       </h2>
 
       <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #333" }}>
@@ -135,8 +134,8 @@ export default function SurveyPrint() {
             <td style={tdStyle}>
               {Object.entries(LOT_TYPE_LABELS).map(([k, v]) => (
                 <span key={k} style={{ marginRight: 8 }}>
-                  <Check checked={lot?.lot_type === k} /> {v}
-                  {k === "multilevel" && lot?.lot_type === "multilevel" ? ` (${lot?.floors || 1}층)` : ""}
+                  <Check checked={surveyLotType === k} /> {v}
+                  {k === "multilevel" && surveyLotType === "multilevel" ? ` (${basicInfo?.lot_type_floor || lot?.floors || 1}층)` : ""}
                 </span>
               ))}
             </td>
@@ -164,7 +163,7 @@ export default function SurveyPrint() {
             <td style={tdStyle} rowSpan={4}>시설현황</td>
             <td style={tdStyle}>총 주차면수</td>
             <td style={tdStyle}>{lot?.total_spaces || 0}대</td>
-            <td style={tdStyle}>층별기입</td>
+            <td style={tdStyle}>{surveyLotType === "multilevel" ? "층별기입" : ""}</td>
           </tr>
           <tr>
             <td style={tdStyle}>특수 주차면</td>

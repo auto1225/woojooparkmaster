@@ -203,6 +203,20 @@ async function uploadComplaintEvidence(
   return storedPath;
 }
 
+async function removeComplaintEvidence(complaintId: string, storedPaths: string[]) {
+  if (!storedPaths.length) return;
+  await supabase.from("attachments")
+    .delete()
+    .eq("module", "COMPLAINT")
+    .eq("ref_type", "complaint")
+    .eq("ref_id", complaintId)
+    .in("file_path", storedPaths);
+  for (const storedPath of storedPaths) {
+    const location = storageLocation(storedPath);
+    await supabase.storage.from(location.bucket).remove([location.path]);
+  }
+}
+
 export async function recordComplaintFieldVisit(input: ComplaintFieldVisitInput, files: File[]) {
   const checklist = getComplaintFieldChecklist(input.lotType, input.subCategory);
   const checkedLabels = checklist.filter((item) => input.checkedItemIds.includes(item.id)).map((item) => item.label);
@@ -225,34 +239,6 @@ export async function recordComplaintFieldVisit(input: ComplaintFieldVisitInput,
     device_platform: navigator.userAgent,
     sync_status: "synced",
   };
-  const rpcResult = await (supabase.rpc as any)("record_complaint_field_visit", {
-    p_complaint_id: input.complaintId,
-    p_client_mutation_id: clientMutationId,
-    p_visit_occurred_at: new Date(input.visitedAt).toISOString(),
-    p_visit_outcome: input.outcome,
-    p_checklist_result: input.checkedItemIds,
-    p_observation: input.observation.trim(),
-    p_action_taken: input.actionTaken?.trim() || null,
-    p_device_platform: navigator.userAgent,
-  });
-  const rpcUnavailable = rpcResult.error && (
-    rpcResult.error.code === "PGRST202"
-    || /record_complaint_field_visit|schema cache|could not find/i.test(rpcResult.error.message || "")
-  );
-  let commentId: string;
-  if (!rpcResult.error) {
-    commentId = rpcResult.data as string;
-  } else if (rpcUnavailable) {
-    let insert = await (supabase.from("complaint_comments") as any).insert(enrichedComment).select("id").single();
-    if (insert.error?.code === "PGRST204") {
-      insert = await supabase.from("complaint_comments").insert(baseComment).select("id").single();
-    }
-    if (insert.error) throw insert.error;
-    commentId = insert.data.id;
-  } else {
-    throw rpcResult.error;
-  }
-
   const uploadedPaths: string[] = [];
   const uploadErrors: string[] = [];
   for (const file of files) {
@@ -262,11 +248,48 @@ export async function recordComplaintFieldVisit(input: ComplaintFieldVisitInput,
       uploadErrors.push(`${file.name}: ${error.message || "업로드 실패"}`);
     }
   }
+  if (uploadedPaths.length === 0) {
+    throw new Error(uploadErrors.join(" ") || "현장 사진을 업로드하지 못했습니다.");
+  }
+
+  let commentId: string;
+  try {
+    const rpcResult = await (supabase.rpc as any)("record_complaint_field_visit", {
+      p_complaint_id: input.complaintId,
+      p_client_mutation_id: clientMutationId,
+      p_visit_occurred_at: new Date(input.visitedAt).toISOString(),
+      p_visit_outcome: input.outcome,
+      p_checklist_result: input.checkedItemIds,
+      p_observation: input.observation.trim(),
+      p_action_taken: input.actionTaken?.trim() || null,
+      p_device_platform: navigator.userAgent,
+    });
+    const rpcUnavailable = rpcResult.error && (
+      rpcResult.error.code === "PGRST202"
+      || /record_complaint_field_visit|schema cache|could not find/i.test(rpcResult.error.message || "")
+    );
+    if (!rpcResult.error) {
+      commentId = rpcResult.data as string;
+    } else if (rpcUnavailable) {
+      let insert = await (supabase.from("complaint_comments") as any).insert(enrichedComment).select("id").single();
+      if (insert.error?.code === "PGRST204") {
+        insert = await supabase.from("complaint_comments").insert(baseComment).select("id").single();
+      }
+      if (insert.error) throw insert.error;
+      commentId = insert.data.id;
+      if (["assigned", "reopened"].includes(input.status)) {
+        await supabase.from("complaints").update({ status: "in_progress" }).eq("id", input.complaintId);
+      }
+    } else {
+      throw rpcResult.error;
+    }
+  } catch (error) {
+    await removeComplaintEvidence(input.complaintId, uploadedPaths);
+    throw error;
+  }
+
   if (uploadedPaths[0]) {
     await supabase.from("complaint_comments").update({ attachment_path: uploadedPaths[0] }).eq("id", commentId);
-  }
-  if (rpcUnavailable && ["assigned", "reopened"].includes(input.status)) {
-    await supabase.from("complaints").update({ status: "in_progress" }).eq("id", input.complaintId);
   }
   return { commentId, uploadedPaths, uploadErrors };
 }

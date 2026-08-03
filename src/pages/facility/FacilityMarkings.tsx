@@ -26,6 +26,17 @@ import { FacilityLotCombobox } from "@/components/facility/FacilityLotCombobox";
 import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
 import { getParkingLotWorkProfile } from "@/lib/parking-lot-work-profile";
 
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+function addMonthsClamped(value: string, months: number) {
+  const [year, month, day] = value.split("-").map(Number);
+  const targetMonth = month - 1 + months;
+  const targetYear = year + Math.floor(targetMonth / 12);
+  const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(targetYear, normalizedMonth + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(targetYear, normalizedMonth, Math.min(day, lastDay))).toISOString().slice(0, 10);
+}
+
 export default function FacilityMarkings() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -91,8 +102,8 @@ export default function FacilityMarkings() {
     material: "",
     color: "",
     condition: "good" as MarkingCondition,
-    install_date: "",
-    last_repainted: "",
+    install_date: todayIso(),
+    last_repainted: todayIso(),
     repaint_cycle_months: "",
     is_regulatory: false,
     regulation_ref: "",
@@ -102,11 +113,7 @@ export default function FacilityMarkings() {
     mutationFn: async () => {
       const nextDue =
         form.last_repainted && form.repaint_cycle_months
-          ? (() => {
-              const date = new Date(form.last_repainted);
-              date.setMonth(date.getMonth() + parseInt(form.repaint_cycle_months, 10));
-              return date.toISOString().split("T")[0];
-            })()
+          ? addMonthsClamped(form.last_repainted, parseInt(form.repaint_cycle_months, 10))
           : null;
 
       const values = {
@@ -148,8 +155,8 @@ export default function FacilityMarkings() {
         material: "",
         color: "",
         condition: "good",
-        install_date: "",
-        last_repainted: "",
+        install_date: todayIso(),
+        last_repainted: todayIso(),
         repaint_cycle_months: "",
         is_regulatory: false,
         regulation_ref: "",
@@ -245,7 +252,7 @@ export default function FacilityMarkings() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-foreground">노면표시/안내표지판</h1>
             {canCreate && <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild><Button onClick={() => { setEditingMarking(null); setForm({ lot_id: selectedLot, marking_type: "", marking_name: "", location_detail: "", floor: "", quantity: "1", material: "", color: "", condition: "good", install_date: "", last_repainted: "", repaint_cycle_months: "", is_regulatory: false, regulation_ref: "" }); }}><Plus className="mr-1 h-4 w-4" />등록</Button></DialogTrigger>
+              <DialogTrigger asChild><Button onClick={() => { setEditingMarking(null); setForm({ lot_id: selectedLot, marking_type: "", marking_name: "", location_detail: "", floor: "", quantity: "1", material: "", color: "", condition: "good", install_date: todayIso(), last_repainted: todayIso(), repaint_cycle_months: "", is_regulatory: false, regulation_ref: "" }); }}><Plus className="mr-1 h-4 w-4" />등록</Button></DialogTrigger>
               <DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto">
                 <DialogHeader><DialogTitle>노면표시 {editingMarking ? "수정" : "등록"}</DialogTitle></DialogHeader>
                 <div className="space-y-3">
@@ -259,9 +266,9 @@ export default function FacilityMarkings() {
                     </Select>
                   </div>
                   <div><Label>명칭 *</Label><Input value={form.marking_name} onChange={(event) => setForm((prev) => ({ ...prev, marking_name: event.target.value }))} /></div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className={selectedFormLot?.lot_type === "onstreet" ? "" : "grid grid-cols-2 gap-2"}>
                     <div><Label>위치 상세</Label><Input value={form.location_detail} onChange={(event) => setForm((prev) => ({ ...prev, location_detail: event.target.value }))} /></div>
-                    <div><Label>층</Label><Input type="number" value={form.floor} onChange={(event) => setForm((prev) => ({ ...prev, floor: event.target.value }))} /></div>
+                    {selectedFormLot?.lot_type !== "onstreet" && <div><Label>층</Label><Input type="number" value={form.floor} onChange={(event) => setForm((prev) => ({ ...prev, floor: event.target.value }))} /></div>}
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div><Label>수량</Label><Input type="number" value={form.quantity} onChange={(event) => setForm((prev) => ({ ...prev, quantity: event.target.value }))} /></div>
@@ -284,9 +291,9 @@ export default function FacilityMarkings() {
                     <Switch checked={form.is_regulatory} onCheckedChange={(value) => setForm((prev) => ({ ...prev, is_regulatory: value }))} />
                     <Label>법적 의무 표시</Label>
                   </div>
-                  {form.is_regulatory && <div><Label>관련 규정</Label><Input value={form.regulation_ref} onChange={(event) => setForm((prev) => ({ ...prev, regulation_ref: event.target.value }))} /></div>}
+                  {form.is_regulatory && <div><Label>관련 규정 *</Label><Input value={form.regulation_ref} onChange={(event) => setForm((prev) => ({ ...prev, regulation_ref: event.target.value }))} /></div>}
                   <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
-                  <Button className="w-full" disabled={!form.lot_id || !form.marking_type || !form.marking_name || saveMutation.isPending} onClick={() => saveMutation.mutate()}>
+                  <Button className="w-full" disabled={!form.lot_id || !form.marking_type || !form.marking_name || (form.is_regulatory && !form.regulation_ref.trim()) || saveMutation.isPending} onClick={() => saveMutation.mutate()}>
                     {saveMutation.isPending ? "저장 중..." : editingMarking ? "수정 저장" : "등록"}
                   </Button>
                 </div>

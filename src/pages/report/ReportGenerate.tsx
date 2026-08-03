@@ -12,15 +12,16 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ChevronRight, FileText, Loader2, CheckCircle2, XCircle, Sparkles } from "lucide-react";
+import { ChevronRight, FileText, Loader2, CheckCircle2, XCircle, Sparkles, Database, CircleAlert } from "lucide-react";
 import { REPORT_TYPE_LABELS, REPORT_CATEGORY_LABELS, type ReportTemplate } from "@/types/report";
 import { logActivity } from "@/lib/activity-logger";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { callAI, reviewAIAssistance, type AISource } from "@/lib/ai-service";
 import { runtimeConfig } from "@/config/runtime-config";
 import { Textarea } from "@/components/ui/textarea";
-import { generateReport, getReportEvidence } from "@/lib/report-engine";
+import { generateReport, getDefaultReportParameters, getReportEvidence } from "@/lib/report-engine";
 import { isModuleEnabled } from "@/lib/authorization";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 
 export default function ReportGenerate() {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ export default function ReportGenerate() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [result, setResult] = useState<{ status: string; id?: string; error?: string } | null>(null);
+  const [result, setResult] = useState<{ status: string; id?: string; error?: string; documentLinked?: boolean; documentNumber?: string } | null>(null);
   const [aiSummary, setAiSummary] = useState("");
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const [aiMeta, setAiMeta] = useState<{ id?: string; confidence?: number; sources: AISource[]; initial: string } | null>(null);
@@ -55,6 +56,7 @@ export default function ReportGenerate() {
       const { data, error } = await supabase
         .from("report_templates")
         .select("*")
+        .eq("is_active", true)
         .order("sort_order");
       if (error) throw error;
       return data as any as ReportTemplate[];
@@ -80,7 +82,10 @@ export default function ReportGenerate() {
       const t = templates.find((t) => t.template_code === templateCode);
       if (t) {
         setSelectedTemplate(t);
-        if (!sourceId) setTitle(t.name);
+        if (!sourceId) {
+          setTitle(t.name);
+          setParams(getDefaultReportParameters(t.report_type));
+        }
         setStep(2);
       }
     }
@@ -104,16 +109,45 @@ export default function ReportGenerate() {
 
   const availableTemplates = (templates ?? []).filter(isAvailable);
 
-  const handleGenerate = async () => {
-    if (!selectedTemplate || !user) return;
-    const missingRequired = (selectedTemplate.parameters || []).some((parameter: any) => {
+  const evidenceQuery = useQuery({
+    queryKey: ["report-evidence", selectedTemplate?.id, params],
+    enabled: step === 3 && Boolean(selectedTemplate),
+    retry: 1,
+    queryFn: () => getReportEvidence(params),
+  });
+
+  const validateSettings = () => {
+    if (!selectedTemplate) return false;
+    if (!title.trim()) {
+      toast.error("보고서 제목을 입력해 주세요.");
+      return false;
+    }
+    const missing = (selectedTemplate.parameters || []).find((parameter: any) => {
       if (!parameter.required) return false;
       if (parameter.type === "daterange") return !params.period_start || !params.period_end;
       if (parameter.type === "quarter") return !params[`${parameter.name}_year`] || !params[`${parameter.name}_q`];
       return !params[parameter.name];
     });
-    if (missingRequired) {
-      toast.error("필수 조건을 모두 입력해 주세요");
+    if (missing) {
+      toast.error(`${missing.label || "필수 조건"}을 입력해 주세요.`);
+      return false;
+    }
+    if (params.period_start && params.period_end && params.period_start > params.period_end) {
+      toast.error("보고 종료일은 시작일보다 빠를 수 없습니다.");
+      return false;
+    }
+    return true;
+  };
+
+  const handleGenerate = async () => {
+    if (!selectedTemplate) return;
+    if (!user) {
+      toast.error("로그인 정보를 확인하지 못했습니다. 새로고침 후 다시 시도해 주세요.");
+      return;
+    }
+    if (!validateSettings()) return;
+    if (evidenceQuery.isError) {
+      toast.error("원천자료 검증 오류를 해결한 뒤 생성해 주세요.");
       return;
     }
     setGenerating(true);
@@ -145,7 +179,7 @@ export default function ReportGenerate() {
         targetId: inserted.id,
       });
 
-      setResult({ status: "completed", id: inserted.id });
+      setResult({ status: "completed", id: inserted.id, documentLinked: inserted.documentLinked, documentNumber: inserted.documentNumber });
       toast.success("보고서가 생성되었습니다");
     } catch (err: any) {
       setResult({ status: "failed", error: err.message });
@@ -190,6 +224,17 @@ export default function ReportGenerate() {
     }
   };
 
+  const parameterLabel = (key: string) => {
+    if (key === "official_document_number") return "관련 공문 문서번호";
+    if (key === "period_start") return "보고 시작일";
+    if (key === "period_end") return "보고 종료일";
+    const parameter = (selectedTemplate?.parameters || []).find((item: any) => item.name === key || `${item.name}_year` === key || `${item.name}_q` === key);
+    if (!parameter) return key;
+    if (key.endsWith("_year")) return `${parameter.label} 연도`;
+    if (key.endsWith("_q")) return `${parameter.label} 분기`;
+    return parameter.label;
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6 max-w-3xl mx-auto">
@@ -215,7 +260,7 @@ export default function ReportGenerate() {
               <Card
                 key={t.id}
                 className={`cursor-pointer transition-all ${selectedTemplate?.id === t.id ? "ring-2 ring-primary" : "hover:shadow-md"}`}
-                onClick={() => { setSelectedTemplate(t); setTitle(t.name); }}
+                onClick={() => { setSelectedTemplate(t); setTitle(t.name); setParams(getDefaultReportParameters(t.report_type)); }}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
@@ -270,7 +315,7 @@ export default function ReportGenerate() {
               </div>
               <div className="flex justify-between">
                 <Button variant="outline" onClick={() => setStep(1)}>이전</Button>
-                <Button onClick={() => setStep(3)}>다음</Button>
+                <Button onClick={() => { if (validateSettings()) setStep(3); }}>다음</Button>
               </div>
             </CardContent>
           </Card>
@@ -291,10 +336,39 @@ export default function ReportGenerate() {
                 <span className="text-muted-foreground">작성 목적</span>
                 <span className="font-medium whitespace-pre-wrap">{description || "-"}</span>
                 {Object.entries(params).map(([k, v]) => (
-                  <React.Fragment key={k}><span className="text-muted-foreground">{k}</span><span>{v}</span></React.Fragment>
+                  <React.Fragment key={k}><span className="text-muted-foreground">{parameterLabel(k)}</span><span>{k.endsWith("_q") ? `${v}분기` : v}</span></React.Fragment>
                 ))}
                 <span className="text-muted-foreground">형식</span>
                 <span>{outputFormat === "pdf+xlsx" ? "PDF + 엑셀" : "PDF"}</span>
+              </div>
+
+              <div className="rounded-md border bg-muted/20 p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm font-medium"><Database className="h-4 w-4 text-primary" />포함 자료 사전 검증</div>
+                  {evidenceQuery.isFetching && <span className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />확인 중</span>}
+                </div>
+                {evidenceQuery.isError ? (
+                  <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                    <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div><p className="font-medium">원천자료를 완전하게 조회하지 못했습니다.</p><p className="mt-1">{evidenceQuery.error instanceof Error ? evidenceQuery.error.message : "자료 조회 상태를 확인해 주세요."}</p><Button variant="outline" size="sm" className="mt-2 h-7" onClick={() => evidenceQuery.refetch()}>다시 확인</Button></div>
+                  </div>
+                ) : evidenceQuery.data ? (
+                  <>
+                    <p className="mb-2 text-xs text-muted-foreground">보고기간 {evidenceQuery.data.period.start} ~ {evidenceQuery.data.period.end}</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
+                      {[
+                        ["주차장", evidenceQuery.data.sourceCounts.parkingLots],
+                        ["수입자료", evidenceQuery.data.sourceCounts.revenueRows],
+                        ["민원", evidenceQuery.data.sourceCounts.complaintRows],
+                        ["장비", evidenceQuery.data.sourceCounts.equipmentRows],
+                        ["유지보수", evidenceQuery.data.sourceCounts.maintenanceRows],
+                        ["예산집행", evidenceQuery.data.sourceCounts.budgetRows],
+                        ["현황조사", evidenceQuery.data.sourceCounts.surveyRows],
+                        ["실시간센서", evidenceQuery.data.sourceCounts.sensorRows],
+                      ].map(([label, count]) => <div key={String(label)} className="rounded border bg-background px-2 py-2"><span className="block text-muted-foreground">{label}</span><strong className="mt-1 block text-sm">{Number(count).toLocaleString("ko-KR")}건</strong></div>)}
+                    </div>
+                  </>
+                ) : null}
               </div>
 
               {/* AI Summary */}
@@ -348,9 +422,26 @@ export default function ReportGenerate() {
                 </div>
               )}
 
+              {result?.status === "completed" && result.id && (
+                <div className="space-y-2">
+                  {result.documentNumber && !result.documentLinked && (
+                    <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      입력한 문서번호가 문서대장에 없어 자동 연결하지 못했습니다. 아래에서 기존 문서를 선택하거나 문서를 등록해 주세요.
+                    </p>
+                  )}
+                  <DocumentLinksPanel
+                    module="REPORT"
+                    recordId={result.id}
+                    recordPath={`/reports/history?report=${result.id}`}
+                    recordTitle={`${title} (${result.documentNumber || "문서번호 미지정"})`}
+                    initialDocumentNumber={result.documentNumber}
+                  />
+                </div>
+              )}
+
               <div className="flex justify-between">
                 <Button variant="outline" onClick={() => setStep(2)}>이전</Button>
-                <Button onClick={handleGenerate} disabled={generating}>
+                <Button onClick={handleGenerate} disabled={generating || evidenceQuery.isFetching || evidenceQuery.isError}>
                   {generating ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />생성중...</> : "보고서 생성"}
                 </Button>
               </div>

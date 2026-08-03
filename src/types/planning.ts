@@ -68,6 +68,9 @@ export interface SiteCandidate {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  client_mutation_id?: string;
+  row_version?: number;
+  archived_at?: string;
 }
 
 export interface ConstructionProject {
@@ -115,6 +118,10 @@ export interface ConstructionProject {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  client_mutation_id?: string;
+  row_version?: number;
+  lot_type_snapshot?: string;
+  archived_at?: string;
   site?: SiteCandidate;
   parking_lot?: { code: string; name: string };
 }
@@ -143,6 +150,9 @@ export interface DesignDocument {
   tags?: any;
   uploaded_by?: string;
   created_at: string;
+  row_version?: number;
+  archived_at?: string;
+  archived_reason?: string;
 }
 
 export interface Permit {
@@ -173,6 +183,10 @@ export interface Permit {
   assigned_to?: string;
   created_at: string;
   updated_at: string;
+  official_document_number?: string;
+  client_mutation_id?: string;
+  row_version?: number;
+  archived_at?: string;
 }
 
 // 한글 매핑
@@ -201,6 +215,7 @@ export const PROJECT_TYPE_LABELS: Record<string, string> = {
 };
 export const PHASE_LABELS: Record<string, string> = {
   planning: '기획', basic_design: '기본설계', detail_design: '실시설계',
+  design: '설계',
   permitting: '인허가', bidding: '입찰', construction: '시공',
   inspection: '준공검수', completion: '준공',
 };
@@ -222,7 +237,7 @@ export const CONSTRUCTION_STATUS_COLORS: Record<string, string> = {
 };
 export const PERMIT_STATUS_LABELS: Record<string, string> = {
   not_started: '미착수', preparing: '준비중', submitted: '제출',
-  reviewing: '심사중', approved: '승인', conditional_approved: '조건부승인',
+  reviewing: '심사중', in_review: '심사중', approved: '승인', conditional_approved: '조건부승인',
   rejected: '반려', expired: '만료', resubmitting: '재제출',
 };
 export const PERMIT_STATUS_COLORS: Record<string, string> = {
@@ -259,6 +274,17 @@ export const ACQUISITION_LABELS: Record<string, string> = {
   owned: '기보유', purchase: '매입', lease: '임차',
   donation: '기부채납', expropriation: '수용',
 };
+
+export const PERMIT_TYPE_LABELS: Record<string, string> = {
+  building_permit: '건축허가',
+  traffic_impact: '교통영향평가',
+  environment: '환경영향평가',
+  fire_safety: '소방동의',
+};
+
+export function getPermitTypeLabel(value: string): string {
+  return PERMIT_TYPE_LABELS[value] || value;
+}
 
 export function normalizeSiteScore(score?: number | null): number {
   const value = Number(score || 0);

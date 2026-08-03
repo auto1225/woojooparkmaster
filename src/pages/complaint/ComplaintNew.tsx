@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -26,6 +26,8 @@ import { createComplaintFacilityWork } from "@/lib/complaint-facility-work";
 
 export default function ComplaintNew() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialLotId = searchParams.get("lot") || searchParams.get("lotId") || "";
   const { profile } = useAuth();
   const [saving, setSaving] = useState(false);
   const [aiClassifying, setAiClassifying] = useState(false);
@@ -40,7 +42,7 @@ export default function ComplaintNew() {
     channel: "phone", category: "", sub_category: "", priority: "normal",
     title: "", content: "", location_detail: "", incident_date: "", incident_time: "",
     vehicle_number: "", complainant_name: "", complainant_phone: "", complainant_email: "",
-    complainant_address: "", is_anonymous: false, lot_id: "", assigned_team: "", assigned_to: "",
+    complainant_address: "", is_anonymous: false, lot_id: initialLotId, assigned_team: "", assigned_to: "",
     saeol_ref: "", external_ref: "", due_date: "", is_repeat: false,
     related_complaint_id: "", repeat_count: 0, privacy_agreed: false, author_name: "",
   });
@@ -98,12 +100,6 @@ export default function ComplaintNew() {
     }
   }, [form.category]);
 
-  const generateNumber = () => {
-    const d = new Date();
-    const prefix = `CM-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    return `${prefix}-${String(Math.floor(Math.random() * 900) + 100)}`;
-  };
-
   const handleSubmit = async (continueAdding = false) => {
     if (!form.title || !form.content || !form.category) {
       toast({ title: "필수 항목을 입력해주세요", variant: "destructive" });
@@ -131,7 +127,11 @@ export default function ComplaintNew() {
         const { data: duplicate } = await supabase.from("complaints").select("complaint_number").eq("external_ref", form.external_ref).maybeSingle();
         if (duplicate) throw new Error(`이미 등록된 외부 접수번호입니다: ${duplicate.complaint_number}`);
       }
-      const complaint_number = generateNumber();
+      const numberResult = await (supabase.rpc as any)("next_complaint_number", {
+        p_work_date: new Date().toISOString().slice(0, 10),
+      });
+      if (numberResult.error) throw numberResult.error;
+      const complaint_number = numberResult.data as string;
       const status = form.assigned_to ? "assigned" : "received";
       const structuredLocation = buildParkingLocationDetail(selectedLot?.lot_type, locationParts, form.location_detail);
       const insertData: any = {
@@ -160,6 +160,7 @@ export default function ComplaintNew() {
         status,
         created_by: profile?.id,
         author_name: form.author_name || profile?.name || null,
+        client_mutation_id: crypto.randomUUID(),
       };
 
       const { data, error } = await supabase.from("complaints").insert(insertData).select().single();

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -17,6 +17,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { GW_STATUS_LABELS } from "@/types/realtime";
+import { OperationalListControls } from "@/components/common/OperationalListControls";
+import { archiveRealtimeDevice, createRealtimeGateway, updateRealtimeDevice } from "@/lib/workflow-commands";
+import { getParkingLotTypeLabel } from "@/lib/parking-lot-type-labels";
+import { isGatewayOnline } from "@/lib/realtime-health";
 
 export default function RealtimeGateways() {
   const { profile } = useAuth();
@@ -25,11 +29,19 @@ export default function RealtimeGateways() {
   const [showRegister, setShowRegister] = useState(false);
   const [showDetail, setShowDetail] = useState<any>(null);
   const [form, setForm] = useState<Record<string, any>>({});
+  const [search, setSearch] = useState("");
+  const [lotFilter, setLotFilter] = useState("all");
+  const [lotTypeFilter, setLotTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortKey, setSortKey] = useState("health");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [manageForm, setManageForm] = useState<Record<string, any>>({});
+  const [archiveReason, setArchiveReason] = useState("");
 
   const { data: lots } = useQuery({
     queryKey: ["parking-lots-simple"],
     queryFn: async () => {
-      const { data } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+      const { data } = await supabase.from("parking_lots").select("id, code, name, lot_type").eq("status", "active").order("code");
       return data || [];
     },
   });
@@ -38,7 +50,8 @@ export default function RealtimeGateways() {
     queryKey: ["gateways-all"],
     queryFn: async () => {
       const { data, error } = await supabase.from("gateway_devices")
-        .select("*, parking_lots(code, name)")
+        .select("*, parking_lots(code, name, lot_type)")
+        .is("archived_at", null)
         .order("status").order("last_heartbeat", { ascending: true });
       if (error) throw error;
       return data || [];
@@ -46,12 +59,28 @@ export default function RealtimeGateways() {
   });
 
   const totalCount = (gateways || []).length;
-  const onlineCount = (gateways || []).filter(g => {
-    if (g.status !== 'active') return false;
-    if (!g.last_heartbeat) return false;
-    return new Date(g.last_heartbeat) > new Date(Date.now() - 5 * 60 * 1000);
-  }).length;
+  const onlineCount = (gateways || []).filter((gateway) => isGatewayOnline(gateway)).length;
   const offlineCount = totalCount - onlineCount;
+  const filteredGateways = useMemo(() => {
+    const health = (gateway: any) => isGatewayOnline(gateway) ? 1 : 0;
+    const rows = (gateways || []).filter((gateway) => {
+      const lot = gateway.parking_lots as any;
+      if (lotFilter !== "all" && gateway.lot_id !== lotFilter) return false;
+      if (lotTypeFilter !== "all" && lot?.lot_type !== lotTypeFilter) return false;
+      if (statusFilter === "online" && !health(gateway)) return false;
+      if (statusFilter === "offline" && health(gateway)) return false;
+      if (!["all", "online", "offline"].includes(statusFilter) && gateway.status !== statusFilter) return false;
+      const needle = search.trim().toLocaleLowerCase("ko");
+      return !needle || [gateway.device_id, gateway.device_name, gateway.ip_address, gateway.mac_address, gateway.location_detail, lot?.name, lot?.code]
+        .some((value) => String(value || "").toLocaleLowerCase("ko").includes(needle));
+    });
+    const value = (gateway: any) => sortKey === "device" ? gateway.device_id : sortKey === "lot" ? gateway.parking_lots?.name : sortKey === "heartbeat" ? gateway.last_heartbeat : sortKey === "capacity" ? Number(gateway.connected_sensors || 0) / Number(gateway.max_sensors || 1) : health(gateway);
+    return [...rows].sort((a, b) => {
+      const av = value(a); const bv = value(b);
+      const result = typeof av === "number" && typeof bv === "number" ? av - bv : String(av || "").localeCompare(String(bv || ""), "ko");
+      return sortDirection === "asc" ? result : -result;
+    });
+  }, [gateways, lotFilter, lotTypeFilter, search, sortDirection, sortKey, statusFilter]);
 
   const updateForm = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
 
@@ -68,27 +97,45 @@ export default function RealtimeGateways() {
       toast({ title: "필수 항목을 입력하세요", variant: "destructive" });
       return;
     }
-    const { error } = await supabase.from("gateway_devices").insert({
-      lot_id: form.lot_id,
-      device_id: form.device_id,
-      device_name: form.device_name || null,
-      ip_address: form.ip_address || null,
-      mac_address: form.mac_address || null,
-      protocol: form.protocol || 'mqtt',
-      mqtt_topic: form.mqtt_topic || null,
-      location_detail: form.location_detail || null,
-      floor: form.floor ? Number(form.floor) : null,
-      max_sensors: form.max_sensors ? Number(form.max_sensors) : 200,
-      alert_offline_minutes: form.alert_offline_minutes ? Number(form.alert_offline_minutes) : 10,
-    });
-    if (error) {
-      toast({ title: "등록 실패", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await createRealtimeGateway(form, crypto.randomUUID());
       await logActivity({ module: "realtime", action: "create", targetType: "gateway", targetName: form.device_id });
       toast({ title: "게이트웨이가 등록되었습니다" });
       setShowRegister(false);
       setForm({});
       queryClient.invalidateQueries({ queryKey: ["gateways-all"] });
+    } catch (error) {
+      toast({ title: "등록 실패", description: error instanceof Error ? error.message : "등록하지 못했습니다.", variant: "destructive" });
+    }
+  };
+
+  const openDetail = (gateway: any) => {
+    setShowDetail(gateway);
+    setArchiveReason("");
+    setManageForm({ device_name: gateway.device_name || "", ip_address: gateway.ip_address || "", location_detail: gateway.location_detail || "", status: gateway.status });
+  };
+
+  const saveDevice = async () => {
+    if (!showDetail) return;
+    try {
+      await updateRealtimeDevice("gateway", showDetail.id, manageForm, showDetail.row_version);
+      toast({ title: "게이트웨이 정보를 수정했습니다" });
+      setShowDetail(null);
+      queryClient.invalidateQueries({ queryKey: ["gateways-all"] });
+    } catch (error) {
+      toast({ title: "수정 실패", description: error instanceof Error ? error.message : "수정하지 못했습니다.", variant: "destructive" });
+    }
+  };
+
+  const archiveDevice = async () => {
+    if (!showDetail) return;
+    try {
+      await archiveRealtimeDevice("gateway", showDetail.id, archiveReason, showDetail.row_version);
+      toast({ title: "게이트웨이를 보관했습니다" });
+      setShowDetail(null);
+      queryClient.invalidateQueries({ queryKey: ["gateways-all"] });
+    } catch (error) {
+      toast({ title: "보관 실패", description: error instanceof Error ? error.message : "보관하지 못했습니다.", variant: "destructive" });
     }
   };
 
@@ -109,21 +156,34 @@ export default function RealtimeGateways() {
           <KpiCard label="오프라인" value={String(offlineCount)} icon={WifiOff} />
         </div>
 
+        <OperationalListControls
+          search={search} onSearchChange={setSearch} searchPlaceholder="장치ID, IP, MAC, 위치 검색"
+          lots={(lots || []).map((lot) => ({ value: lot.id, label: `${lot.name} · ${getParkingLotTypeLabel(lot.lot_type)}` }))}
+          lotId={lotFilter} onLotChange={setLotFilter}
+          categories={[{ value: "offstreet", label: "노외주차장" }, { value: "multilevel", label: "주차빌딩" }, { value: "onstreet", label: "노상주차장" }]}
+          category={lotTypeFilter} onCategoryChange={setLotTypeFilter} categoryLabel="전체 주차장 유형"
+          statuses={[{ value: "online", label: "온라인" }, { value: "offline", label: "오프라인" }, ...Object.entries(GW_STATUS_LABELS).filter(([value]) => !["active", "offline"].includes(value)).map(([value, label]) => ({ value, label }))]}
+          status={statusFilter} onStatusChange={setStatusFilter}
+          sortOptions={[{ value: "health", label: "연결 상태순" }, { value: "heartbeat", label: "마지막 통신순" }, { value: "capacity", label: "센서 사용률순" }, { value: "lot", label: "주차장순" }, { value: "device", label: "장치ID순" }]}
+          sortKey={sortKey} onSortKeyChange={setSortKey} sortDirection={sortDirection} onSortDirectionChange={setSortDirection}
+          resultCount={filteredGateways.length} totalCount={(gateways || []).length}
+          onReset={() => { setSearch(""); setLotFilter("all"); setLotTypeFilter("all"); setStatusFilter("all"); setSortKey("health"); setSortDirection("asc"); }}
+        />
+
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {[1,2,3].map(i => <Skeleton key={i} className="h-48" />)}
           </div>
-        ) : (gateways || []).length === 0 ? (
+        ) : filteredGateways.length === 0 ? (
           <Card><CardContent className="py-10 text-center text-muted-foreground">등록된 게이트웨이가 없습니다</CardContent></Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {(gateways || []).map(gw => {
-              const isOnline = gw.status === 'active' && gw.last_heartbeat &&
-                new Date(gw.last_heartbeat) > new Date(Date.now() - 5 * 60 * 1000);
+            {filteredGateways.map(gw => {
+              const isOnline = isGatewayOnline(gw);
               const sensorPct = gw.max_sensors > 0 ? Math.round(gw.connected_sensors / gw.max_sensors * 100) : 0;
 
               return (
-                <Card key={gw.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowDetail(gw)}>
+                <Card key={gw.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openDetail(gw)}>
                   <CardContent className="pt-4 pb-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
@@ -132,7 +192,7 @@ export default function RealtimeGateways() {
                       </div>
                       <div className={`h-4 w-4 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-red-500'}`} />
                     </div>
-                    <p className="text-xs text-muted-foreground">{(gw.parking_lots as any)?.name || '—'}</p>
+                    <p className="text-xs text-muted-foreground">{(gw.parking_lots as any)?.name || '—'} · {getParkingLotTypeLabel((gw.parking_lots as any)?.lot_type || gw.lot_type_snapshot)}</p>
                     {gw.ip_address && <p className="text-xs font-mono">{gw.ip_address}</p>}
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs">
@@ -241,6 +301,13 @@ export default function RealtimeGateways() {
                   <div><span className="text-muted-foreground">가동시간:</span> {showDetail.uptime_hours ? `${Number(showDetail.uptime_hours).toLocaleString()}h` : '—'}</div>
                 </div>
                 <Badge variant="outline">{GW_STATUS_LABELS[showDetail.status] || showDetail.status}</Badge>
+                {canEdit && <div className="space-y-3 border-t pt-3">
+                  <div><Label>장치명</Label><Input value={manageForm.device_name || ""} onChange={(event) => setManageForm((value) => ({ ...value, device_name: event.target.value }))} /></div>
+                  <div className="grid grid-cols-2 gap-2"><div><Label>IP 주소</Label><Input value={manageForm.ip_address || ""} onChange={(event) => setManageForm((value) => ({ ...value, ip_address: event.target.value }))} /></div><div><Label>상태</Label><Select value={manageForm.status || "active"} onValueChange={(status) => setManageForm((value) => ({ ...value, status }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">가동중</SelectItem><SelectItem value="maintenance">점검중</SelectItem><SelectItem value="offline">오프라인</SelectItem></SelectContent></Select></div></div>
+                  <div><Label>상세 위치</Label><Input value={manageForm.location_detail || ""} onChange={(event) => setManageForm((value) => ({ ...value, location_detail: event.target.value }))} /></div>
+                  <Button className="w-full" onClick={saveDevice}>수정 저장</Button>
+                  <div className="flex gap-2"><Input value={archiveReason} onChange={(event) => setArchiveReason(event.target.value)} placeholder="보관 사유 3자 이상" /><Button variant="destructive" disabled={archiveReason.trim().length < 3} onClick={archiveDevice}>보관</Button></div>
+                </div>}
               </div>
             )}
           </DialogContent>

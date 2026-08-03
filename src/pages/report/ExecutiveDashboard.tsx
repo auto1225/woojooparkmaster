@@ -12,70 +12,132 @@ import { Building2, Car, Users, Wrench, Banknote, MessageSquare, Calculator, Ale
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { CHART_COLORS, ChartTooltipContent } from "@/lib/chart-config";
 import { useTheme } from "@/hooks/useTheme";
+import { getParkingLotTypeLabel } from "@/lib/parking-lot-type-labels";
+
+const EMPTY_ROWS: any[] = [];
+
+function toLocalDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getQueryErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) return String(error.message);
+  return String(error);
+}
 
 export default function ExecutiveDashboard() {
   const { isDark } = useTheme();
   const { data: config } = useSystemConfig();
   const today = new Date();
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-  const yearStart = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0];
-  const todayStr = today.toISOString().split('T')[0];
+  const monthStart = toLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+  const yearStart = toLocalDateString(new Date(today.getFullYear(), 0, 1));
+  const todayStr = toLocalDateString(today);
+  const monthStartTimestamp = `${monthStart}T00:00:00+09:00`;
+  const todayEndTimestamp = `${todayStr}T23:59:59.999+09:00`;
 
-  const { data: lots = [] } = useQuery({
+  const lotsQuery = useQuery({
     queryKey: ['exec-lots'],
-    queryFn: async () => { const { data } = await supabase.from('parking_lots').select('*'); return data || []; },
+    queryFn: async () => {
+      const { data, error } = await supabase.from('parking_lots').select('*');
+      if (error) throw error;
+      return data || [];
+    },
   });
 
-  const { data: monthlyRevenue = [] } = useQuery({
+  const monthlyRevenueQuery = useQuery({
     queryKey: ['exec-rev-month', monthStart],
     queryFn: async () => {
-      const { data } = await supabase.from('revenue_daily')
+      const { data, error } = await supabase.from('revenue_daily')
         .select('total_amount, cash_amount, card_amount, mobile_amount, revenue_date')
-        .gte('revenue_date', monthStart);
+        .gte('revenue_date', monthStart)
+        .lte('revenue_date', todayStr);
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: yearlyRevenue = [] } = useQuery({
+  const yearlyRevenueQuery = useQuery({
     queryKey: ['exec-rev-year', yearStart],
     queryFn: async () => {
-      const { data } = await supabase.from('revenue_daily').select('total_amount, revenue_date').gte('revenue_date', yearStart);
+      const { data, error } = await supabase.from('revenue_daily')
+        .select('total_amount, revenue_date')
+        .gte('revenue_date', yearStart)
+        .lte('revenue_date', todayStr);
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: complaints = [] } = useQuery({
+  const complaintsQuery = useQuery({
     queryKey: ['exec-complaints', monthStart],
     queryFn: async () => {
-      const { data } = await supabase.from('complaints').select('status, category, received_at, closed_at').gte('received_at', monthStart);
+      const { data, error } = await supabase.from('complaints')
+        .select('status, category, received_at, closed_at')
+        .gte('received_at', monthStartTimestamp)
+        .lte('received_at', todayEndTimestamp);
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: equipment = [] } = useQuery({
+  const equipmentQuery = useQuery({
     queryKey: ['exec-equip'],
-    queryFn: async () => { const { data } = await supabase.from('equipment').select('status, equipment_type'); return data || []; },
+    queryFn: async () => {
+      const { data, error } = await supabase.from('equipment').select('status, equipment_type');
+      if (error) throw error;
+      return data || [];
+    },
   });
 
-  const { data: budgetPlans = [] } = useQuery({
+  const budgetPlansQuery = useQuery({
     queryKey: ['exec-budget'],
     queryFn: async () => {
-      const { data } = await supabase.from('budget_plans').select('*').eq('fiscal_year', today.getFullYear()).eq('status', 'approved');
+      const { data, error } = await supabase.from('budget_plans').select('*').eq('fiscal_year', today.getFullYear()).eq('status', 'approved');
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: budgetItems = [] } = useQuery({
+  const budgetItemsQuery = useQuery({
     queryKey: ['exec-budget-items'],
-    queryFn: async () => { const { data } = await supabase.from('budget_items').select('item_name, allocated_amount, executed_amount, planned_amount').not('parent_item_id', 'is', null); return data || []; },
+    queryFn: async () => {
+      const { data, error } = await supabase.from('budget_items').select('item_name, allocated_amount, executed_amount, planned_amount').not('parent_item_id', 'is', null);
+      if (error) throw error;
+      return data || [];
+    },
   });
+
+  const lots = lotsQuery.data || EMPTY_ROWS;
+  const monthlyRevenue = monthlyRevenueQuery.data || EMPTY_ROWS;
+  const yearlyRevenue = yearlyRevenueQuery.data || EMPTY_ROWS;
+  const complaints = complaintsQuery.data || EMPTY_ROWS;
+  const equipment = equipmentQuery.data || EMPTY_ROWS;
+  const budgetPlans = budgetPlansQuery.data || EMPTY_ROWS;
+  const budgetItems = budgetItemsQuery.data || EMPTY_ROWS;
+  const queryErrors = [
+    ['주차장', lotsQuery.error],
+    ['당월 수입', monthlyRevenueQuery.error],
+    ['연간 수입', yearlyRevenueQuery.error],
+    ['민원', complaintsQuery.error],
+    ['장비', equipmentQuery.error],
+    ['예산 계획', budgetPlansQuery.error],
+    ['예산 집행', budgetItemsQuery.error],
+  ].flatMap(([label, error]) => error ? [{ label, message: getQueryErrorMessage(error) }] : []);
 
   // Section 1
   const totalSpaces = lots.reduce((s: number, l: any) => s + (l.total_spaces || 0), 0);
   const disabledSpaces = lots.reduce((s: number, l: any) => s + (l.disabled_spaces || 0), 0);
   const evSpaces = lots.reduce((s: number, l: any) => s + (l.ev_spaces || 0), 0);
-  const directOps = lots.filter((l: any) => l.operation_type === '직영').length;
-  const outsourced = lots.filter((l: any) => l.operation_type === '위탁').length;
+  const directOps = lots.filter((l: any) => l.operator_type === 'direct').length;
+  const outsourced = lots.filter((l: any) => l.operator_type === 'outsourced').length;
+  const otherOps = lots.filter((l: any) => !['direct', 'outsourced'].includes(l.operator_type)).length;
+  const lotTypeSummary = ['offstreet', 'multilevel', 'onstreet']
+    .map((type) => `${getParkingLotTypeLabel(type)} ${lots.filter((lot: any) => lot.lot_type === type).length}개소`)
+    .join(' · ');
 
   // Section 2
   const monthRevTotal = monthlyRevenue.reduce((s: number, r: any) => s + (r.total_amount || 0), 0);
@@ -137,11 +199,23 @@ export default function ExecutiveDashboard() {
           <PrintButton className="print:hidden" />
         </div>
 
+        {queryErrors.length > 0 && (
+          <Card className="border-destructive/50 bg-destructive/5 print:hidden" role="alert">
+            <CardContent className="p-4">
+              <p className="text-sm font-semibold text-destructive">일부 통계 데이터를 불러오지 못했습니다.</p>
+              <ul className="mt-2 space-y-1 text-xs text-destructive">
+                {queryErrors.map(({ label, message }) => <li key={label}>{label}: {message}</li>)}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Section 1: 기본 현황 */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card><CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2"><Building2 className="h-4 w-4 text-primary" /><span className="text-xs text-muted-foreground">총 주차장</span></div>
             <p className="text-2xl font-bold">{lots.length}<span className="text-sm font-normal text-muted-foreground">개소</span></p>
+            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">{lotTypeSummary || '주차장 형태 정보 없음'}</p>
           </CardContent></Card>
           <Card><CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2"><Car className="h-4 w-4 text-blue-600" /><span className="text-xs text-muted-foreground">총 주차면수</span></div>
@@ -151,6 +225,7 @@ export default function ExecutiveDashboard() {
           <Card><CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2"><Users className="h-4 w-4 text-emerald-600" /><span className="text-xs text-muted-foreground">운영방식</span></div>
             <p className="text-lg font-bold">직영 {directOps} / 위탁 {outsourced}</p>
+            <p className="text-[10px] text-muted-foreground">기타·미확인 {otherOps}</p>
           </CardContent></Card>
           <Card><CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2"><Wrench className="h-4 w-4 text-violet-600" /><span className="text-xs text-muted-foreground">장비 가동률</span></div>

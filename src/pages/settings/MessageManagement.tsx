@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Send, MessageSquare, RefreshCw } from "lucide-react";
-import { sendMessage, ALIMTALK_TEMPLATES, fillTemplate } from "@/lib/message-service";
+import { AlertTriangle, Send, MessageSquare } from "lucide-react";
+import { sendMessage, ALIMTALK_TEMPLATES } from "@/lib/message-service";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-muted text-muted-foreground',
@@ -23,22 +22,23 @@ const STATUS_COLORS: Record<string, string> = {
 };
 const STATUS_LABELS: Record<string, string> = { pending: '대기', sent: '발송', delivered: '수신', failed: '실패' };
 const CHANNEL_LABELS: Record<string, string> = { alimtalk: '알림톡', sms: 'SMS', lms: 'LMS', email: '이메일' };
+const MODULE_LABELS: Record<string, string> = { manual: '직접 등록', budget: '예산', service: '용역', complaint: '민원', facility: '시설' };
 
 export default function MessageManagement() {
-  const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [sendDialog, setSendDialog] = useState(false);
   const [channelFilter, setChannelFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sendForm, setSendForm] = useState({ channel: 'sms' as any, phone: '', content: '', template: '' });
 
-  const { data: messages } = useQuery({
+  const { data: messages, error: messagesError, isLoading } = useQuery({
     queryKey: ['message-logs', channelFilter, statusFilter],
     queryFn: async () => {
       let q = supabase.from('message_logs').select('*').order('created_at', { ascending: false }).limit(100);
       if (channelFilter !== 'all') q = q.eq('channel', channelFilter);
       if (statusFilter !== 'all') q = q.eq('status', statusFilter);
-      const { data } = await q;
+      const { data, error } = await q;
+      if (error) throw error;
       return data || [];
     },
   });
@@ -50,7 +50,8 @@ export default function MessageManagement() {
   };
 
   const handleSend = async () => {
-    if (!sendForm.phone || !sendForm.content) { toast.error('수신자와 내용을 입력하세요'); return; }
+    if (!/^01[016789]-?\d{3,4}-?\d{4}$/.test(sendForm.phone.trim())) { toast.error('휴대전화번호 형식을 확인하세요'); return; }
+    if (!sendForm.content.trim()) { toast.error('메시지 내용을 입력하세요'); return; }
     try {
       await sendMessage({
         channel: sendForm.channel,
@@ -58,7 +59,7 @@ export default function MessageManagement() {
         content: sendForm.content,
         module: 'manual',
       });
-      toast.success('발송 요청이 등록되었습니다');
+      toast.success('외부 발송 대기 요청을 저장했습니다');
       setSendDialog(false);
       setSendForm({ channel: 'sms', phone: '', content: '', template: '' });
       queryClient.invalidateQueries({ queryKey: ['message-logs'] });
@@ -78,16 +79,21 @@ export default function MessageManagement() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <MessageSquare className="h-4 w-4" />메시지 발송 관리
+          <MessageSquare className="h-4 w-4" />메시지 요청 관리
         </h3>
         <Button size="sm" onClick={() => setSendDialog(true)}>
-          <Send className="h-3.5 w-3.5 mr-1" />수동 발송
+          <Send className="h-3.5 w-3.5 mr-1" />발송 요청 등록
         </Button>
+      </div>
+
+      <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <p>이 화면은 SMS·알림톡 발송 요청과 처리 이력을 관리합니다. 현재 외부 메시지 제공자와 직접 연결되어 있지 않아 새 요청은 ‘대기’로 저장되며 실제 전송은 별도 발송 연계가 필요합니다.</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold">{stats.total}</p><p className="text-xs text-muted-foreground">전체 발송</p></CardContent></Card>
+        <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold">{stats.total}</p><p className="text-xs text-muted-foreground">최근 요청</p></CardContent></Card>
         <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-emerald-600">{stats.sent}</p><p className="text-xs text-muted-foreground">성공</p></CardContent></Card>
         <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-red-600">{stats.failed}</p><p className="text-xs text-muted-foreground">실패</p></CardContent></Card>
       </div>
@@ -113,7 +119,7 @@ export default function MessageManagement() {
       {/* Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
+          <div className="max-w-full overflow-x-auto"><Table className="min-w-[760px]">
             <TableHeader>
               <TableRow>
                 <TableHead>일시</TableHead>
@@ -132,21 +138,24 @@ export default function MessageManagement() {
                   <TableCell className="text-xs">{m.recipient_name || m.recipient_phone}</TableCell>
                   <TableCell className="text-xs max-w-[200px] truncate">{m.content}</TableCell>
                   <TableCell><Badge className={`text-[10px] ${STATUS_COLORS[m.status] || ''}`}>{STATUS_LABELS[m.status] || m.status}</Badge></TableCell>
-                  <TableCell className="text-xs">{m.module}</TableCell>
+                  <TableCell className="text-xs">{MODULE_LABELS[m.module] || m.module}</TableCell>
                 </TableRow>
               ))}
-              {(!messages || messages.length === 0) && (
+              {!isLoading && !messagesError && (!messages || messages.length === 0) && (
                 <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">발송 이력이 없습니다</TableCell></TableRow>
               )}
+              {isLoading && <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">메시지 이력을 불러오는 중입니다</TableCell></TableRow>}
+              {messagesError && <TableRow><TableCell colSpan={6} className="py-8 text-center text-destructive">메시지 이력을 불러오지 못했습니다</TableCell></TableRow>}
             </TableBody>
-          </Table>
+          </Table></div>
         </CardContent>
       </Card>
 
       {/* Send Dialog */}
       <Dialog open={sendDialog} onOpenChange={setSendDialog}>
         <DialogContent>
-          <DialogHeader><DialogTitle>수동 메시지 발송</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>메시지 발송 요청 등록</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">요청은 대기 상태로 기록됩니다. 외부 발송 연계 전에는 수신자에게 실제 전송되지 않습니다.</p>
           <div className="space-y-3">
             <div>
               <Label className="text-xs">채널</Label>
@@ -177,7 +186,7 @@ export default function MessageManagement() {
               <Textarea value={sendForm.content} onChange={e => setSendForm(f => ({ ...f, content: e.target.value }))} rows={4} />
             </div>
           </div>
-          <DialogFooter><Button onClick={handleSend}><Send className="h-3.5 w-3.5 mr-1" />발송</Button></DialogFooter>
+          <DialogFooter><Button onClick={handleSend}><Send className="h-3.5 w-3.5 mr-1" />요청 저장</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

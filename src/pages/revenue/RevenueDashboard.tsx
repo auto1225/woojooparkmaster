@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Banknote, TrendingUp, Car, AlertCircle, CheckCircle } from "lucide-react";
-import { formatWon, formatManWon } from "@/types/revenue";
+import { formatWon, formatManWon, DATA_SOURCE_LABELS } from "@/types/revenue";
 import { AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { localDateIso } from "@/lib/revenue-controls";
 
 type PeriodType = 'today' | 'week' | 'month' | 'year';
 
@@ -22,7 +23,7 @@ function getPeriodRange(period: PeriodType) {
     case 'month': start = new Date(now.getFullYear(), now.getMonth(), 1); break;
     case 'year': start = new Date(now.getFullYear(), 0, 1); break;
   }
-  return { start: start.toISOString().split('T')[0], end: now.toISOString().split('T')[0] };
+  return { start: localDateIso(start), end: localDateIso(now) };
 }
 
 function getPrevPeriodRange(period: PeriodType) {
@@ -34,7 +35,7 @@ function getPrevPeriodRange(period: PeriodType) {
     case 'month': { start = new Date(now.getFullYear(), now.getMonth() - 1, 1); end = new Date(now.getFullYear(), now.getMonth(), 0); break; }
     case 'year': { start = new Date(now.getFullYear() - 1, 0, 1); end = new Date(now.getFullYear() - 1, 11, 31); break; }
   }
-  return { start: start!.toISOString().split('T')[0], end: end!.toISOString().split('T')[0] };
+  return { start: localDateIso(start!), end: localDateIso(end!) };
 }
 
 const PERIOD_LABELS: Record<PeriodType, string> = { today: '오늘', week: '이번주', month: '이번달', year: '올해' };
@@ -43,18 +44,20 @@ const PIE_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#6b7280'];
 export default function RevenueDashboard() {
   const [period, setPeriod] = useState<PeriodType>('month');
   const { profile } = useAuth();
+  const canVerify = Boolean(profile && ['admin', 'manager'].includes(profile.role));
   const range = getPeriodRange(period);
   const prevRange = getPrevPeriodRange(period);
 
   const { data: currentData } = useQuery({
     queryKey: ['revenue-dashboard', range],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('revenue_daily')
         .select('*, parking_lots(code, name)')
         .gte('revenue_date', range.start)
         .lte('revenue_date', range.end)
         .order('revenue_date', { ascending: true });
+      if (error) throw error;
       return data || [];
     },
   });
@@ -62,11 +65,12 @@ export default function RevenueDashboard() {
   const { data: prevData } = useQuery({
     queryKey: ['revenue-dashboard-prev', prevRange],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('revenue_daily')
         .select('cash_amount, card_amount, mobile_amount, monthly_pass_amount, other_amount, total_vehicles')
         .gte('revenue_date', prevRange.start)
         .lte('revenue_date', prevRange.end);
+      if (error) throw error;
       return data || [];
     },
   });
@@ -74,12 +78,13 @@ export default function RevenueDashboard() {
   const { data: unverifiedList, refetch: refetchUnverified } = useQuery({
     queryKey: ['revenue-unverified'],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('revenue_daily')
         .select('id, revenue_date, cash_amount, card_amount, mobile_amount, monthly_pass_amount, other_amount, data_source, parking_lots(code, name)')
         .eq('verified', false)
         .order('revenue_date', { ascending: false })
         .limit(5);
+      if (error) throw error;
       return data || [];
     },
   });
@@ -139,7 +144,8 @@ export default function RevenueDashboard() {
 
   const handleVerify = async (id: string) => {
     if (!profile) return;
-    const { error } = await supabase.from('revenue_daily').update({ verified: true, verified_by: profile.id, verified_at: new Date().toISOString() }).eq('id', id);
+    if (!['admin', 'manager'].includes(profile.role)) { toast.error('수입 검증 권한이 없습니다'); return; }
+    const { error } = await (supabase.rpc as any)('verify_revenue_daily', { p_record_id: id, p_expected_updated_at: null });
     if (error) { toast.error('검증 실패'); return; }
     toast.success('검증 완료');
     refetchUnverified();
@@ -254,8 +260,8 @@ export default function RevenueDashboard() {
                           <p className="text-xs text-muted-foreground">{item.revenue_date} · {formatWon(total)}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">{item.data_source}</Badge>
-                          <Button size="sm" variant="outline" onClick={() => handleVerify(item.id)}>
+                          <Badge variant="outline" className="text-xs">{DATA_SOURCE_LABELS[item.data_source] || item.data_source}</Badge>
+                          <Button size="sm" variant="outline" onClick={() => handleVerify(item.id)} disabled={!canVerify}>
                             <CheckCircle className="h-3.5 w-3.5 mr-1" />검증
                           </Button>
                         </div>

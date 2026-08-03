@@ -19,7 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { stableMultiSort } from "@/lib/list-sorting";
-import { formatBudgetWon, normalizeSiteScore, OWNERSHIP_LABELS, PHASE_LABELS, PHASE_ORDER, PROJECT_TYPE_LABELS, SITE_STATUS_COLORS, SITE_STATUS_LABELS, type ConstructionProject, type Permit, type SiteCandidate } from "@/types/planning";
+import { decideSiteCandidate } from "@/lib/workflow-commands";
+import { ACQUISITION_LABELS, formatBudgetWon, normalizeSiteScore, OWNERSHIP_LABELS, PHASE_LABELS, PHASE_ORDER, PROJECT_TYPE_LABELS, SITE_STATUS_COLORS, SITE_STATUS_LABELS, type ConstructionProject, type Permit, type SiteCandidate } from "@/types/planning";
 
 type ProjectPortfolio = ConstructionProject & { permits: Permit[]; documents: Array<{ id: string; review_status: string; is_current: boolean }> };
 
@@ -77,7 +78,7 @@ export default function PlanningDecisionCenter() {
   const { data: sites = [], isLoading: sitesLoading } = useQuery({
     queryKey: ["planning-decision-sites"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("site_candidates").select("*");
+      const { data, error } = await supabase.from("site_candidates").select("*").is("archived_at", null);
       if (error) throw error;
       return (data || []) as unknown as SiteCandidate[];
     },
@@ -86,9 +87,9 @@ export default function PlanningDecisionCenter() {
     queryKey: ["planning-decision-projects"],
     queryFn: async () => {
       const [projectResult, permitResult, documentResult] = await Promise.all([
-        supabase.from("construction_projects").select("*"),
-        supabase.from("permits").select("*"),
-        supabase.from("design_documents").select("id, project_id, review_status, is_current"),
+        supabase.from("construction_projects").select("*").is("archived_at", null),
+        supabase.from("permits").select("*").is("archived_at", null),
+        supabase.from("design_documents").select("id, project_id, review_status, is_current").is("archived_at", null),
       ]);
       if (projectResult.error) throw projectResult.error;
       if (permitResult.error) throw permitResult.error;
@@ -128,12 +129,12 @@ export default function PlanningDecisionCenter() {
   const decisionMutation = useMutation({
     mutationFn: async () => {
       if (!decisionTarget) return;
-      const { error } = await supabase.from("site_candidates").update({
-        status: decisionStatus,
-        decision_date: new Date().toISOString().slice(0, 10),
-        decision_note: decisionNote.trim() || null,
-      } as never).eq("id", decisionTarget.id);
-      if (error) throw error;
+      await decideSiteCandidate(
+        decisionTarget.id,
+        decisionStatus as "evaluating" | "selected" | "rejected",
+        decisionNote.trim(),
+        decisionTarget.row_version,
+      );
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["planning-decision-sites"] });
@@ -187,7 +188,7 @@ export default function PlanningDecisionCenter() {
           {sitesLoading ? <TableRow><TableCell colSpan={11} className="h-36 text-center">불러오는 중...</TableCell></TableRow> : filteredSites.map((site) => { const risks = siteRisks(site); const readiness = siteReadiness(site); return <TableRow key={site.id}>
             <TableCell><Checkbox aria-label={`${site.name} 비교 선택`} checked={selectedIds.includes(site.id)} disabled={!selectedIds.includes(site.id) && selectedIds.length >= 3} onCheckedChange={() => toggleCompare(site.id)} /></TableCell>
             <TableCell><div className="font-medium">{site.name}</div><div className="text-xs text-muted-foreground">{site.site_number} · {site.address_road || site.address_jibun || "주소 미입력"}</div></TableCell>
-            <TableCell><div>{OWNERSHIP_LABELS[site.ownership || ""] || site.ownership || "미입력"}</div><div className="text-xs text-muted-foreground">{site.acquisition_method || "취득방식 미정"}</div></TableCell>
+            <TableCell><div>{OWNERSHIP_LABELS[site.ownership || ""] || site.ownership || "미입력"}</div><div className="text-xs text-muted-foreground">{ACQUISITION_LABELS[site.acquisition_method || ""] || site.acquisition_method || "취득방식 미정"}</div></TableCell>
             <TableCell className="text-right font-medium">{site.total_score ? normalizeSiteScore(site.total_score).toFixed(1) : "-"}</TableCell><TableCell className="text-right">{site.bc_ratio ? Number(site.bc_ratio).toFixed(2) : "-"}</TableCell><TableCell className="text-right">{Number(site.estimated_spaces || 0).toLocaleString()}</TableCell><TableCell className="text-right">{formatBudgetWon(costPerSpace(site))}</TableCell>
             <TableCell><div className="flex min-w-28 items-center gap-2"><Progress value={readiness} className="h-2" /><span className="w-9 text-right text-xs">{readiness}%</span></div></TableCell>
             <TableCell className="max-w-64 whitespace-normal">{risks.length ? <div className="flex flex-wrap gap-1">{risks.map((risk) => <Badge key={risk} variant="outline" className="border-amber-300 text-amber-800">{risk}</Badge>)}</div> : <span className="inline-flex items-center gap-1 text-sm text-emerald-700"><CheckCircle2 className="h-4 w-4" />위험 없음</span>}</TableCell>

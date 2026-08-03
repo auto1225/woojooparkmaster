@@ -20,6 +20,7 @@ export interface DomainWorkflowConfig {
   locationLabel: string;
   module: string;
   path: string;
+  source?: "construction_project";
   stages: Array<{ status: TeamWorkStatus; label: string; action?: string }>;
   fields: DomainWorkflowField[];
   samples: TeamWorkInput[];
@@ -106,9 +107,10 @@ export const CAPITAL_PROCEDURE_WORKFLOW: DomainWorkflowConfig = {
   recordType: "capital_project",
   category: "확충사업행정절차",
   itemLabel: "사업",
-  locationLabel: "사업 위치",
+  locationLabel: "연계 공사사업",
   module: "CAPITAL_PROCEDURE",
   path: "/planning/procedures",
+  source: "construction_project",
   stages: [
     { status: "registered", label: "계획수립", action: "사전검토" },
     { status: "assigned", label: "사전검토", action: "행정절차" },

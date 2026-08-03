@@ -20,11 +20,11 @@ import {
   CHANNEL_LABELS, CATEGORY_LABELS, COMPLAINT_STATUS_LABELS, COMPLAINT_STATUS_COLORS,
   PRIORITY_LABELS, PRIORITY_COLORS, COMMENT_TYPE_LABELS, RESOLUTION_TYPE_LABELS, getDDay,
 } from "@/types/complaint";
-import { ArrowLeft, MessageCircle, Lock, Send, Star, UserPlus, Play, Reply, CheckCircle, RotateCcw, ExternalLink, Sparkles, Repeat2, Pencil, ClipboardList } from "lucide-react";
+import { ArrowLeft, MessageCircle, Lock, Send, Star, UserPlus, Play, Reply, CheckCircle, RotateCcw, ExternalLink, Sparkles, Repeat2, Pencil, ClipboardList, BriefcaseBusiness } from "lucide-react";
 import { useModuleLicenses, useSystemConfig } from "@/hooks/useSystemConfig";
 import { callAI, reviewAIAssistance, type AISource } from "@/lib/ai-service";
 import { runtimeConfig } from "@/config/runtime-config";
-import { assignComplaint } from "@/lib/workflow-commands";
+import { advanceComplaint, assignComplaint } from "@/lib/workflow-commands";
 import { isModuleEnabled } from "@/lib/authorization";
 import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import { ComplaintEditDialog } from "@/components/complaint/ComplaintEditDialog";
@@ -77,6 +77,7 @@ export default function ComplaintDetail() {
   const [satScore, setSatScore] = useState(3);
   const [satFeedback, setSatFeedback] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
+  const [commandPending, setCommandPending] = useState(false);
   const [aiDraftMeta, setAiDraftMeta] = useState<{ id?: string; initial: string; confidence?: number; sources: AISource[] } | null>(null);
 
   const { data: complaint, isLoading } = useQuery({
@@ -154,6 +155,20 @@ export default function ComplaintDetail() {
     enabled: !!id && !!complaint?.complaint_number,
   });
 
+  const { data: linkedDocumentRelations = [] } = useQuery({
+    queryKey: ["complaint-document-readiness", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("attachments")
+        .select("category")
+        .eq("module", "COMPLAINT")
+        .eq("ref_id", id!)
+        .eq("ref_type", "official_document_link");
+      if (error) throw error;
+      return (data || []).map((link) => ({ relation_type: link.category || "reference" }));
+    },
+    enabled: !!id,
+  });
+
   useEffect(() => {
     if (!complaint || searchParams.get("action") !== "assign") return;
     setAssignTo(complaint.assigned_to || "");
@@ -163,16 +178,29 @@ export default function ComplaintDetail() {
     setSearchParams(nextParams, { replace: true });
   }, [complaint, searchParams, setSearchParams]);
 
-  const updateStatus = async (newStatus: string, extra: Record<string, any> = {}) => {
-    if (!canEdit) return false;
-    const { error } = await supabase.from("complaints").update({ status: newStatus, ...extra }).eq("id", id!);
-    if (error) { toast({ title: "상태 변경 실패", description: error.message, variant: "destructive" }); return false; }
-    await logActivity({ module: "COMPLAINT", action: `상태변경→${newStatus}`, targetType: "complaint", targetId: id!, targetName: complaint?.complaint_number });
-    queryClient.invalidateQueries({ queryKey: ["complaint", id] });
-    queryClient.invalidateQueries({ queryKey: ["complaint-comments", id] });
-    queryClient.invalidateQueries({ queryKey: ["complaints"] });
-    toast({ title: "상태가 변경되었습니다" });
-    return true;
+  const runComplaintCommand = async (
+    action: "start" | "external_wait" | "respond" | "close" | "reopen",
+    options: Parameters<typeof advanceComplaint>[2] = {},
+    successTitle = "민원 처리가 반영되었습니다",
+  ) => {
+    if (!canEdit || commandPending) return false;
+    setCommandPending(true);
+    try {
+      await advanceComplaint(id!, action, { ...options, expectedUpdatedAt: complaint?.updated_at });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["complaint", id] }),
+        queryClient.invalidateQueries({ queryKey: ["complaint-comments", id] }),
+        queryClient.invalidateQueries({ queryKey: ["complaints"] }),
+        queryClient.invalidateQueries({ queryKey: ["complaint-linked-facility-work"] }),
+      ]);
+      toast({ title: successTitle });
+      return true;
+    } catch (error: any) {
+      toast({ title: "민원 처리 실패", description: error.message, variant: "destructive" });
+      return false;
+    } finally {
+      setCommandPending(false);
+    }
   };
 
   const addComment = async () => {
@@ -238,21 +266,13 @@ export default function ComplaintDetail() {
       toast({ title: "회신 전 확인이 필요합니다", description: errors.join(" "), variant: "destructive" });
       return;
     }
-    const changed = await updateStatus("responded", {
-      response: responseText, response_type: responseType, responded_at: new Date().toISOString(), response_channel: responseChannel,
-    });
+    const changed = await runComplaintCommand("respond", {
+      response: responseText,
+      responseType,
+      responseChannel,
+      noVisitReason,
+    }, "회신과 처리 이력이 등록되었습니다");
     if (!changed) return;
-    await supabase.from("complaint_comments").insert({
-      complaint_id: id!, author_id: profile!.id, author_name: profile!.name,
-      content: responseText, comment_type: "external",
-    });
-    if (fieldRequired && fieldVisitCount === 0) {
-      await supabase.from("complaint_comments").insert({
-        complaint_id: id!, author_id: profile!.id, author_name: profile!.name,
-        content: `현장확인 미실시 사유: ${noVisitReason.trim()}`, comment_type: "internal",
-      });
-    }
-    await queryClient.invalidateQueries({ queryKey: ["complaint-comments", id] });
     setResponseDialog(false);
     setResponseText("");
     setNoVisitReason("");
@@ -264,16 +284,11 @@ export default function ComplaintDetail() {
       toast({ title: "종결 전 확인이 필요합니다", description: errors.join(" "), variant: "destructive" });
       return;
     }
-    const changed = await updateStatus("closed", {
-      closed_at: new Date().toISOString(), closed_by: profile?.id, resolution_type: resolutionType,
-      notes: [complaint?.notes, `[종결 근거] ${resolutionSummary.trim()}`].filter(Boolean).join("\n"),
-    });
+    const changed = await runComplaintCommand("close", {
+      resolutionType,
+      resolutionSummary: resolutionSummary.trim(),
+    }, "민원이 완결되었습니다");
     if (!changed) return;
-    await supabase.from("complaint_comments").insert({
-      complaint_id: id!, author_id: profile!.id, author_name: profile!.name,
-      content: resolutionSummary.trim(), comment_type: "closure",
-    });
-    await queryClient.invalidateQueries({ queryKey: ["complaint-comments", id] });
     setCloseDialog(false);
     setResolutionSummary("");
     setCloseConfirmed(false);
@@ -284,14 +299,12 @@ export default function ComplaintDetail() {
       toast({ title: "외부대기 정보를 모두 입력하세요", variant: "destructive" });
       return;
     }
-    const changed = await updateStatus("pending_external");
+    const changed = await runComplaintCommand("external_wait", {
+      pendingOrganization: pendingOrganization.trim(),
+      pendingReason: pendingReason.trim(),
+      followUpDate: pendingFollowUpDate,
+    }, "외부대기 일정이 등록되었습니다");
     if (!changed) return;
-    await supabase.from("complaint_comments").insert({
-      complaint_id: id!, author_id: profile!.id, author_name: profile!.name,
-      content: `기관·업체: ${pendingOrganization.trim()}\n대기 사유: ${pendingReason.trim()}\n재확인 예정일: ${pendingFollowUpDate}`,
-      comment_type: "external_wait",
-    });
-    await queryClient.invalidateQueries({ queryKey: ["complaint-comments", id] });
     setPendingDialog(false);
     setPendingOrganization("");
     setPendingReason("");
@@ -303,13 +316,8 @@ export default function ComplaintDetail() {
       toast({ title: "재개 사유를 5자 이상 입력하세요", variant: "destructive" });
       return;
     }
-    const changed = await updateStatus("reopened", { closed_at: null, closed_by: null });
+    const changed = await runComplaintCommand("reopen", { reopenReason: reopenReason.trim() }, "민원이 재개되었습니다");
     if (!changed) return;
-    await supabase.from("complaint_comments").insert({
-      complaint_id: id!, author_id: profile!.id, author_name: profile!.name,
-      content: reopenReason.trim(), comment_type: "reopen",
-    });
-    await queryClient.invalidateQueries({ queryKey: ["complaint-comments", id] });
     setReopenDialog(false);
     setReopenReason("");
   };
@@ -350,6 +358,80 @@ export default function ComplaintDetail() {
   const canSelfAssign = canEdit && Boolean(
     profile?.id && (!complaint.assigned_team || complaint.assigned_team === profile.team),
   );
+  const requiresReplyDocument = ["saeol", "mail", "councilman"].includes(complaint.channel)
+    || Boolean(complaint.saeol_ref || complaint.external_ref);
+  const hasReplyDocument = linkedDocumentRelations.some((link) => ["primary", "reply"].includes(link.relation_type));
+  const facilityWorkReady = !linkedFacilityWork || ["verified", "cancelled"].includes(linkedFacilityWork.status);
+  const closureReadiness = [
+    { label: "현장 근거", ready: !fieldRequired || fieldVisitCount > 0 },
+    { label: "시설작업 검증", ready: facilityWorkReady },
+    { label: "공식 회신문서", ready: !requiresReplyDocument || hasReplyDocument },
+  ];
+
+  const renderActionButtons = () => (
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+      {complaint.status === "received" && (
+        <>
+          {canSelfAssign && <Button className="w-full" size="sm" onClick={handleAssignToMe} disabled={commandPending}>
+            <UserPlus className="mr-1 h-3.5 w-3.5" />내가 처리
+          </Button>}
+          <Button className="w-full" size="sm" variant="outline" onClick={() => setAssignDialog(true)} disabled={commandPending}>
+            다른 담당자 선택
+          </Button>
+        </>
+      )}
+      {complaint.status === "assigned" && (
+        <Button className="w-full" size="sm" onClick={() => runComplaintCommand("start", {}, "민원 처리를 시작했습니다")} disabled={commandPending}>
+          <Play className="mr-1 h-3.5 w-3.5" />처리 시작
+        </Button>
+      )}
+      {complaint.status === "in_progress" && (
+        <>
+          <Button className="w-full" size="sm" onClick={() => setResponseDialog(true)} disabled={commandPending}>
+            <Reply className="mr-1 h-3.5 w-3.5" />회신
+          </Button>
+          <Button className="w-full" size="sm" variant="outline" onClick={() => setPendingDialog(true)} disabled={commandPending}>
+            외부 대기
+          </Button>
+        </>
+      )}
+      {complaint.status === "pending_external" && (
+        <>
+          <Button className="w-full" size="sm" onClick={() => setResponseDialog(true)} disabled={commandPending}>
+            <Reply className="mr-1 h-3.5 w-3.5" />회신 등록
+          </Button>
+          <Button className="w-full" size="sm" variant="outline" onClick={() => runComplaintCommand("start", {}, "외부대기를 종료하고 처리를 재개했습니다")} disabled={commandPending}>
+            <Play className="mr-1 h-3.5 w-3.5" />처리 재개
+          </Button>
+        </>
+      )}
+      {complaint.status === "responded" && (
+        <>
+          <Button className="w-full" size="sm" onClick={() => setCloseDialog(true)} disabled={commandPending}>
+            <CheckCircle className="mr-1 h-3.5 w-3.5" />완결
+          </Button>
+          <Button className="w-full" size="sm" variant="outline" onClick={() => setReopenDialog(true)} disabled={commandPending}>
+            <RotateCcw className="mr-1 h-3.5 w-3.5" />재개
+          </Button>
+        </>
+      )}
+      {complaint.status === "closed" && (
+        <>
+          <Button className="w-full" size="sm" variant="outline" onClick={() => setSatDialog(true)} disabled={commandPending}>
+            <Star className="mr-1 h-3.5 w-3.5" />만족도 입력
+          </Button>
+          <Button className="w-full" size="sm" variant="outline" onClick={() => setReopenDialog(true)} disabled={commandPending}>
+            <RotateCcw className="mr-1 h-3.5 w-3.5" />재민원·이의로 재개
+          </Button>
+        </>
+      )}
+      {complaint.status === "reopened" && (
+        <Button className="w-full" size="sm" onClick={() => runComplaintCommand("start", {}, "재처리를 시작했습니다")} disabled={commandPending}>
+          <Play className="mr-1 h-3.5 w-3.5" />재처리 시작
+        </Button>
+      )}
+    </div>
+  );
 
   return (
     <DashboardLayout>
@@ -369,7 +451,7 @@ export default function ComplaintDetail() {
               접수: {CHANNEL_LABELS[complaint.channel]} | {complaint.received_at?.slice(0, 10)} | 기한: <span className={dday.isOverdue ? "text-destructive font-bold" : ""}>{complaint.due_date?.slice(0, 10) || "미지정"} ({dday.text})</span>
             </p>
           </div>
-          {canEdit && <Button variant="outline" size="sm" onClick={() => setEditDialog(true)}><Pencil className="h-4 w-4 mr-1" />정보 수정</Button>}
+          {canEdit && <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => navigate(`/team-work?new=1&tab=work_order&team=operations&category=${encodeURIComponent("민원조치")}&title=${encodeURIComponent(`[${complaint.complaint_number}] ${complaint.title}`)}&parkingLotId=${complaint.lot_id || ""}&ownerId=${complaint.assigned_to || ""}&dueDate=${complaint.due_date?.slice(0, 10) || ""}&sourceModule=complaint&sourceRecordId=${complaint.id}&sourcePath=${encodeURIComponent(`/complaints/${complaint.id}`)}`)}><BriefcaseBusiness className="mr-1 h-4 w-4" />팀 업무 생성</Button><Button variant="outline" size="sm" onClick={() => setEditDialog(true)}><Pencil className="h-4 w-4 mr-1" />정보 수정</Button></div>}
         </div>
 
         <DocumentLinksPanel
@@ -377,7 +459,26 @@ export default function ComplaintDetail() {
           recordId={complaint.id}
           recordPath={`/complaints/${complaint.id}`}
           recordTitle={complaint.title}
+          onLinked={() => queryClient.invalidateQueries({ queryKey: ["complaint-document-readiness", id] })}
+          onUnlinked={() => queryClient.invalidateQueries({ queryKey: ["complaint-document-readiness", id] })}
         />
+
+        <Card className="border-primary/30 lg:hidden">
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-start gap-3">
+              <ClipboardList className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <div><p className="text-xs font-medium">다음 처리</p><p className="mt-1 text-sm">{nextAction}</p></div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {closureReadiness.map((item) => (
+                <Badge key={item.label} variant="outline" className={item.ready ? "border-emerald-300 text-emerald-700" : "border-amber-300 text-amber-700"}>
+                  {item.ready ? "확인" : "필요"} · {item.label}
+                </Badge>
+              ))}
+            </div>
+            {canEdit && renderActionButtons()}
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Left 2/3 */}
@@ -444,7 +545,7 @@ export default function ComplaintDetail() {
                   <Textarea value={commentText} onChange={e => setCommentText(e.target.value)} placeholder={canEdit ? "코멘트 입력..." : "조회 권한으로는 코멘트를 등록할 수 없습니다."} rows={3} className="text-sm" disabled={!canEdit} />
                   <div className="flex items-center gap-2">
                     <Select value={commentType} onValueChange={setCommentType}>
-                      <SelectTrigger className="w-32 h-8 text-xs" disabled={!canEdit}><SelectValue /></SelectTrigger>
+                      <SelectTrigger aria-label="코멘트 유형" className="w-32 h-8 text-xs" disabled={!canEdit}><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="internal">내부메모</SelectItem>
                         <SelectItem value="external">민원인회신</SelectItem>
@@ -583,74 +684,32 @@ export default function ComplaintDetail() {
             </Card>
 
             <Card className="border-primary/30 bg-primary/5">
-              <CardContent className="flex items-start gap-3 p-4">
-                <ClipboardList className="mt-0.5 h-4 w-4 text-primary" />
-                <div><p className="text-xs font-medium">다음 처리</p><p className="mt-1 text-sm">{nextAction}</p></div>
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-start gap-3">
+                  <ClipboardList className="mt-0.5 h-4 w-4 text-primary" />
+                  <div><p className="text-xs font-medium">다음 처리</p><p className="mt-1 text-sm">{nextAction}</p></div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {closureReadiness.map((item) => (
+                    <Badge key={item.label} variant="outline" className={item.ready ? "border-emerald-300 bg-background text-emerald-700" : "border-amber-300 bg-background text-amber-700"}>
+                      {item.ready ? "확인" : "필요"} · {item.label}
+                    </Badge>
+                  ))}
+                </div>
+                {complaint.status === "pending_external" && (
+                  <div className="rounded border bg-background p-2 text-xs">
+                    <p className="font-medium">{(complaint as any).external_pending_organization || "외부기관 미지정"}</p>
+                    <p className="mt-1 text-muted-foreground">{(complaint as any).external_pending_reason || "대기 사유 미기록"}</p>
+                    <p className="mt-1">재확인 {(complaint as any).external_follow_up_date || "미지정"}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             {/* Action buttons */}
             {canEdit && <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">처리 액션</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                {complaint.status === "received" && (
-                  <>
-                    {canSelfAssign && <Button className="w-full" size="sm" onClick={handleAssignToMe}>
-                      <UserPlus className="h-3.5 w-3.5 mr-1" />내가 처리
-                    </Button>}
-                    <Button className="w-full" size="sm" variant="outline" onClick={() => setAssignDialog(true)}>
-                      다른 담당자 선택
-                    </Button>
-                  </>
-                )}
-                {complaint.status === "assigned" && (
-                  <Button className="w-full" size="sm" onClick={() => updateStatus("in_progress")}>
-                    <Play className="h-3.5 w-3.5 mr-1" />처리 시작
-                  </Button>
-                )}
-                {complaint.status === "in_progress" && (
-                  <>
-                    <Button className="w-full" size="sm" onClick={() => setResponseDialog(true)}>
-                      <Reply className="h-3.5 w-3.5 mr-1" />회신
-                    </Button>
-                    <Button className="w-full" size="sm" variant="outline" onClick={() => setPendingDialog(true)}>
-                      외부 대기
-                    </Button>
-                  </>
-                )}
-                {complaint.status === "pending_external" && (
-                  <Button className="w-full" size="sm" onClick={() => updateStatus("in_progress")}>
-                    <Play className="h-3.5 w-3.5 mr-1" />처리 재개
-                  </Button>
-                )}
-                {complaint.status === "responded" && (
-                  <>
-                    <Button className="w-full" size="sm" onClick={() => setCloseDialog(true)}>
-                      <CheckCircle className="h-3.5 w-3.5 mr-1" />완결
-                    </Button>
-                    <Button className="w-full" size="sm" variant="outline" onClick={() => setReopenDialog(true)}>
-                      <RotateCcw className="h-3.5 w-3.5 mr-1" />재개
-                    </Button>
-                  </>
-                )}
-                {complaint.status === "closed" && (
-                  <>
-                    <Button className="w-full" size="sm" variant="outline" onClick={() => setSatDialog(true)}>
-                      <Star className="h-3.5 w-3.5 mr-1" />만족도 입력
-                    </Button>
-                    <Button className="w-full" size="sm" variant="outline" onClick={() => setReopenDialog(true)}>
-                      <RotateCcw className="h-3.5 w-3.5 mr-1" />재민원·이의로 재개
-                    </Button>
-                  </>
-                )}
-                {complaint.status === "reopened" && (
-                  <>
-                    <Button className="w-full" size="sm" onClick={() => updateStatus("in_progress")}>
-                      <Play className="h-3.5 w-3.5 mr-1" />처리 시작
-                    </Button>
-                  </>
-                )}
-              </CardContent>
+              <CardContent>{renderActionButtons()}</CardContent>
             </Card>}
 
             {complaint.satisfaction_score && (
@@ -700,7 +759,7 @@ export default function ComplaintDetail() {
         <DialogContent>
           <DialogHeader><DialogTitle>담당자 배정</DialogTitle><DialogDescription>민원을 처리할 담당자를 지정하거나 변경합니다.</DialogDescription></DialogHeader>
           <Select value={assignTo} onValueChange={setAssignTo}>
-            <SelectTrigger><SelectValue placeholder="담당자 선택" /></SelectTrigger>
+            <SelectTrigger aria-label="민원 담당자"><SelectValue placeholder="담당자 선택" /></SelectTrigger>
             <SelectContent>
               {staffList?.map(s => <SelectItem key={s.id} value={s.id}>{s.name} ({s.team})</SelectItem>)}
             </SelectContent>
@@ -717,7 +776,7 @@ export default function ComplaintDetail() {
               <div>
                 <Label className="text-xs">회신 유형</Label>
                 <Select value={responseType} onValueChange={setResponseType}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="회신 유형"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="resolved">해결</SelectItem>
                     <SelectItem value="partially_resolved">부분 해결</SelectItem>
@@ -730,7 +789,7 @@ export default function ComplaintDetail() {
               <div>
                 <Label className="text-xs">회신 채널</Label>
                 <Select value={responseChannel} onValueChange={setResponseChannel}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="회신 채널"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="phone">전화</SelectItem>
                     <SelectItem value="sms">SMS</SelectItem>
@@ -751,6 +810,11 @@ export default function ComplaintDetail() {
                 <Textarea value={noVisitReason} onChange={(event) => setNoVisitReason(event.target.value)} rows={2} placeholder="도면·관제기록 확인, 중복 현장점검 등 대체 근거를 입력하세요." />
               </div>
             )}
+            {linkedFacilityWork && linkedFacilityWork.status !== "verified" && responseType === "resolved" && (
+              <p className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+                해결 회신은 연계 시설작업이 검증 완료된 뒤 등록할 수 있습니다. 진행 중 안내는 "부분 해결" 또는 "안내"를 선택하세요.
+              </p>
+            )}
           </div>
           <DialogFooter><Button onClick={handleResponse}>회신 등록</Button></DialogFooter>
         </DialogContent>
@@ -763,7 +827,7 @@ export default function ComplaintDetail() {
             <div>
               <Label className="text-xs">해결 유형</Label>
               <Select value={resolutionType} onValueChange={setResolutionType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label="민원 해결 유형"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(RESOLUTION_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                 </SelectContent>
@@ -774,6 +838,12 @@ export default function ComplaintDetail() {
               <Checkbox checked={closeConfirmed} onCheckedChange={(checked) => setCloseConfirmed(Boolean(checked))} />
               <span>민원인 회신과 현장 조치·문서·사진 등 종결 근거를 확인했습니다.</span>
             </label>
+            {closureReadiness.some((item) => !item.ready) && (
+              <div className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+                <p className="font-medium">완결 전 필요한 항목</p>
+                <p className="mt-1">{closureReadiness.filter((item) => !item.ready).map((item) => item.label).join(" · ")}</p>
+              </div>
+            )}
           </div>
           <DialogFooter><Button onClick={handleClose}>완결</Button></DialogFooter>
         </DialogContent>

@@ -6,28 +6,39 @@ import { PrintButton } from "@/components/common/PrintButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
+import { monthKey } from "@/lib/revenue-controls";
 
 export default function RevenuePrintMonthly() {
   const [searchParams] = useSearchParams();
   const { data: config } = useSystemConfig();
-  const monthParam = searchParams.get('month') || new Date().toISOString().slice(0, 7);
+  const monthParam = searchParams.get('month') || monthKey(new Date());
   const [year, month] = monthParam.split('-').map(Number);
 
   const monthStart = `${monthParam}-01`;
-  const monthEnd = new Date(year, month, 0).toISOString().split('T')[0];
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const monthEnd = `${monthParam}-${String(daysInMonth).padStart(2, '0')}`;
 
   const { data: lots = [] } = useQuery({
     queryKey: ['rev-print-lots'],
-    queryFn: async () => { const { data } = await supabase.from('parking_lots').select('id, code, name').order('code'); return data || []; },
+    queryFn: async () => { const { data } = await supabase.from('parking_lots').select('id, code, name, lot_type').order('code'); return data || []; },
   });
 
   const { data: revenue = [] } = useQuery({
     queryKey: ['rev-print', monthParam],
     queryFn: async () => {
       const { data } = await supabase.from('revenue_daily')
-        .select('lot_id, revenue_date, total_amount, cash_amount, card_amount, mobile_amount, total_vehicles')
+        .select('lot_id, revenue_date, total_amount, cash_amount, card_amount, mobile_amount, monthly_pass_amount, other_amount, total_vehicles, exemption_count, exemption_amount, verified')
         .gte('revenue_date', monthStart).lte('revenue_date', monthEnd)
+        .eq('verified', true)
         .order('revenue_date');
+      return data || [];
+    },
+  });
+
+  const { data: closes = [] } = useQuery({
+    queryKey: ['rev-print-closes', monthParam],
+    queryFn: async () => {
+      const { data } = await supabase.from('revenue_period_closes').select('lot_id, is_closed, closed_at').eq('period_month', monthStart).eq('is_closed', true);
       return data || [];
     },
   });
@@ -36,14 +47,18 @@ export default function RevenuePrintMonthly() {
   const totalCash = revenue.reduce((s: number, r: any) => s + (r.cash_amount || 0), 0);
   const totalCard = revenue.reduce((s: number, r: any) => s + (r.card_amount || 0), 0);
   const totalMobile = revenue.reduce((s: number, r: any) => s + (r.mobile_amount || 0), 0);
+  const totalMonthlyPass = revenue.reduce((s: number, r: any) => s + (r.monthly_pass_amount || 0), 0);
+  const totalOther = revenue.reduce((s: number, r: any) => s + (r.other_amount || 0), 0);
   const totalVehicles = revenue.reduce((s: number, r: any) => s + (r.total_vehicles || 0), 0);
+  const totalExemptions = revenue.reduce((s: number, r: any) => s + (r.exemption_count || 0), 0);
+  const totalExemptionAmount = revenue.reduce((s: number, r: any) => s + (r.exemption_amount || 0), 0);
 
   // Lot summaries
   const lotSummaries = useMemo(() => {
     return lots.map((lot: any) => {
       const lotRevs = revenue.filter((r: any) => r.lot_id === lot.id);
       return {
-        code: lot.code, name: lot.name,
+        code: lot.code, name: lot.name, lotType: lot.lot_type,
         total: lotRevs.reduce((s: number, r: any) => s + (r.total_amount || 0), 0),
         vehicles: lotRevs.reduce((s: number, r: any) => s + (r.total_vehicles || 0), 0),
       };
@@ -51,7 +66,6 @@ export default function RevenuePrintMonthly() {
   }, [lots, revenue]);
 
   // Daily pivot
-  const daysInMonth = new Date(year, month, 0).getDate();
   const dailyPivot = useMemo(() => {
     return Array.from({ length: daysInMonth }, (_, i) => {
       const day = i + 1;
@@ -81,6 +95,7 @@ export default function RevenuePrintMonthly() {
           <div className="text-center mb-4">
             <h2 className="text-lg font-bold">{config?.org_full_name || ''} 공영주차장 월간 수입 보고서</h2>
             <p className="text-sm text-muted-foreground">{year}년 {month}월</p>
+            <p className="mt-1 text-xs">검증 완료 원장 기준 · 마감 {closes.length.toLocaleString()}개 주차장</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-6">
@@ -91,6 +106,7 @@ export default function RevenuePrintMonthly() {
                   <tr><td className="py-1">월 총수입</td><td className="text-right font-bold">{totalAmount.toLocaleString()}원</td></tr>
                   <tr><td className="py-1">이용차량</td><td className="text-right">{totalVehicles.toLocaleString()}대</td></tr>
                   <tr><td className="py-1">일평균 수입</td><td className="text-right">{Math.round(totalAmount / daysInMonth).toLocaleString()}원</td></tr>
+                  <tr><td className="py-1">감면</td><td className="text-right">{totalExemptions.toLocaleString()}건 · {totalExemptionAmount.toLocaleString()}원</td></tr>
                 </tbody>
               </table>
             </div>
@@ -101,6 +117,8 @@ export default function RevenuePrintMonthly() {
                   <tr><td className="py-1">현금</td><td className="text-right">{totalCash.toLocaleString()}원</td><td className="text-right text-muted-foreground">{totalAmount > 0 ? ((totalCash / totalAmount) * 100).toFixed(1) : 0}%</td></tr>
                   <tr><td className="py-1">카드</td><td className="text-right">{totalCard.toLocaleString()}원</td><td className="text-right text-muted-foreground">{totalAmount > 0 ? ((totalCard / totalAmount) * 100).toFixed(1) : 0}%</td></tr>
                   <tr><td className="py-1">모바일</td><td className="text-right">{totalMobile.toLocaleString()}원</td><td className="text-right text-muted-foreground">{totalAmount > 0 ? ((totalMobile / totalAmount) * 100).toFixed(1) : 0}%</td></tr>
+                  <tr><td className="py-1">월정기권</td><td className="text-right">{totalMonthlyPass.toLocaleString()}원</td><td className="text-right text-muted-foreground">{totalAmount > 0 ? ((totalMonthlyPass / totalAmount) * 100).toFixed(1) : 0}%</td></tr>
+                  <tr><td className="py-1">기타</td><td className="text-right">{totalOther.toLocaleString()}원</td><td className="text-right text-muted-foreground">{totalAmount > 0 ? ((totalOther / totalAmount) * 100).toFixed(1) : 0}%</td></tr>
                 </tbody>
               </table>
             </div>
@@ -113,6 +131,7 @@ export default function RevenuePrintMonthly() {
                 <th className="border border-border p-1 text-center">순위</th>
                 <th className="border border-border p-1">코드</th>
                 <th className="border border-border p-1">주차장명</th>
+                <th className="border border-border p-1">형태</th>
                 <th className="border border-border p-1 text-right">수입(원)</th>
                 <th className="border border-border p-1 text-right">비율</th>
                 <th className="border border-border p-1 text-right">차량(대)</th>
@@ -124,6 +143,7 @@ export default function RevenuePrintMonthly() {
                   <td className="border border-border p-1 text-center">{i + 1}</td>
                   <td className="border border-border p-1 font-mono">{l.code}</td>
                   <td className="border border-border p-1">{l.name}</td>
+                  <td className="border border-border p-1">{{ offstreet: '노외', multilevel: '주차빌딩', onstreet: '노상' }[l.lotType as string] || '기타'}</td>
                   <td className="border border-border p-1 text-right">{l.total.toLocaleString()}</td>
                   <td className="border border-border p-1 text-right">{((l.total / totalAmount) * 100).toFixed(1)}%</td>
                   <td className="border border-border p-1 text-right">{l.vehicles.toLocaleString()}</td>
@@ -132,7 +152,7 @@ export default function RevenuePrintMonthly() {
             </tbody>
             <tfoot>
               <tr className="bg-muted font-bold">
-                <td colSpan={3} className="border border-border p-1 text-center">합 계</td>
+                <td colSpan={4} className="border border-border p-1 text-center">합 계</td>
                 <td className="border border-border p-1 text-right">{totalAmount.toLocaleString()}</td>
                 <td className="border border-border p-1 text-right">100%</td>
                 <td className="border border-border p-1 text-right">{totalVehicles.toLocaleString()}</td>

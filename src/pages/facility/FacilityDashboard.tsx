@@ -20,7 +20,8 @@ export default function FacilityDashboard() {
   const { data: equipment = [] } = useQuery({
     queryKey: ["facility-equipment-all"],
     queryFn: async () => {
-      const { data } = await supabase.from("equipment").select("id, lot_id, equipment_type, status, warranty_end, name, parking_lots(code, name, lot_type)");
+      const { data, error } = await supabase.from("equipment").select("id, lot_id, equipment_type, status, warranty_end, name, parking_lots(code, name, lot_type)");
+      if (error) throw error;
       return (data ?? []) as any[];
     },
   });
@@ -37,11 +38,14 @@ export default function FacilityDashboard() {
   const { data: pendingWork = { items: [] as any[], count: 0 } } = useQuery({
     queryKey: ["facility-pending-logs"],
     queryFn: async () => {
-      const base = () => supabase.from("maintenance_logs").not("status", "in", '("completed","verified","cancelled")');
       const [{ data, error }, { count, error: countError }] = await Promise.all([
-        base().select("id, title, priority, status, reported_at, parking_lots(name), equipment(name, equipment_type)")
-          .order("reported_at", { ascending: false }).limit(5),
-        base().select("id", { count: "exact", head: true }),
+        supabase.from("maintenance_logs")
+          .select("id, title, priority, status, reported_at, parking_lots(name), equipment(name, equipment_type)")
+          .in("status", ["reported", "assigned", "in_progress", "pending_parts"])
+          .order("priority", { ascending: true }).order("reported_at", { ascending: true }).limit(20),
+        supabase.from("maintenance_logs")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["reported", "assigned", "in_progress", "pending_parts"]),
       ]);
       if (error) throw error;
       if (countError) throw countError;
@@ -89,7 +93,7 @@ export default function FacilityDashboard() {
           <KpiCard label="총 장비 수" value={String(active.length)} icon={Building2} />
           <KpiCard label="정상 가동" value={String(normal)} icon={CheckCircle} />
           <KpiCard label="점검 필요" value={String(warning)} icon={AlertTriangle} />
-          <div className="cursor-pointer" onClick={() => navigate('/facility/maintenance?filter=active')}>
+          <div className="cursor-pointer" onClick={() => navigate('/facility/equipment?status=attention')}>
             <KpiCard label="고장/수리중" value={String(brokenMaint)} icon={XCircle} />
           </div>
           <div className="cursor-pointer" onClick={() => navigate('/facility/maintenance?status=pending')}>

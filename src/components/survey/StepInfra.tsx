@@ -9,11 +9,12 @@ import { Save } from "lucide-react";
 
 interface Props {
   data: SurveyInfra | null | undefined;
-  onSave: (data: Partial<SurveyInfra>) => void;
+  onSave: (data: Partial<SurveyInfra>) => Promise<void> | void;
+  onNext?: () => void;
   readOnly?: boolean;
 }
 
-export function StepInfra({ data, onSave, readOnly }: Props) {
+export function StepInfra({ data, onSave, onNext, readOnly }: Props) {
   const [form, setForm] = useState<Partial<SurveyInfra>>({});
   useEffect(() => { if (data) setForm({ ...data }); }, [data]);
   const set = (key: string, val: any) => setForm(f => ({ ...f, [key]: val }));
@@ -146,8 +147,8 @@ export function StepInfra({ data, onSave, readOnly }: Props) {
 
       {!readOnly && (
         <div className="flex justify-end">
-          <Button onClick={() => { const { id: _id, survey_id, ...rest } = form as any; onSave(rest); }}>
-            <Save className="h-4 w-4 mr-1" /> 저장
+          <Button onClick={async () => { const { id: _id, survey_id, ...rest } = form as any; await onSave(rest); onNext?.(); }}>
+            <Save className="h-4 w-4 mr-1" /> 저장 후 다음
           </Button>
         </div>
       )}

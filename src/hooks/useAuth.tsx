@@ -16,6 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -32,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
+      setSessionToken(session?.access_token?.substring(0, 200) ?? null);
       if (session?.user) {
         setTimeout(() => fetchProfile(session.user.id), 0);
       } else {
@@ -42,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      setSessionToken(session?.access_token?.substring(0, 200) ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
       }
@@ -50,6 +53,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user || !sessionToken) return;
+    let cancelled = false;
+    const enforceSessionState = async () => {
+      const { data, error } = await (supabase.from("active_sessions") as any)
+        .select("is_active, expires_at")
+        .eq("user_id", user.id)
+        .eq("session_token", sessionToken)
+        .maybeSingle();
+      if (cancelled || error || !data) return;
+      if (!data.is_active || (data.expires_at && new Date(data.expires_at) <= new Date())) {
+        await supabase.auth.signOut();
+      }
+    };
+
+    void enforceSessionState();
+    const interval = window.setInterval(enforceSessionState, 30_000);
+    const channel = supabase
+      .channel(`session-control-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "active_sessions", filter: `user_id=eq.${user.id}` },
+        (payload: any) => {
+          if (payload.new?.session_token === sessionToken && payload.new?.is_active === false) void supabase.auth.signOut();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      void supabase.removeChannel(channel);
+    };
+  }, [sessionToken, user]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -60,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+    setSessionToken(null);
   };
 
   return (

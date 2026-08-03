@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { runtimeConfig } from "@/config/runtime-config";
@@ -193,11 +193,12 @@ async function seedRealSurveySamples() {
 
 export default function SurveysPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<SortOption>("date");
+  const [search, setSearch] = useState(searchParams.get("q") || "");
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("status") || "all");
+  const [typeFilter, setTypeFilter] = useState<string>(searchParams.get("type") || "all");
+  const [sortBy, setSortBy] = useState<SortOption>((searchParams.get("sort") as SortOption) || "date");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [seedStatus, setSeedStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const [seedMessage, setSeedMessage] = useState("");
@@ -205,7 +206,7 @@ export default function SurveysPage() {
   const [page, setPage] = useState(0);
   const pageSize = 20;
 
-  const { data: surveys, isLoading } = useQuery({
+  const { data: surveys, isLoading, isError, error } = useQuery({
     queryKey: ["surveys"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -216,6 +217,15 @@ export default function SurveysPage() {
       return data;
     },
   });
+
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (search) next.set("q", search);
+    if (statusFilter !== "all") next.set("status", statusFilter);
+    if (typeFilter !== "all") next.set("type", typeFilter);
+    if (sortBy !== "date") next.set("sort", sortBy);
+    setSearchParams(next, { replace: true });
+  }, [search, setSearchParams, sortBy, statusFilter, typeFilter]);
 
   useEffect(() => {
     if (runtimeConfig.deploymentMode !== "development") return;
@@ -271,8 +281,8 @@ export default function SurveysPage() {
           return orderA - orderB;
         }
         case "fee": {
-          const feeA = lotA?.fee_policy === "free" ? 0 : 1;
-          const feeB = lotB?.fee_policy === "free" ? 0 : 1;
+          const feeA = lotA?.fee_policy?.type === "free" ? 0 : 1;
+          const feeB = lotB?.fee_policy?.type === "free" ? 0 : 1;
           return feeA - feeB;
         }
         case "date":
@@ -320,7 +330,7 @@ export default function SurveysPage() {
             <div className="flex flex-wrap gap-3">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="주차장명/코드 검색" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9" />
+                <Input placeholder="주차장명/코드 검색" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="pl-9 h-11 md:h-9" />
               </div>
               <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(0); }}>
                 <SelectTrigger className="w-[130px] h-9"><SelectValue /></SelectTrigger>
@@ -360,6 +370,11 @@ export default function SurveysPage() {
           <CardContent className="p-0">
             {isLoading ? (
               <div className="p-6 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
+            ) : isError ? (
+              <div className="p-8 text-center">
+                <p className="text-sm font-medium text-destructive">현황조사 목록을 불러오지 못했습니다.</p>
+                <p className="mt-1 text-xs text-muted-foreground">{(error as Error)?.message}</p>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -378,7 +393,12 @@ export default function SurveysPage() {
                 </TableHeader>
                 <TableBody>
                   {paged.length === 0 ? (
-                    <TableRow><TableCell colSpan={10} className="text-center py-10 text-muted-foreground">조사 데이터가 없습니다</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="text-center py-10 text-muted-foreground">
+                      <p>조건에 맞는 조사 데이터가 없습니다.</p>
+                      {(search || statusFilter !== "all" || typeFilter !== "all") && (
+                        <Button variant="outline" size="sm" className="mt-3" onClick={() => { setSearch(""); setStatusFilter("all"); setTypeFilter("all"); setSortBy("date"); setPage(0); }}>필터 초기화</Button>
+                      )}
+                    </TableCell></TableRow>
                   ) : paged.map((s: any, idx: number) => {
                     const lot = s.parking_lots as any;
                     const currentDong = getDong(lot);
@@ -395,7 +415,19 @@ export default function SurveysPage() {
                             </TableCell>
                           </TableRow>
                         )}
-                        <TableRow key={s.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/surveys/${s.id}`)}>
+                        <TableRow
+                          key={s.id}
+                          className="cursor-pointer hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          tabIndex={0}
+                          role="link"
+                          onClick={() => navigate(s.status === "submitted" || s.status === "review" ? `/surveys/${s.id}/review` : `/surveys/${s.id}`)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              navigate(s.status === "submitted" || s.status === "review" ? `/surveys/${s.id}/review` : `/surveys/${s.id}`);
+                            }
+                          }}
+                        >
                           <TableCell className="font-mono text-xs">{lot?.code}</TableCell>
                           <TableCell className="text-sm font-medium">{lot?.name}</TableCell>
                           <TableCell className="text-xs">{SURVEY_TYPE_LABELS[s.survey_type] || s.survey_type}</TableCell>

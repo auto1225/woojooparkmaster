@@ -19,13 +19,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { ArrowLeft, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
-import { handoffConstructionToOperations, setConstructionCompletionCheck } from "@/lib/workflow-commands";
+import { advanceConstructionPhase, handoffConstructionToOperations, linkConstructionProjectSources, setConstructionCompletionCheck } from "@/lib/workflow-commands";
 import {
   PHASE_LABELS, PHASE_ORDER, PROJECT_TYPE_LABELS,
   CONSTRUCTION_STATUS_LABELS, CONSTRUCTION_STATUS_COLORS,
   PERMIT_STATUS_LABELS, PERMIT_STATUS_COLORS,
   DOC_TYPE_LABELS, REVIEW_STATUS_LABELS,
-  formatBudgetWon,
+  formatBudgetWon, getPermitTypeLabel,
 } from "@/types/planning";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -36,6 +36,7 @@ export default function PlanningProjectDetail() {
   const queryClient = useQueryClient();
   const [checkInputs, setCheckInputs] = useState<Record<string, { evidencePath: string; notes: string }>>({});
   const [handoffForm, setHandoffForm] = useState({ lotCode: "", lotName: "", totalSpaces: "", addressRoad: "" });
+  const [sourceForm, setSourceForm] = useState({ budgetItemId: "", bidContractId: "", serviceProjectId: "" });
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["planning-project", id],
@@ -61,6 +62,15 @@ export default function PlanningProjectDetail() {
       totalSpaces: current.totalSpaces || String(existingLot?.total_spaces || site?.estimated_spaces || ""),
       addressRoad: current.addressRoad || existingLot?.address_road || site?.address_road || "",
     }));
+  }, [project]);
+
+  useEffect(() => {
+    if (!project) return;
+    setSourceForm({
+      budgetItemId: project.budget_item_id || "",
+      bidContractId: project.bid_contract_id || "",
+      serviceProjectId: project.service_project_id || "",
+    });
   }, [project]);
 
   const { data: completionChecks } = useQuery({
@@ -114,6 +124,7 @@ export default function PlanningProjectDetail() {
         .select("*")
         .eq("project_id", id!)
         .eq("is_current", true)
+        .is("archived_at", null)
         .order("doc_type");
       if (error) throw error;
       return data || [];
@@ -128,11 +139,47 @@ export default function PlanningProjectDetail() {
         .from("permits")
         .select("*")
         .eq("project_id", id!)
+        .is("archived_at", null)
         .order("created_at");
       if (error) throw error;
       return data || [];
     },
     enabled: !!id,
+  });
+
+  const { data: budgetItems = [] } = useQuery({
+    queryKey: ["planning-budget-options"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("budget_items").select("id,item_code,item_name,remaining_amount,budget_plans!inner(fiscal_year,status)").is("archived_at", null).in("budget_plans.status", ["approved", "executed"]);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+  const { data: contracts = [] } = useQuery({
+    queryKey: ["planning-contract-options"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("bid_contracts").select("id,contract_number,contractor_name,total_amount,signed_at,status,bid_projects(title,budget_item_id)").eq("status", "active").not("signed_at", "is", null).is("archived_at", null);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+  const { data: serviceProjects = [] } = useQuery({
+    queryKey: ["planning-service-options", sourceForm.bidContractId],
+    enabled: Boolean(sourceForm.bidContractId),
+    queryFn: async () => {
+      const { data, error } = await supabase.from("service_projects").select("id,project_number,title,bid_contract_id").eq("bid_contract_id", sourceForm.bidContractId).is("archived_at", null);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const sourceMutation = useMutation({
+    mutationFn: () => linkConstructionProjectSources(project.id, { ...sourceForm, expectedVersion: project.row_version }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["planning-project", id] });
+      toast({ title: "승인 예산과 체결 계약을 연결했습니다" });
+    },
+    onError: (error: Error) => toast({ title: "사업 연계 실패", description: error.message, variant: "destructive" }),
   });
 
   const canEdit = profile?.role && ["admin", "manager", "editor"].includes(profile.role);
@@ -143,10 +190,12 @@ export default function PlanningProjectDetail() {
       toast({ title: "준공·운영 전환 탭에서 필수 체크 후 완료해 주세요", variant: "destructive" });
       return;
     }
-    const { error } = await supabase.from("construction_projects")
-      .update({ phase: newPhase } as any)
-      .eq("id", project.id);
-    if (error) { toast({ title: "변경 실패", variant: "destructive" }); return; }
+    try {
+      await advanceConstructionPhase(project.id, newPhase, (project as any).row_version);
+    } catch (error) {
+      toast({ title: "단계 변경 실패", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+      return;
+    }
     toast({ title: `단계 변경: ${PHASE_LABELS[newPhase]}` });
     logActivity({ module: "PLANNING", action: "phase_changed", targetType: "construction_project", targetId: project.id, targetName: project.project_name, details: { phase: newPhase } });
     queryClient.invalidateQueries({ queryKey: ["planning-project", id] });
@@ -189,7 +238,7 @@ export default function PlanningProjectDetail() {
               {canEdit && (
                 <Select value={project.phase} onValueChange={handlePhaseChange}>
                   <SelectTrigger className="w-[140px] h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent>{PHASE_ORDER.map(p => <SelectItem key={p} value={p}>{PHASE_LABELS[p]}</SelectItem>)}</SelectContent>
+                  <SelectContent>{PHASE_ORDER.slice(phaseIdx, phaseIdx + 2).map(p => <SelectItem key={p} value={p}>{PHASE_LABELS[p]}</SelectItem>)}</SelectContent>
                 </Select>
               )}
             </div>
@@ -258,6 +307,15 @@ export default function PlanningProjectDetail() {
                 </CardContent>
               </Card>
             </div>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">예산·입찰·용역 연계</CardTitle></CardHeader>
+              <CardContent className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+                <div className="space-y-1.5"><Label>승인 예산항목 *</Label><Select value={sourceForm.budgetItemId} onValueChange={(value) => setSourceForm((current) => ({ ...current, budgetItemId: value, bidContractId: "", serviceProjectId: "" }))}><SelectTrigger><SelectValue placeholder="예산항목 선택" /></SelectTrigger><SelectContent>{budgetItems.map((item: any) => <SelectItem key={item.id} value={item.id}>{item.item_code} {item.item_name} · {formatBudgetWon(item.remaining_amount)}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-1.5"><Label>서명 완료 계약 *</Label><Select value={sourceForm.bidContractId} onValueChange={(value) => setSourceForm((current) => ({ ...current, bidContractId: value, serviceProjectId: "" }))}><SelectTrigger><SelectValue placeholder="체결 계약 선택" /></SelectTrigger><SelectContent>{contracts.filter((contract: any) => contract.bid_projects?.budget_item_id === sourceForm.budgetItemId).map((contract: any) => <SelectItem key={contract.id} value={contract.id}>{contract.contract_number} {contract.contractor_name}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-1.5"><Label>연계 용역사업</Label><Select value={sourceForm.serviceProjectId || "__none__"} onValueChange={(value) => setSourceForm((current) => ({ ...current, serviceProjectId: value === "__none__" ? "" : value }))}><SelectTrigger><SelectValue placeholder="선택 사항" /></SelectTrigger><SelectContent><SelectItem value="__none__">연계하지 않음</SelectItem>{serviceProjects.map((service: any) => <SelectItem key={service.id} value={service.id}>{service.project_number} {service.title}</SelectItem>)}</SelectContent></Select></div>
+                <Button disabled={!sourceForm.budgetItemId || !sourceForm.bidContractId || sourceMutation.isPending} onClick={() => sourceMutation.mutate()}>{sourceMutation.isPending ? "연결 중..." : "연계 저장"}</Button>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="docs" className="mt-4">
@@ -308,7 +366,7 @@ export default function PlanningProjectDetail() {
                       <div className="flex items-center gap-2">
                         <span className="text-lg">{["approved", "conditional_approved"].includes(p.status) ? "✅" : p.status === "reviewing" || p.status === "submitted" ? "🔄" : "⬜"}</span>
                         <div>
-                          <p className="text-sm font-medium">{p.permit_type}</p>
+                          <p className="text-sm font-medium">{getPermitTypeLabel(p.permit_type)}</p>
                           <p className="text-xs text-muted-foreground">{p.authority}</p>
                         </div>
                       </div>

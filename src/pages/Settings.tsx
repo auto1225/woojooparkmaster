@@ -262,6 +262,19 @@ export default function SettingsPage() {
     mutationFn: async (entry: ActivityRow) => {
       const changes = entry.details?.changes || [];
       if (!changes.length) throw new Error("복원할 이전 값이 없습니다.");
+      const { error: restoreError } = await (supabase.rpc as any)("restore_system_config", {
+        p_changes: changes,
+        p_source_log_id: entry.id,
+      });
+      if (!restoreError) return;
+
+      const restoreMessage = `${restoreError.code || ""} ${restoreError.message || ""}`.toLowerCase();
+      const isMigrationPending = restoreMessage.includes("pgrst202")
+        || restoreMessage.includes("could not find the function")
+        || restoreMessage.includes("404");
+      if (!isMigrationPending) throw restoreError;
+
+      // Compatibility path while the atomic server function is rolling out.
       const restoreRows = changes.filter((change) => change.oldValue !== null).map((change) => ({
         config_key: change.key,
         config_value: change.oldValue || "",
@@ -429,7 +442,7 @@ export default function SettingsPage() {
                     const locked = license.module_code === "CORE";
                     const expired = Boolean(license.expires_at && new Date(license.expires_at) < new Date());
                     return (
-                      <TableRow key={license.id}>
+                      <TableRow key={license.id || license.module_code}>
                         <TableCell><div className="font-medium">{MODULE_LABELS[license.module_code] || license.module_name}</div><div className="text-xs text-muted-foreground">{license.module_code}</div></TableCell>
                         <TableCell>{license.license_type === "permanent" ? "영구" : license.license_type === "demo" ? "검증용" : license.license_type === "subscription" ? "구독" : license.license_type}</TableCell>
                         <TableCell>{license.max_users ? `${license.max_users.toLocaleString()}명` : "제한 없음"}</TableCell>

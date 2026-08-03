@@ -19,6 +19,9 @@ deploy/backups/
 deploy/tls/
 work/test-results/
 work/*.pdf
+work/report-verification/
+supabase/.temp/
+*.traineddata
 playwright-report/
 test-results/
 

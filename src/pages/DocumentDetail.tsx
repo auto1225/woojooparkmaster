@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Clock3, Download, ExternalLink, FileText, Paperclip, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Clock3, Download, ExternalLink, FileText, Link2, Paperclip, Pencil, Plus, Trash2 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { OfficialDocumentDialog } from "@/components/documents/OfficialDocumentDialog";
+import { LinkBusinessRecordDialog } from "@/components/documents/LinkBusinessRecordDialog";
 import { changeDocumentLinkRelation, deleteOfficialDocumentFile, DOCUMENT_MODULE_LABELS, DOCUMENT_RELATION_LABELS, getOfficialDocument, getOfficialDocumentFileUrl, listDocumentActivity, listDocumentLinks, listOfficialDocumentFiles } from "@/lib/official-document-registry";
 import type { DocumentRelationType, OfficialDocument, OfficialDocumentFile } from "@/types/official-document";
 import { toast } from "sonner";
@@ -16,6 +17,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const DIRECTION_LABELS = { outgoing: "발신", incoming: "수신", internal: "내부" };
+const CHANGE_FIELD_LABELS: Record<string, string> = { document_number: "문서번호", title: "제목", direction: "구분", document_type: "종류", document_date: "시행·접수일", sender_organization: "발신 기관", receiver_organization: "수신 기관", department: "담당 부서", security_level: "보안 등급", retention_period: "보존 기간", status: "처리 상태", notes: "비고" };
+
+function activitySummary(details: Record<string, unknown> | null) {
+  const fields = Array.isArray(details?.changed_fields) ? details.changed_fields as string[] : [];
+  if (fields.length) return `변경: ${fields.map((field) => CHANGE_FIELD_LABELS[field] || field).join(", ")}`;
+  if (typeof details?.record_label === "string") return String(details.record_label);
+  if (typeof details?.file_count === "number") return `원문 ${details.file_count}개`;
+  return null;
+}
 
 export default function DocumentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +33,7 @@ export default function DocumentDetail() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
   const [deleteFile, setDeleteFile] = useState<OfficialDocumentFile | null>(null);
   const canManage = ["admin", "manager", "editor"].includes(profile?.role || "");
   const { data: document, isLoading } = useQuery({ queryKey: ["official-document", id], queryFn: () => getOfficialDocument(id!), enabled: !!id });
@@ -54,6 +65,12 @@ export default function DocumentDetail() {
     } catch (error: any) {
       toast.error("문서 관계 변경에 실패했습니다.", { description: error.message });
     }
+  };
+
+  const handleLinked = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["official-document-links", id] });
+    await queryClient.invalidateQueries({ queryKey: ["official-document-list"] });
+    await queryClient.invalidateQueries({ queryKey: ["official-document-activity", id] });
   };
 
   const openFile = async (file: OfficialDocumentFile) => {
@@ -111,18 +128,18 @@ export default function DocumentDetail() {
           <CardContent>{files.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">등록된 원문 파일이 없습니다. 문서 수정에서 파일을 추가할 수 있습니다.</p> : <div className="divide-y">{files.map((file) => <div key={file.id} className="flex items-center gap-3 py-3"><FileText className="h-4 w-4 text-primary" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{file.fileName}</p><p className="text-xs text-muted-foreground">{(file.fileSize / 1024 / 1024).toFixed(1)}MB</p></div><Button size="icon" variant="ghost" title="원문 열기" onClick={() => openFile(file)}><Download className="h-4 w-4" /></Button>{profile?.role === "admin" && <Button size="icon" variant="ghost" className="text-destructive" title="원문 삭제" onClick={() => setDeleteFile(file)}><Trash2 className="h-4 w-4" /></Button>}</div>)}</div>}</CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="text-base">연결 업무자료 <Badge variant="secondary" className="ml-1">{links.length}</Badge></CardTitle></CardHeader>
+          <CardHeader className="flex-row items-center justify-between gap-3"><CardTitle className="flex items-center gap-2 text-base"><Link2 className="h-4 w-4" />연결 업무자료 <Badge variant="secondary">{links.length}</Badge></CardTitle>{canManage && <Button size="sm" variant="outline" onClick={() => setLinkOpen(true)}><Plus className="mr-1.5 h-4 w-4" />업무 연결</Button>}</CardHeader>
           <CardContent>
             {links.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">연결된 업무자료가 없습니다.</p> : (
               <div className="divide-y">
-                {links.map((link) => <div key={link.id} className="flex items-center gap-3 py-3">
-                  <Badge variant="outline">{DOCUMENT_MODULE_LABELS[link.module] || link.module}</Badge>
-                  <span className="min-w-0 flex-1 truncate text-sm" title={link.recordId}>{link.recordLabel || link.recordId}</span>
+                {links.map((link) => <div key={link.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 py-3 sm:flex sm:gap-3">
+                  <Badge variant="outline" className="w-fit">{DOCUMENT_MODULE_LABELS[link.module] || link.module}</Badge>
+                  <span className="min-w-0 truncate text-sm sm:flex-1" title={link.recordId}>{link.recordLabel || link.recordId}</span>
                   <Select value={link.relationType} onValueChange={(value) => changeRelation(link, value as DocumentRelationType)}>
-                    <SelectTrigger className="h-8 w-28 text-xs" aria-label="문서 관계 변경"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 w-28 text-xs sm:w-32" aria-label="문서 관계 변경"><SelectValue /></SelectTrigger>
                     <SelectContent>{Object.entries(DOCUMENT_RELATION_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
                   </Select>
-                  {link.recordPath && <Button variant="ghost" size="icon" title="업무자료 열기" onClick={() => navigate(link.recordPath!)}><ExternalLink className="h-4 w-4" /></Button>}
+                  {link.recordPath && <Button className="col-start-3" variant="ghost" size="icon" title="업무자료 열기" onClick={() => navigate(link.recordPath!)}><ExternalLink className="h-4 w-4" /></Button>}
                 </div>)}
               </div>
             )}
@@ -135,7 +152,7 @@ export default function DocumentDetail() {
               <ol className="divide-y">
                 {activity.map((item) => <li key={item.id} className="flex items-start gap-3 py-3">
                   <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
-                  <div className="min-w-0 flex-1"><p className="text-sm font-medium">{item.action}</p><p className="text-xs text-muted-foreground">{item.userName || "시스템"}</p></div>
+                  <div className="min-w-0 flex-1"><p className="text-sm font-medium">{item.action}</p>{activitySummary(item.details) && <p className="truncate text-xs text-foreground/70">{activitySummary(item.details)}</p>}<p className="text-xs text-muted-foreground">{item.userName || "시스템"}</p></div>
                   <time className="shrink-0 text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleString("ko-KR")}</time>
                 </li>)}
               </ol>
@@ -143,7 +160,8 @@ export default function DocumentDetail() {
           </CardContent>
         </Card>
       </div>
-      <OfficialDocumentDialog open={editOpen} onOpenChange={setEditOpen} onCreated={handleUpdated} document={document} />
+      <OfficialDocumentDialog open={editOpen} onOpenChange={setEditOpen} onCreated={handleUpdated} document={document} hasExistingFiles={files.length > 0} />
+      <LinkBusinessRecordDialog open={linkOpen} onOpenChange={setLinkOpen} document={document} onLinked={handleLinked} />
       <AlertDialog open={Boolean(deleteFile)} onOpenChange={(open) => !open && setDeleteFile(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>원문 파일을 삭제하시겠습니까?</AlertDialogTitle><AlertDialogDescription>{deleteFile?.fileName} 파일은 복구할 수 없습니다. 문서대장과 업무 연결은 유지됩니다.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>취소</AlertDialogCancel><AlertDialogAction onClick={removeFile}>삭제</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </DashboardLayout>
   );

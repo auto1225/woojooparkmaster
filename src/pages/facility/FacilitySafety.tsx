@@ -60,6 +60,12 @@ export default function FacilitySafety() {
   const [groupByLot, setGroupByLot] = useState(false);
   const [checklistConfirmed, setChecklistConfirmed] = useState(false);
 
+  const defaultCorrectionDeadline = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 2);
+    return date.toISOString().slice(0, 10);
+  };
+
   const { data: lots = [] } = useQuery({
     queryKey: ["parking-lots-select", "with-type"],
     queryFn: async () => {
@@ -149,8 +155,10 @@ export default function FacilitySafety() {
   const selectedProfile = useMemo(() => getParkingLotWorkProfile(selectedLot?.lot_type), [selectedLot?.lot_type]);
 
   const updateCheckItem = (index: number, field: keyof ChecklistItem, value: string) => {
-    setChecklistConfirmed(true);
     setChecklist((prev) => prev.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)));
+    if (field === "result" && value === "fail") {
+      setForm((prev) => ({ ...prev, correction_deadline: prev.correction_deadline || defaultCorrectionDeadline() }));
+    }
   };
 
   const markAllPassed = () => {
@@ -171,6 +179,12 @@ export default function FacilitySafety() {
   const failCount = checklist.filter((item) => item.result === "fail").length;
   const naCount = checklist.filter((item) => item.result === "na").length;
   const grade = calculateGrade(checklist);
+  const failedItemsComplete = failCount === 0 || (
+    checklist.filter((item) => item.result === "fail").every((item) => Boolean(item.severity))
+    && Boolean(form.issues_found.trim())
+    && Boolean(form.corrective_actions.trim())
+    && Boolean(form.correction_deadline)
+  );
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -342,14 +356,14 @@ export default function FacilitySafety() {
 
                 {failCount > 0 && (
                   <>
-                    <div><Label>발견 문제사항</Label><Textarea value={form.issues_found} onChange={(event) => setForm((prev) => ({ ...prev, issues_found: event.target.value }))} rows={2} /></div>
-                    <div><Label>시정조치 계획</Label><Textarea value={form.corrective_actions} onChange={(event) => setForm((prev) => ({ ...prev, corrective_actions: event.target.value }))} rows={2} /></div>
-                    <div><Label>시정 기한</Label><Input type="date" value={form.correction_deadline} onChange={(event) => setForm((prev) => ({ ...prev, correction_deadline: event.target.value }))} /></div>
+                    <div><Label>발견 문제사항 *</Label><Textarea value={form.issues_found} onChange={(event) => setForm((prev) => ({ ...prev, issues_found: event.target.value }))} rows={2} /></div>
+                    <div><Label>시정조치 계획 *</Label><Textarea value={form.corrective_actions} onChange={(event) => setForm((prev) => ({ ...prev, corrective_actions: event.target.value }))} rows={2} /></div>
+                    <div><Label>시정 기한 *</Label><Input type="date" value={form.correction_deadline} onChange={(event) => setForm((prev) => ({ ...prev, correction_deadline: event.target.value }))} /></div>
                   </>
                 )}
 
                 <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
-                <Button className="w-full" disabled={!form.lot_id || !checklistConfirmed || createMutation.isPending} onClick={() => createMutation.mutate()}>
+                <Button className="w-full" disabled={!form.lot_id || !checklistConfirmed || !failedItemsComplete || createMutation.isPending} onClick={() => createMutation.mutate()}>
                   {createMutation.isPending ? "등록 중..." : "점검 결과 저장"}
                 </Button>
               </div>

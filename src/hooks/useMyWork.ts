@@ -5,8 +5,9 @@ import { useModuleLicenses } from "@/hooks/useSystemConfig";
 import { isModuleEnabled } from "@/lib/authorization";
 import { SCHEDULE_TYPE_LABELS } from "@/types/facility";
 import { OPEN_COMPLAINT_STATUSES, OPEN_MAINTENANCE_STATUSES } from "@/lib/work-status";
+import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
 
-export type WorkKind = "complaint" | "maintenance" | "schedule" | "survey" | "approval";
+export type WorkKind = "complaint" | "maintenance" | "schedule" | "survey" | "approval" | "team_work";
 
 export interface MyWorkItem {
   id: string;
@@ -16,7 +17,13 @@ export interface MyWorkItem {
   status: string;
   priority: "critical" | "high" | "normal" | "low";
   dueDate?: string | null;
+  nextAction?: string | null;
   route: string;
+}
+
+export interface MyWorkResult {
+  items: MyWorkItem[];
+  failedSources: string[];
 }
 
 function normalizeMaintenancePriority(priority: string): MyWorkItem["priority"] {
@@ -24,6 +31,19 @@ function normalizeMaintenancePriority(priority: string): MyWorkItem["priority"] 
   if (priority === "high") return "high";
   if (priority === "low") return "low";
   return "normal";
+}
+
+function lotContext(lot?: { name?: string | null; lot_type?: string | null } | null) {
+  if (!lot?.name) return "주차장 미지정";
+  const type = lot.lot_type ? LOT_TYPE_LABELS[lot.lot_type as LotType] : "";
+  return `${lot.name}${type ? ` · ${type}` : ""}`;
+}
+
+function addCalendarDays(value?: string | null, days = 0) {
+  if (!value) return null;
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 export function isWorkOverdue(item: Pick<MyWorkItem, "dueDate" | "status">): boolean {
@@ -66,13 +86,35 @@ export function useMyWork() {
   return useQuery({
     queryKey: ["my-work", user?.id, profile?.role, licenses?.map((license) => `${license.module_code}:${license.is_active}`).join("|")],
     queryFn: async () => {
-      if (!user) return [];
-      const jobs: Array<Promise<MyWorkItem[]>> = [];
+      if (!user) return { items: [], failedSources: [] } satisfies MyWorkResult;
+      const jobs: Array<{ source: string; task: Promise<MyWorkItem[]> }> = [];
+
+      const addJob = (source: string, task: Promise<MyWorkItem[]>) => jobs.push({ source, task });
+
+      addJob("팀 업무", (async () => {
+        const { data, error } = await (supabase as any).from("team_work_records")
+          .select("id, record_number, record_type, title, category, status, priority, due_date, document_number, next_action, lot_id, parking_lots(name, lot_type)")
+          .eq("owner_id", user.id)
+          .is("archived_at", null)
+          .neq("status", "completed");
+        if (error) throw error;
+        return (data ?? []).map((item: any) => ({
+          id: item.id,
+          kind: "team_work" as const,
+          title: item.title,
+          context: `${item.record_number} · ${item.parking_lots ? lotContext(item.parking_lots) : item.category}${item.document_number ? ` · ${item.document_number}` : ""}`,
+          status: item.status,
+          priority: item.priority === "urgent" ? "critical" : item.priority === "high" ? "high" : item.priority === "low" ? "low" : "normal",
+          dueDate: item.due_date,
+          nextAction: item.next_action,
+          route: `/team-work?tab=${item.record_type}&work=${item.id}`,
+        }));
+      })());
 
       if (active("COMPLAINT")) {
-        jobs.push((async () => {
+        addJob("민원", (async () => {
           const { data, error } = await supabase.from("complaints")
-            .select("id, complaint_number, title, status, priority, due_date, parking_lots(name)")
+            .select("id, complaint_number, title, status, priority, due_date, parking_lots(name, lot_type)")
             .eq("assigned_to", user.id)
             .in("status", OPEN_COMPLAINT_STATUSES);
           if (error) throw error;
@@ -80,7 +122,7 @@ export function useMyWork() {
             id: item.id,
             kind: "complaint" as const,
             title: item.title,
-            context: `${item.complaint_number} · ${item.parking_lots?.name || "주차장 미지정"}`,
+            context: `${item.complaint_number} · ${lotContext(item.parking_lots)}`,
             status: item.status,
             priority: item.priority === "urgent" ? "critical" : item.priority === "high" ? "high" : item.priority === "low" ? "low" : "normal",
             dueDate: item.due_date,
@@ -90,9 +132,9 @@ export function useMyWork() {
       }
 
       if (active("FACILITY")) {
-        jobs.push((async () => {
+        addJob("유지보수", (async () => {
           const { data, error } = await supabase.from("maintenance_logs")
-            .select("id, log_number, title, status, priority, due_date, schedule_id, parking_lots(name), maintenance_schedules(next_due_date)")
+            .select("id, log_number, title, status, priority, due_date, schedule_id, parking_lots(name, lot_type), maintenance_schedules(next_due_date)")
             .eq("assigned_to", user.id)
             .in("status", OPEN_MAINTENANCE_STATUSES);
           if (error) throw error;
@@ -100,7 +142,7 @@ export function useMyWork() {
             id: item.id,
             kind: "maintenance" as const,
             title: item.title,
-            context: `${item.log_number} · ${item.parking_lots?.name || "주차장"}`,
+            context: `${item.log_number} · ${lotContext(item.parking_lots)}${!item.due_date && item.maintenance_schedules?.next_due_date ? " · 정기점검 예정일 기준" : ""}`,
             status: item.status,
             priority: normalizeMaintenancePriority(item.priority),
             dueDate: item.due_date || item.maintenance_schedules?.next_due_date,
@@ -108,9 +150,9 @@ export function useMyWork() {
           }));
         })());
 
-        jobs.push((async () => {
+        addJob("점검 일정", (async () => {
           const { data, error } = await supabase.from("maintenance_schedules")
-            .select("id, schedule_name, next_due_date, schedule_type, parking_lots(name)")
+            .select("id, schedule_name, next_due_date, schedule_type, parking_lots(name, lot_type)")
             .eq("assigned_to", user.id)
             .eq("is_active", true)
             .lte("next_due_date", new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
@@ -119,7 +161,7 @@ export function useMyWork() {
             id: item.id,
             kind: "schedule" as const,
             title: item.schedule_name,
-            context: `${item.parking_lots?.name || "주차장"} · ${SCHEDULE_TYPE_LABELS[item.schedule_type] || item.schedule_type}`,
+            context: `${lotContext(item.parking_lots)} · ${SCHEDULE_TYPE_LABELS[item.schedule_type] || item.schedule_type}`,
             status: "scheduled",
             priority: "normal" as const,
             dueDate: item.next_due_date,
@@ -129,16 +171,16 @@ export function useMyWork() {
       }
 
       if (active("SURVEY")) {
-        jobs.push((async () => {
+        addJob("현황조사", (async () => {
           const { data, error } = await supabase.from("surveys")
-            .select("id, status, survey_date, parking_lots(name)")
+            .select("id, status, survey_date, parking_lots(name, lot_type)")
             .eq("surveyor_id", user.id)
             .in("status", ["draft", "in_progress", "rejected"]);
           if (error) throw error;
           return (data ?? []).map((item: any) => ({
             id: item.id,
             kind: "survey" as const,
-            title: `${item.parking_lots?.name || "주차장"} 현황조사`,
+            title: `${lotContext(item.parking_lots)} 현황조사`,
             context: item.status === "rejected" ? "보완 후 다시 제출해야 합니다" : "현장조사 작성 중",
             status: item.status,
             priority: item.status === "rejected" ? "high" as const : "normal" as const,
@@ -148,28 +190,32 @@ export function useMyWork() {
         })());
 
         if (profile?.role === "admin" || profile?.role === "manager") {
-          jobs.push((async () => {
+          addJob("조사 승인", (async () => {
             const { data, error } = await supabase.from("surveys")
-              .select("id, status, submitted_at, parking_lots(name)")
+              .select("id, status, submitted_at, parking_lots(name, lot_type)")
               .in("status", ["submitted", "review"]);
             if (error) throw error;
             return (data ?? []).map((item: any) => ({
               id: item.id,
               kind: "approval" as const,
-              title: `${item.parking_lots?.name || "주차장"} 조사 승인`,
-              context: "제출된 조사 검토",
+              title: `${lotContext(item.parking_lots)} 조사 승인`,
+              context: "제출 후 3일 검토 기준",
               status: item.status,
               priority: "high" as const,
-              dueDate: item.submitted_at?.slice(0, 10),
+              dueDate: addCalendarDays(item.submitted_at, 3),
+              nextAction: "조사 내용을 검토하고 승인 또는 반려",
               route: `/surveys/${item.id}/review`,
             }));
           })());
         }
       }
 
-      const results = await Promise.allSettled(jobs);
+      const results = await Promise.allSettled(jobs.map((job) => job.task));
       const items = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
-      return sortMyWork(items);
+      return {
+        items: sortMyWork(items),
+        failedSources: results.flatMap((result, index) => result.status === "rejected" ? [jobs[index].source] : []),
+      } satisfies MyWorkResult;
     },
     enabled: Boolean(user && licenses),
     refetchInterval: 60_000,

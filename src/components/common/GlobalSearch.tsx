@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Briefcase, Building2, CalendarClock, ClipboardList, ContactRound, FileText, Gavel, MessageSquare, Wrench } from "lucide-react";
-import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { CommandDialog, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { isModuleEnabled } from "@/lib/authorization";
@@ -89,7 +89,7 @@ export function GlobalSearch() {
         .slice(0, 8)
         .map((record) => ({ id: record.id, label: record.recordNumber, sub: `${record.title} · ${record.ownerName || "담당 미지정"}`, path: `/team-work?tab=${record.recordType}&work=${record.id}`, category: "팀 업무" }))),
       listBusinessCards().then((cards) => cards.filter((card) => matchesBusinessCard(card, cleaned)).slice(0, 10).map((card) => ({
-        id: card.id, label: card.name || card.company, sub: `${card.company || "회사 미등록"}${card.position ? ` · ${card.position}` : ""}${card.mobile || card.phone ? ` · ${card.mobile || card.phone}` : ""}`, path: `/business-cards?card=${card.id}`, category: "명함",
+        id: card.id, label: card.name || card.company, sub: `${card.company || "회사 미등록"}${card.position ? ` · ${card.position}` : ""}${card.mobile || card.phone ? ` · ${card.mobile || card.phone}` : ""}${card.email ? ` · ${card.email}` : ""}`, path: `/business-cards?card=${card.id}`, category: "명함",
       }))),
       supabase.from("parking_lots").select("id, name, code, address_jibun").or(`name.ilike.${term},code.ilike.${term},address_jibun.ilike.${term}`).limit(6)
         .then(({ data, error }) => { if (error) throw error; return (data || []).map((lot) => ({ id: lot.id, label: `${lot.name} (${lot.code})`, sub: lot.address_jibun || "", path: `/lots/${lot.id}`, category: "주차장" })); }),
@@ -143,10 +143,10 @@ export function GlobalSearch() {
   }, {});
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
+    <CommandDialog open={open} onOpenChange={setOpen} shouldFilter={false}>
       <CommandInput placeholder="문서번호, 명함, 업체, 담당자, 연락처, 시설, 용역 찾기... (Ctrl+K)" value={query} onValueChange={setQuery} />
       <CommandList>
-        <CommandEmpty>{searching ? "전체 업무자료를 찾는 중입니다..." : "검색 결과가 없습니다."}</CommandEmpty>
+        {query.trim().length >= 2 && results.length === 0 && <p className="px-3 py-6 text-center text-sm text-muted-foreground">{searching ? "전체 업무자료를 찾는 중입니다..." : "검색 결과가 없습니다."}</p>}
         {partialFailure && <p className="px-3 py-2 text-xs text-amber-700 dark:text-amber-300">일부 자료를 불러오지 못했습니다. 표시된 결과는 정상적으로 사용할 수 있습니다.</p>}
         {query.length < 2 && recent.length > 0 && <CommandGroup heading="최근 검색">
           {recent.map((item) => <CommandItem key={item} onSelect={() => setQuery(item)}>{item}</CommandItem>)}

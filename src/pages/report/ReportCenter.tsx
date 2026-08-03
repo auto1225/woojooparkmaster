@@ -66,6 +66,7 @@ export default function ReportCenter() {
       const { data, error } = await supabase
         .from("report_templates")
         .select("*")
+        .eq("is_active", true)
         .order("sort_order");
       if (error) throw error;
       return data as any as ReportTemplate[];

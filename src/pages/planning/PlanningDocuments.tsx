@@ -54,6 +54,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getSecureUploadPath, validateUploadFile } from "@/lib/file-security";
 import { logActivity } from "@/lib/activity-logger";
+import { archivePlanningDocument, reviewPlanningDocument } from "@/lib/workflow-commands";
 import {
   DOC_CATEGORY_LABELS,
   DOC_TYPE_LABELS,
@@ -130,6 +131,7 @@ export default function PlanningDocuments() {
   const [saving, setSaving] = useState(false);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
+  const [archiveReason, setArchiveReason] = useState("");
 
   const canEdit = Boolean(profile?.role && ["admin", "manager", "editor"].includes(profile.role));
   const canManage = Boolean(profile?.role && ["admin", "manager"].includes(profile.role));
@@ -157,7 +159,8 @@ export default function PlanningDocuments() {
       let query = supabase
         .from("design_documents")
         .select("*")
-        .eq("is_current", true);
+        .eq("is_current", true)
+        .is("archived_at", null);
       if (selectedProject !== "__all__") query = query.eq("project_id", selectedProject);
       const { data, error } = await query
         .order("category")
@@ -283,7 +286,7 @@ export default function PlanningDocuments() {
           file_size: file.size,
           version: form.version.trim() || "v1.0",
           version_note: form.version_note.trim() || null,
-          review_status: form.review_status,
+          review_status: "draft",
           review_comments: form.review_comments.trim() || null,
           category: form.category || null,
           uploaded_by: actorId,
@@ -306,27 +309,26 @@ export default function PlanningDocuments() {
         toast({ title: "도면 원문을 등록했습니다." });
       } else if (dialogMode === "edit" && editingDocument) {
         const statusChanged = editingDocument.review_status !== form.review_status;
-        const actorFields = statusChanged
-          ? form.review_status === "approved" || form.review_status === "final"
-            ? { approved_by: actorId, approved_at: new Date().toISOString() }
-            : { reviewed_by: actorId, reviewed_at: new Date().toISOString() }
-          : {};
         const { error: updateError } = await supabase
           .from("design_documents")
           .update({
             doc_type: form.doc_type,
             title: form.title.trim(),
             description: form.description.trim() || null,
-            version: form.version.trim() || "v1.0",
             version_note: form.version_note.trim() || null,
-            review_status: form.review_status,
-            review_comments: form.review_comments.trim() || null,
             category: form.category || null,
             author_name: form.author_name.trim() || null,
-            ...actorFields,
           } as never)
           .eq("id", editingDocument.id);
         if (updateError) throw updateError;
+        if (statusChanged) {
+          await reviewPlanningDocument(
+            editingDocument.id,
+            form.review_status,
+            form.review_comments.trim(),
+            editingDocument.row_version,
+          );
+        }
 
         await logActivity({
           module: "PLANNING",
@@ -348,7 +350,11 @@ export default function PlanningDocuments() {
       if (uploadedPath) {
         await supabase.storage.from(uploadedBucket).remove([uploadedPath]);
       }
-      const message = error instanceof Error ? error.message : "도면 저장에 실패했습니다.";
+      const message = error instanceof Error
+        ? error.message
+        : error && typeof error === "object" && "message" in error
+          ? String(error.message)
+          : "도면 저장에 실패했습니다.";
       setFormError(message);
       toast({ title: "도면 저장 실패", description: message, variant: "destructive" });
     } finally {
@@ -394,6 +400,10 @@ export default function PlanningDocuments() {
 
   const handleDelete = async () => {
     if (!pendingDelete || !canManage) return;
+    if (!archiveReason.trim()) {
+      toast({ title: "보관 사유를 입력해 주세요", variant: "destructive" });
+      return;
+    }
     if (PROTECTED_STATUSES.has(pendingDelete.review_status)) {
       toast({
         title: "승인 또는 최종 문서는 삭제할 수 없습니다.",
@@ -407,35 +417,17 @@ export default function PlanningDocuments() {
     const document = pendingDelete;
     setSaving(true);
     try {
-      const { error: deleteError } = await supabase
-        .from("design_documents")
-        .delete()
-        .eq("id", document.id);
-      if (deleteError) throw deleteError;
-
-      const storagePath = parseStoragePath(document.file_path);
-      if (storagePath) {
-        const { error: storageError } = await supabase.storage
-          .from(storagePath.bucket)
-          .remove([storagePath.path]);
-        if (storageError) {
-          toast({
-            title: "문서 기록은 삭제했지만 저장소 정리가 필요합니다.",
-            description: storageError.message,
-            variant: "destructive",
-          });
-        }
-      }
+      await archivePlanningDocument(document.id, archiveReason.trim());
 
       await logActivity({
         module: "PLANNING",
-        action: "document_deleted",
+        action: "document_archived",
         targetType: "design_document",
         targetId: document.id,
         targetName: document.title,
-        details: { document_number: document.doc_number },
+        details: { document_number: document.doc_number, reason: archiveReason.trim() },
       });
-      toast({ title: "도면과 원문 파일을 삭제했습니다." });
+      toast({ title: "도면을 기록 보관 처리했습니다." });
       await refreshDocuments();
     } catch (error) {
       toast({
@@ -445,6 +437,7 @@ export default function PlanningDocuments() {
       });
     } finally {
       setPendingDelete(null);
+      setArchiveReason("");
       setSaving(false);
     }
   };
@@ -723,6 +716,7 @@ export default function PlanningDocuments() {
                   id="planning-version"
                   value={form.version}
                   maxLength={20}
+                  readOnly={dialogMode === "edit"}
                   onChange={(event) => updateForm("version", event.target.value)}
                 />
               </div>
@@ -731,6 +725,7 @@ export default function PlanningDocuments() {
                 <Select
                   value={form.review_status}
                   onValueChange={(value) => updateForm("review_status", value)}
+                  disabled={dialogMode === "create"}
                 >
                   <SelectTrigger id="planning-status">
                     <SelectValue />
@@ -787,26 +782,26 @@ export default function PlanningDocuments() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>
+      <AlertDialog open={pendingDelete !== null} onOpenChange={(open) => { if (!open) { setPendingDelete(null); setArchiveReason(""); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>도면을 영구 삭제하시겠습니까?</AlertDialogTitle>
+            <AlertDialogTitle>도면을 기록 보관하시겠습니까?</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingDelete?.doc_number} {pendingDelete?.title}의 문서 기록과 원문 파일이 함께 삭제됩니다.
-              승인 또는 최종 문서는 삭제할 수 없습니다.
+              {pendingDelete?.doc_number} {pendingDelete?.title}은 목록에서 숨겨지지만 원문과 이력은 보존됩니다.
+              승인 또는 최종 문서는 보관할 수 없습니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-1.5"><Label htmlFor="planning-archive-reason">보관 사유 *</Label><Textarea id="planning-archive-reason" value={archiveReason} onChange={(event) => setArchiveReason(event.target.value)} placeholder="중복 등록, 새 버전으로 대체 등" /></div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>취소</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={saving}
+              disabled={saving || !archiveReason.trim()}
               onClick={(event) => {
                 event.preventDefault();
                 void handleDelete();
               }}
             >
-              영구 삭제
+              기록 보관
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -18,7 +18,8 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { Plus, AlertTriangle } from "lucide-react";
 import { AuthorField } from "@/components/common/AuthorField";
-import { PERMIT_STATUS_LABELS, PERMIT_STATUS_COLORS } from "@/types/planning";
+import { getPermitTypeLabel, PERMIT_STATUS_LABELS, PERMIT_STATUS_COLORS } from "@/types/planning";
+import { advancePermit } from "@/lib/workflow-commands";
 
 const PERMIT_TYPES = [
   '건축허가', '개발행위허가', '교통영향평가', '환경영향평가', '문화재지표조사',
@@ -31,8 +32,8 @@ export default function PlanningPermits() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
   const [showNew, setShowNew] = useState(false);
-  const [showAction, setShowAction] = useState<{ id: string; action: string } | null>(null);
-  const [actionNote, setActionNote] = useState("");
+  const [showAction, setShowAction] = useState<{ id: string; action: "approve" | "conditional_approve" | "reject" | "supplement"; rowVersion?: number } | null>(null);
+  const [actionForm, setActionForm] = useState({ permitNumber: "", documentNumber: "", note: "", expiryDate: "" });
   const [form, setForm] = useState<Record<string, any>>({});
   const updateForm = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
 
@@ -84,6 +85,7 @@ export default function PlanningPermits() {
       notes: form.notes || null,
       assigned_to: profile?.id,
       author_name: form.author_name || null,
+      client_mutation_id: crypto.randomUUID(),
     }] as any);
     if (error) { toast({ title: "등록 실패", description: error.message, variant: "destructive" }); return; }
     toast({ title: "인허가 등록 완료" });
@@ -93,23 +95,17 @@ export default function PlanningPermits() {
     queryClient.invalidateQueries({ queryKey: ["planning-permits"] });
   };
 
-  const handleStatusChange = async (permitId: string, newStatus: string) => {
-    const updates: any = { status: newStatus };
-    if (newStatus === 'approved' || newStatus === 'conditional_approved') {
-      updates.actual_approval_date = new Date().toISOString().split("T")[0];
+  const handleStatusChange = async (permitId: string, action: "submit" | "approve" | "conditional_approve" | "reject" | "supplement", rowVersion?: number) => {
+    try {
+      await advancePermit(permitId, action, { ...actionForm, expectedVersion: rowVersion });
+    } catch (error) {
+      toast({ title: "상태 변경 실패", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+      return;
     }
-    if (newStatus === 'rejected') {
-      updates.rejection_reason = actionNote;
-    }
-    if (newStatus === 'conditional_approved') {
-      updates.conditions = actionNote;
-    }
-    const { error } = await supabase.from("permits").update(updates).eq("id", permitId);
-    if (error) { toast({ title: "상태 변경 실패", variant: "destructive" }); return; }
-    toast({ title: `인허가 상태 변경: ${PERMIT_STATUS_LABELS[newStatus]}` });
-    logActivity({ module: "PLANNING", action: "permit_status_changed", targetType: "permit", targetId: permitId, details: { status: newStatus } });
+    toast({ title: "인허가 처리 상태를 저장했습니다" });
+    logActivity({ module: "PLANNING", action: "permit_status_changed", targetType: "permit", targetId: permitId, details: { action } });
     setShowAction(null);
-    setActionNote("");
+    setActionForm({ permitNumber: "", documentNumber: "", note: "", expiryDate: "" });
     queryClient.invalidateQueries({ queryKey: ["planning-permits"] });
   };
 
@@ -165,8 +161,8 @@ export default function PlanningPermits() {
                   {(permits || []).map((p: any) => (
                     <TableRow key={p.id} className={isExpiringSoon(p.expiry_date) ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}>
                       <TableCell className="text-sm">{p.construction_projects?.project_name || '-'}</TableCell>
-                      <TableCell className="font-medium">{p.permit_type}</TableCell>
-                      <TableCell className="text-xs">{p.authority}</TableCell>
+                      <TableCell><div className="font-medium">{getPermitTypeLabel(p.permit_type)}</div><div className="text-xs text-muted-foreground">{p.permit_number || "허가번호 미등록"}</div></TableCell>
+                      <TableCell><div className="text-xs">{p.authority}</div><div className="text-xs text-muted-foreground">{p.official_document_number || "공식 문서 미연계"}</div></TableCell>
                       <TableCell className="text-xs">{p.application_date || '-'}</TableCell>
                       <TableCell className="text-xs">{p.actual_approval_date || '-'}</TableCell>
                       <TableCell className="text-xs">
@@ -177,13 +173,15 @@ export default function PlanningPermits() {
                       {canEdit && (
                         <TableCell>
                           <div className="flex gap-1">
-                            {['not_started', 'preparing'].includes(p.status) && <Button size="sm" variant="outline" className="text-[10px] h-6" onClick={() => handleStatusChange(p.id, 'submitted')}>제출</Button>}
+                            {['not_started', 'preparing'].includes(p.status) && <Button size="sm" variant="outline" className="text-[10px] h-6" onClick={() => handleStatusChange(p.id, 'submit', p.row_version)}>제출</Button>}
                             {['submitted', 'reviewing'].includes(p.status) && (
                               <>
-                                <Button size="sm" variant="outline" className="text-[10px] h-6" onClick={() => handleStatusChange(p.id, 'approved')}>승인</Button>
-                                <Button size="sm" variant="outline" className="text-[10px] h-6" onClick={() => { setShowAction({ id: p.id, action: 'rejected' }); }}>반려</Button>
+                                <Button size="sm" variant="outline" className="text-[10px] h-6" onClick={() => setShowAction({ id: p.id, action: 'approve', rowVersion: p.row_version })}>승인</Button>
+                                <Button size="sm" variant="outline" className="text-[10px] h-6" onClick={() => setShowAction({ id: p.id, action: 'conditional_approve', rowVersion: p.row_version })}>조건부</Button>
+                                <Button size="sm" variant="outline" className="text-[10px] h-6" onClick={() => setShowAction({ id: p.id, action: 'reject', rowVersion: p.row_version })}>반려</Button>
                               </>
                             )}
+                            {['approved', 'conditional_approved'].includes(p.status) && (!p.permit_number || !p.official_document_number) && <Button size="sm" variant="outline" className="text-[10px] h-6" onClick={() => setShowAction({ id: p.id, action: 'supplement', rowVersion: p.row_version })}>근거보완</Button>}
                           </div>
                         </TableCell>
                       )}
@@ -246,13 +244,18 @@ export default function PlanningPermits() {
       </Dialog>
 
       {/* Action Dialog */}
-      <Dialog open={!!showAction} onOpenChange={v => { if (!v) { setShowAction(null); setActionNote(""); } }}>
+      <Dialog open={!!showAction} onOpenChange={v => { if (!v) { setShowAction(null); setActionForm({ permitNumber: "", documentNumber: "", note: "", expiryDate: "" }); } }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{showAction?.action === 'rejected' ? '반려 사유' : '조건 입력'}</DialogTitle></DialogHeader>
-          <Textarea value={actionNote} onChange={e => setActionNote(e.target.value)} placeholder="사유를 입력하세요" />
+          <DialogHeader><DialogTitle>{showAction?.action === 'reject' ? '반려 사유' : showAction?.action === 'supplement' ? '승인 근거 보완' : '승인 근거 입력'}</DialogTitle></DialogHeader>
+          {showAction?.action !== "reject" && <div className="grid gap-4 sm:grid-cols-2">
+            <div><Label>허가번호 *</Label><Input value={actionForm.permitNumber} onChange={e => setActionForm(v => ({ ...v, permitNumber: e.target.value }))} /></div>
+            <div><Label>만료일</Label><Input type="date" value={actionForm.expiryDate} onChange={e => setActionForm(v => ({ ...v, expiryDate: e.target.value }))} /></div>
+            <div className="sm:col-span-2"><Label>공식 문서번호 *</Label><Input value={actionForm.documentNumber} onChange={e => setActionForm(v => ({ ...v, documentNumber: e.target.value }))} placeholder="문서대장에 등록된 문서번호" /></div>
+          </div>}
+          <div><Label>{showAction?.action === "conditional_approve" ? "승인 조건 *" : "처리 메모"}</Label><Textarea value={actionForm.note} onChange={e => setActionForm(v => ({ ...v, note: e.target.value }))} placeholder="처리 사유와 조건을 입력하세요" /></div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAction(null)}>취소</Button>
-            <Button onClick={() => showAction && handleStatusChange(showAction.id, showAction.action)}>확인</Button>
+            <Button onClick={() => showAction && handleStatusChange(showAction.id, showAction.action, showAction.rowVersion)}>확인</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

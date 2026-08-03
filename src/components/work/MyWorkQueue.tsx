@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardCheck, MessageSquare, Wrench } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardCheck, ListTodo, MessageSquare, RefreshCw, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +13,7 @@ const KIND_META = {
   schedule: { label: "점검", icon: CalendarClock },
   survey: { label: "현황조사", icon: ClipboardCheck },
   approval: { label: "승인", icon: CheckCircle2 },
+  team_work: { label: "팀 업무", icon: ListTodo },
 };
 
 function dueLabel(dueDate?: string | null) {
@@ -42,8 +43,10 @@ function WorkRow({ item }: { item: MyWorkItem }) {
         <span className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{item.title}</span>
           <Badge variant="outline" className="shrink-0 text-[10px]">{meta.label}</Badge>
+          {item.priority === "critical" ? <Badge variant="destructive" className="shrink-0 text-[10px]">긴급</Badge> : null}
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">{item.context}</span>
+        {item.nextAction ? <span className="mt-0.5 block truncate text-xs font-medium text-foreground">다음: {item.nextAction}</span> : null}
       </span>
       <span className={`text-xs font-medium ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
         {overdue && <AlertTriangle className="mr-1 inline h-3.5 w-3.5" />}
@@ -56,7 +59,9 @@ function WorkRow({ item }: { item: MyWorkItem }) {
 export function MyWorkQueue() {
   const [filter, setFilter] = useState("open");
   const [showAll, setShowAll] = useState(false);
-  const { data: items = [], isLoading } = useMyWork();
+  const { data, isLoading, isFetching, refetch } = useMyWork();
+  const items = data?.items || [];
+  const failedSources = data?.failedSources || [];
   const overdue = items.filter(isWorkOverdue);
   const today = items.filter(isWorkDueToday);
   const urgent = items.filter(isWorkUrgent);
@@ -84,6 +89,13 @@ export function MyWorkQueue() {
           </TabsList>
         </Tabs>
       </div>
+
+      {failedSources.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-amber-50 px-4 py-2 text-xs text-amber-900">
+          <span><AlertTriangle className="mr-1 inline h-3.5 w-3.5" />{failedSources.join("·")} 자료를 불러오지 못해 아래 건수에서 제외했습니다.</span>
+          <Button variant="ghost" size="sm" className="h-7" onClick={() => void refetch()} disabled={isFetching}><RefreshCw className={`mr-1 h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />다시 조회</Button>
+        </div>
+      ) : null}
 
       {isLoading ? (
         <div className="space-y-2 p-4"><Skeleton className="h-12" /><Skeleton className="h-12" /><Skeleton className="h-12" /></div>

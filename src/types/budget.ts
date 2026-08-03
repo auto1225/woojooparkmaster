@@ -107,10 +107,28 @@ export interface BudgetTransfer {
 }
 
 export const PLAN_TYPE_LABELS: Record<string, string> = { original: '본예산', supplementary: '추경', revised: '수정예산' };
-export const BUDGET_STATUS_LABELS: Record<string, string> = { draft: '작성중', submitted: '제출', review: '검토중', approved: '승인', rejected: '반려', executed: '집행중' };
-export const BUDGET_STATUS_COLORS: Record<string, string> = { draft: 'bg-gray-100 text-gray-700', submitted: 'bg-yellow-100 text-yellow-700', review: 'bg-blue-100 text-blue-700', approved: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700', executed: 'bg-teal-100 text-teal-700' };
+export const BUDGET_STATUS_LABELS: Record<string, string> = {
+  draft: '작성중',
+  submitted: '제출완료',
+  review: '검토중',
+  pending: '승인대기',
+  approved: '승인완료',
+  rejected: '반려',
+  executed: '집행완료',
+  cancelled: '취소',
+};
+export const BUDGET_STATUS_COLORS: Record<string, string> = {
+  draft: 'bg-gray-100 text-gray-700',
+  submitted: 'bg-yellow-100 text-yellow-700',
+  review: 'bg-blue-100 text-blue-700',
+  pending: 'bg-amber-100 text-amber-700',
+  approved: 'bg-green-100 text-green-700',
+  rejected: 'bg-red-100 text-red-700',
+  executed: 'bg-teal-100 text-teal-700',
+  cancelled: 'bg-slate-100 text-slate-700',
+};
 export const EXECUTION_TYPE_LABELS: Record<string, string> = { expenditure: '지출', revenue_collection: '수입징수', transfer_in: '전입', transfer_out: '전출', return: '반납', carry_forward: '이월' };
-export const TRANSFER_TYPE_LABELS: Record<string, string> = { appropriation: '전용(동일관내)', use: '이용(관간)', transfer: '이체(기관간)', reserve: '예비비 사용' };
+export const TRANSFER_TYPE_LABELS: Record<string, string> = { appropriation: '전용(동일관내)', use: '이용(관간)', transfer: '이체(기관간)', reserve: '예비비 사용', carry_forward: '이월(이관자료)' };
 export const TRANSFER_TYPE_COLORS: Record<string, string> = { appropriation: 'bg-blue-100 text-blue-700', use: 'bg-green-100 text-green-700', transfer: 'bg-purple-100 text-purple-700', reserve: 'bg-orange-100 text-orange-700' };
 export const BUDGET_TYPE_LABELS: Record<string, string> = { revenue: '세입', expenditure: '세출' };
 export const PAYMENT_METHOD_LABELS: Record<string, string> = { bank_transfer: '계좌이체', card: '카드', cash: '현금', check: '수표', offset: '상계' };

@@ -1,55 +1,80 @@
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { PHOTO_CATEGORIES } from "@/types/survey";
+import { getSurveyPhotoCategories } from "@/types/survey";
 import type { SurveyPhoto } from "@/types/survey";
-import { Camera, X, ZoomIn } from "lucide-react";
+import { X } from "lucide-react";
 import { savePhotoOffline } from "@/lib/offline-survey";
 
 interface Props {
   surveyId: string;
   photos: SurveyPhoto[];
   onRefresh: () => void;
+  lotType?: string | null;
   readOnly?: boolean;
 }
 
-export function StepPhotos({ surveyId, photos, onRefresh, readOnly }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
+export function StepPhotos({ surveyId, photos, onRefresh, lotType, readOnly }: Props) {
   const [uploadingCat, setUploadingCat] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
   const totalCount = photos.length;
+
+  useEffect(() => {
+    let active = true;
+    const loadSignedUrls = async () => {
+      const entries = await Promise.all(photos.map(async (photo) => {
+        const { data, error } = await supabase.storage
+          .from("survey-photos")
+          .createSignedUrl(photo.file_path, 60 * 10);
+        return [photo.file_path, error ? "" : data.signedUrl] as const;
+      }));
+      if (active) setSignedUrls(Object.fromEntries(entries));
+    };
+    loadSignedUrls();
+    return () => { active = false; };
+  }, [photos]);
 
   const handleUpload = async (file: File, category: string) => {
     setUploadingCat(category);
     try {
       if (!navigator.onLine) {
-        await savePhotoOffline(surveyId, file, file.name, category, photos.filter(p => p.category === category).length);
+        const ext = file.name.split(".").pop() || "jpg";
+        await savePhotoOffline(surveyId, file, `${crypto.randomUUID()}.${ext}`, category, photos.filter(p => p.category === category).length);
         toast({ title: "사진이 오프라인 저장되었습니다", description: "연결되면 자동으로 업로드합니다." });
         return;
       }
       const ext = file.name.split(".").pop() || "jpg";
-      const path = `${surveyId}/${category}_${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("survey-photos").upload(path, file);
+      const path = `${surveyId}/${category}/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("survey-photos").upload(path, file, {
+        cacheControl: "3600",
+        contentType: file.type,
+        upsert: false,
+      });
       if (uploadError) throw uploadError;
 
-      await supabase.from("survey_photos").insert({
+      const { error: metadataError } = await supabase.from("survey_photos").insert({
         survey_id: surveyId,
         category,
         file_path: path,
         sort_order: photos.filter(p => p.category === category).length,
       });
+      if (metadataError) {
+        await supabase.storage.from("survey-photos").remove([path]);
+        throw metadataError;
+      }
 
       toast({ title: "업로드 완료" });
       onRefresh();
     } catch (err: any) {
       if (!navigator.onLine || /fetch|network|connection/i.test(err.message || "")) {
-        await savePhotoOffline(surveyId, file, file.name, category, photos.filter(p => p.category === category).length);
+        const ext = file.name.split(".").pop() || "jpg";
+        await savePhotoOffline(surveyId, file, `${crypto.randomUUID()}.${ext}`, category, photos.filter(p => p.category === category).length);
         toast({ title: "사진이 오프라인 저장되었습니다", description: "연결되면 자동으로 업로드합니다." });
       } else {
         toast({ title: "업로드 실패", description: err.message, variant: "destructive" });
@@ -60,19 +85,19 @@ export function StepPhotos({ surveyId, photos, onRefresh, readOnly }: Props) {
   };
 
   const handleDelete = async (photo: SurveyPhoto) => {
+    if (!window.confirm("이 현장 사진을 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다.")) return;
     try {
-      await supabase.storage.from("survey-photos").remove([photo.file_path]);
-      await supabase.from("survey_photos").delete().eq("id", photo.id);
+      const { error: metadataError } = await supabase.from("survey_photos").delete().eq("id", photo.id);
+      if (metadataError) throw metadataError;
+      const { error: storageError } = await supabase.storage.from("survey-photos").remove([photo.file_path]);
+      if (storageError) {
+        toast({ title: "사진 정보는 삭제됐지만 파일 정리가 필요합니다", description: storageError.message, variant: "destructive" });
+      }
       toast({ title: "삭제되었습니다" });
       onRefresh();
     } catch (err: any) {
       toast({ title: "삭제 실패", description: err.message, variant: "destructive" });
     }
-  };
-
-  const getPublicUrl = (path: string) => {
-    const { data } = supabase.storage.from("survey-photos").getPublicUrl(path);
-    return data.publicUrl;
   };
 
   return (
@@ -83,7 +108,7 @@ export function StepPhotos({ surveyId, photos, onRefresh, readOnly }: Props) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {PHOTO_CATEGORIES.map(cat => {
+        {getSurveyPhotoCategories(lotType).map(cat => {
           const catPhotos = photos.filter(p => p.category === cat.code);
           return (
             <Card key={cat.code} className="overflow-hidden">
@@ -98,10 +123,10 @@ export function StepPhotos({ surveyId, photos, onRefresh, readOnly }: Props) {
                     {catPhotos.map(p => (
                       <div key={p.id} className="relative group aspect-square bg-muted rounded overflow-hidden">
                         <img
-                          src={getPublicUrl(p.file_path)}
+                          src={signedUrls[p.file_path] || undefined}
                           alt={cat.label}
                           className="w-full h-full object-cover cursor-pointer"
-                          onClick={() => setPreviewUrl(getPublicUrl(p.file_path))}
+                          onClick={() => signedUrls[p.file_path] && setPreviewUrl(signedUrls[p.file_path])}
                         />
                         {!readOnly && (
                           <button
@@ -117,30 +142,21 @@ export function StepPhotos({ surveyId, photos, onRefresh, readOnly }: Props) {
                 )}
 
                 {!readOnly && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-xs"
-                    disabled={uploadingCat === cat.code}
-                    onClick={() => {
-                      const input = document.createElement("input");
-                      input.type = "file";
-                      input.accept = "image/*";
-                      input.capture = "environment";
-                      input.onchange = (e) => {
-                        const file = (e.target as HTMLInputElement).files?.[0];
+                  <div className="space-y-2">
+                    <Input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      capture="environment"
+                      aria-label={`${cat.label} 사진 선택`}
+                      className="h-11 cursor-pointer text-xs file:mr-2 file:border-0 file:bg-transparent file:text-xs file:font-medium"
+                      disabled={uploadingCat === cat.code}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
                         if (file) handleUpload(file, cat.code);
-                      };
-                      input.click();
-                    }}
-                  >
-                    {uploadingCat === cat.code ? "업로드 중..." : (
-                      <>
-                        <Camera className="h-3.5 w-3.5 mr-1" />
-                        {catPhotos.length === 0 ? "촬영/업로드" : "추가"}
-                      </>
-                    )}
-                  </Button>
+                        event.target.value = "";
+                      }}
+                    />
+                  </div>
                 )}
               </CardContent>
             </Card>

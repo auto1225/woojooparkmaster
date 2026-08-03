@@ -22,7 +22,7 @@ import type { SecurityAuditLog, PIIAccessLog, IPWhitelistEntry } from "@/types/s
 import {
   Shield, ShieldCheck, ShieldAlert, Activity, Users, Lock, Unlock, Globe,
   Monitor, Smartphone, Tablet, Eye, Save, Plus, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
-  Package, Network, Server, Database, File,
+  Package, Network, Server, Database, File, FileText,
 } from "lucide-react";
 
 // ─── Security Diagnosis Banner ───
@@ -55,71 +55,73 @@ function timeAgo(dateStr: string) {
 
 // ─── 의존성 보안 정보 (SEC-WEB-5 정적 표시) ───
 const PACKAGE_SECURITY = [
-  { name: 'React', version: '18.x', purpose: 'UI 프레임워크', safe: true },
-  { name: 'Supabase JS', version: '2.x', purpose: '백엔드 연동', safe: true },
-  { name: 'TanStack Query', version: '5.x', purpose: '데이터 캐싱', safe: true },
-  { name: 'Recharts', version: '2.x', purpose: '차트', safe: true },
-  { name: 'DOMPurify', version: '3.x', purpose: 'XSS 방어', safe: true },
-  { name: 'Zod', version: '3.x', purpose: '데이터 검증', safe: true },
-  { name: 'date-fns', version: '3.x', purpose: '날짜 처리', safe: true },
-  { name: 'Framer Motion', version: '11.x', purpose: '애니메이션', safe: true },
+  { name: 'React', version: '18.3.1', purpose: 'UI 프레임워크' },
+  { name: 'React Router', version: '7.18.2', purpose: '화면 이동' },
+  { name: 'Supabase JS', version: '2.99.1', purpose: '백엔드 연동' },
+  { name: 'TanStack Query', version: '5.83.0', purpose: '데이터 캐싱' },
+  { name: 'Recharts', version: '2.15.4', purpose: '차트' },
+  { name: 'DOMPurify', version: '3.3.3', purpose: 'XSS 방어' },
+  { name: 'Zod', version: '3.25.76', purpose: '데이터 검증' },
+  { name: 'date-fns', version: '3.6.0', purpose: '날짜 처리' },
 ];
 
 export default function SecurityManagement() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: secConfigs } = useQuery({
+  const { data: secConfigs, error: secConfigsError } = useQuery({
     queryKey: ['security-configs'],
     queryFn: async () => {
-      const { data } = await supabase.from('system_config').select('*').like('config_key', 'security_%');
+      const { data, error } = await supabase.from('system_config').select('*').like('config_key', 'security_%');
+      if (error) throw error;
       const map: Record<string, string> = {};
       data?.forEach((r: any) => { map[r.config_key] = r.config_value; });
       return map;
     },
   });
 
-  const { data: recentAlerts } = useQuery({
+  const { data: recentAlerts, error: recentAlertsError } = useQuery({
     queryKey: ['security-alerts'],
     queryFn: async () => {
-      const { data } = await (supabase.from('security_audit_logs') as any)
+      const { data, error } = await (supabase.from('security_audit_logs') as any)
         .select('*').in('severity', ['warning', 'critical']).order('created_at', { ascending: false }).limit(10);
+      if (error) throw error;
       return (data || []) as SecurityAuditLog[];
     },
   });
 
-  const { data: todayStats } = useQuery({
+  const { data: todayStats, error: todayStatsError } = useQuery({
     queryKey: ['security-today-stats'],
     queryFn: async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const { count: failedLogins } = await (supabase.from('security_audit_logs') as any)
-        .select('*', { count: 'exact', head: true }).eq('event_type', 'auth_login_failed').gte('created_at', today);
-      const { count: activeSessions } = await (supabase.from('active_sessions') as any)
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const failedResult = await (supabase.from('security_audit_logs') as any)
+        .select('*', { count: 'exact', head: true }).eq('event_type', 'auth_login_failed').gte('created_at', todayStart);
+      const sessionResult = await (supabase.from('active_sessions') as any)
         .select('*', { count: 'exact', head: true }).eq('is_active', true);
-      const { count: pwExpiring } = await supabase.from('profiles')
+      const passwordResult = await supabase.from('profiles')
         .select('*', { count: 'exact', head: true })
         .not('password_expires_at', 'is', null)
         .lt('password_expires_at', new Date(Date.now() + 30 * 86400000).toISOString());
       const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
-      const { count: inactive } = await supabase.from('profiles')
+      const inactiveResult = await supabase.from('profiles')
         .select('*', { count: 'exact', head: true }).lt('last_login_at', thirtyDaysAgo);
-      return { failedLogins: failedLogins || 0, activeSessions: activeSessions || 0, pwExpiring: pwExpiring || 0, inactive: inactive || 0 };
+      const failed = [failedResult, sessionResult, passwordResult, inactiveResult].find((result) => result.error);
+      if (failed?.error) throw failed.error;
+      return { failedLogins: failedResult.count || 0, activeSessions: sessionResult.count || 0, pwExpiring: passwordResult.count || 0, inactive: inactiveResult.count || 0 };
     },
   });
 
   const securityScore = useMemo(() => {
     if (!secConfigs) return 0;
-    let s = 0;
-    if (window.location.protocol === 'https:') s += 15;
-    if (parseInt(secConfigs.security_password_min_length || '0') >= 8) s += 15;
-    if (secConfigs.security_pii_masking_enabled === 'true') s += 10;
-    s += 10; // RLS
-    if (parseInt(secConfigs.security_session_timeout_minutes || '0') > 0) s += 10;
-    if (parseInt(secConfigs.security_max_login_attempts || '0') > 0) s += 10;
-    if ((todayStats?.inactive || 0) === 0) s += 10;
-    s += 10 + 5; // file security + rate limiting
-    if (secConfigs.security_ip_whitelist_enabled === 'true') s += 5;
-    return Math.min(s, 100);
+    const checks = [
+      window.location.protocol === 'https:',
+      true, // The current application validator enforces at least eight characters.
+      secConfigs.security_pii_masking_enabled === 'true',
+      parseInt(secConfigs.security_session_timeout_minutes || '0') > 0,
+      (todayStats?.inactive || 0) === 0,
+    ];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   }, [secConfigs, todayStats]);
 
   const scoreColor = securityScore >= 80 ? 'text-primary' : securityScore >= 60 ? 'text-amber-600' : 'text-destructive';
@@ -132,11 +134,13 @@ export default function SecurityManagement() {
     mutationFn: async () => {
       for (const [key, value] of Object.entries(editedSec)) {
         const oldValue = secConfigs?.[key];
-        await supabase.from('system_config').update({ config_value: value }).eq('config_key', key);
+        const { error } = await supabase.from('system_config').update({ config_value: value }).eq('config_key', key);
+        if (error) throw error;
         await logSecurityAudit('config_change', 'critical', { key, old_value: oldValue, new_value: value });
       }
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['security-configs'] }); setEditedSec({}); toast.success('보안 설정 저장됨'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['security-configs'] }); setEditedSec({}); toast.success('보안 설정을 저장했습니다'); },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   // Audit logs
@@ -193,27 +197,44 @@ export default function SecurityManagement() {
 
   const addIp = useMutation({
     mutationFn: async () => {
-      await (supabase.from('ip_whitelist') as any).insert({ ip_address: newIp.ip, ip_range: newIp.range || null, description: newIp.desc || null, created_by: profile?.id });
+      if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(newIp.ip.trim())) throw new Error('IP 주소 형식을 확인하세요.');
+      const { error } = await (supabase.from('ip_whitelist') as any).insert({ ip_address: newIp.ip.trim(), ip_range: newIp.range || null, description: newIp.desc || null, created_by: profile?.id });
+      if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['ip-whitelist'] }); setShowIpDialog(false); setNewIp({ ip: '', range: '', desc: '' }); toast.success('IP 추가됨'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['ip-whitelist'] }); setShowIpDialog(false); setNewIp({ ip: '', range: '', desc: '' }); toast.success('IP 관리 대장에 추가했습니다'); },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const unlockAccount = useMutation({
     mutationFn: async (userId: string) => {
-      await supabase.from('profiles').update({ locked_until: null, login_fail_count: 0 } as any).eq('id', userId);
+      const { error } = await supabase.from('profiles').update({ locked_until: null, login_fail_count: 0 } as any).eq('id', userId);
+      if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locked-accounts'] }); toast.success('잠금 해제됨'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locked-accounts'] }); toast.success('계정 잠금을 해제했습니다'); },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const terminateSession = useMutation({
     mutationFn: async (sessionId: string) => {
-      await (supabase.from('active_sessions') as any).update({ is_active: false }).eq('id', sessionId);
+      const { error } = await (supabase.from('active_sessions') as any).update({ is_active: false }).eq('id', sessionId);
+      if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['all-sessions'] }); toast.success('세션 종료됨'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['all-sessions'] }); toast.success('세션을 종료했습니다'); },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" asChild>
+          <a href="/settings/security/report"><FileText className="mr-1.5 h-4 w-4" />보안 자체점검 보고서</a>
+        </Button>
+      </div>
+      {(secConfigsError || recentAlertsError || todayStatsError) && (
+        <div role="alert" className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />일부 보안 데이터를 불러오지 못했습니다. 빈 값은 정상 상태로 간주하지 않으며 다시 조회해 주세요.
+        </div>
+      )}
       <Tabs defaultValue="dashboard">
         <TabsList className="flex-wrap">
           <TabsTrigger value="dashboard"><ShieldCheck className="h-3 w-3 mr-1" />보안 현황</TabsTrigger>
@@ -230,7 +251,7 @@ export default function SecurityManagement() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardContent className="pt-6 text-center">
-                <p className="text-xs text-muted-foreground mb-2">종합 보안 점수</p>
+                <p className="text-xs text-muted-foreground mb-2">확인 가능한 설정 점수</p>
                 <div className={`text-5xl font-bold ${scoreColor}`}>{securityScore}</div>
                 <p className="text-xs text-muted-foreground mt-1">/100</p>
                 <Progress value={securityScore} className="mt-3 h-2" />
@@ -285,10 +306,29 @@ export default function SecurityManagement() {
               <CardContent className="space-y-3">
                 {group.keys.map(key => {
                   const isBool = secVal(key) === 'true' || secVal(key) === 'false';
-                  const isReadOnly = key === 'security_data_encryption_enabled';
+                  const serverIntegrationKeys = [
+                    'security_ip_whitelist_enabled',
+                    'security_2fa_enabled',
+                    'security_max_login_attempts',
+                    'security_lockout_minutes',
+                  ];
+                  const applicationFixedKeys = [
+                    'security_password_min_length',
+                    'security_password_require_upper',
+                    'security_password_require_lower',
+                    'security_password_require_number',
+                    'security_password_require_special',
+                  ];
+                  const isPolicyOnly = serverIntegrationKeys.includes(key);
+                  const isApplicationFixed = applicationFixedKeys.includes(key);
+                  const isReadOnly = key === 'security_data_encryption_enabled' || isPolicyOnly || isApplicationFixed;
                   return (
                     <div key={key} className="flex items-center justify-between">
-                      <Label className="text-xs">{SECURITY_CONFIG_LABELS[key] || key}</Label>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs">{SECURITY_CONFIG_LABELS[key] || key}</Label>
+                        {isPolicyOnly && <Badge variant="outline" className="text-[9px] text-amber-700">인증 서버 연계 필요</Badge>}
+                        {isApplicationFixed && <Badge variant="outline" className="text-[9px] text-muted-foreground">현재 앱 고정 정책</Badge>}
+                      </div>
                       {isBool ? (
                         <Switch checked={secVal(key) === 'true'} disabled={isReadOnly}
                           onCheckedChange={v => setEditedSec({ ...editedSec, [key]: v ? 'true' : 'false' })} />
@@ -426,6 +466,9 @@ export default function SecurityManagement() {
 
         {/* Access Management */}
         <TabsContent value="access" className="mt-4 space-y-4">
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            IP 목록은 관리 대장입니다. 실제 접속 차단은 운영 서버 방화벽 또는 리버스 프록시에 같은 정책을 적용해야 합니다. 세션 종료는 앱에 실시간 전달되며 연결 장애 시 최대 30초 안에 반영됩니다.
+          </div>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-sm">IP 화이트리스트</CardTitle>
@@ -459,7 +502,7 @@ export default function SecurityManagement() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-sm">활성 세션</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">활성 앱 세션</CardTitle></CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -478,7 +521,7 @@ export default function SecurityManagement() {
                       <TableCell className="text-[11px]">{timeAgo(s.last_activity)}</TableCell>
                       <TableCell>
                         <Button size="sm" variant="ghost" className="h-6 text-[10px] text-destructive"
-                          onClick={() => terminateSession.mutate(s.id)}>종료</Button>
+                          onClick={() => window.confirm('선택한 앱 세션의 접근을 종료하시겠습니까?') && terminateSession.mutate(s.id)}>앱 접근 종료</Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -524,15 +567,16 @@ export default function SecurityManagement() {
         {/* SEC-WEB-5: 소프트웨어 보안 */}
         <TabsContent value="software" className="mt-4 space-y-4">
           <Card>
-            <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Package className="h-4 w-4" />의존성 패키지 보안 현황</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Package className="h-4 w-4" />주요 의존성 버전</CardTitle></CardHeader>
             <CardContent>
+              <p className="mb-3 text-xs text-muted-foreground">버전 표시는 취약점 검사를 대신하지 않습니다. 배포 전 CI 또는 운영 서버에서 <code>npm audit --omit=dev</code> 결과를 별도로 확인해야 합니다.</p>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">패키지</TableHead>
                     <TableHead className="text-xs">버전</TableHead>
                     <TableHead className="text-xs">용도</TableHead>
-                    <TableHead className="text-xs">보안 상태</TableHead>
+                    <TableHead className="text-xs">검사 상태</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -542,18 +586,15 @@ export default function SecurityManagement() {
                       <TableCell className="text-xs font-mono">{pkg.version}</TableCell>
                       <TableCell className="text-xs">{pkg.purpose}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />안전
+                        <Badge variant="outline" className="text-[10px] text-amber-700">
+                          <AlertTriangle className="h-3 w-3 mr-1" />검사 필요
                         </Badge>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-              <div className="flex items-center justify-between mt-4 pt-3 border-t text-xs text-muted-foreground">
-                <span>마지막 보안 검사: 2026-03-14</span>
-                <span>다음 예정 검사: 2026-04-14</span>
-              </div>
+              <div className="mt-4 border-t pt-3 text-xs text-muted-foreground">화면은 고정된 검사일이나 ‘안전’ 상태를 표시하지 않습니다. 감사 결과는 배포 이력과 CI 산출물로 보존합니다.</div>
             </CardContent>
           </Card>
 
@@ -568,8 +609,9 @@ export default function SecurityManagement() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-sm flex items-center gap-2"><File className="h-4 w-4" />파일 업로드 보안</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm flex items-center gap-2"><File className="h-4 w-4" />파일 업로드 검증 기준</CardTitle></CardHeader>
             <CardContent className="text-xs space-y-2">
+              <p className="text-muted-foreground">아래 항목은 업로드 경로에 적용해야 하는 기준입니다. 버킷 정책과 서버 검증은 배포 전 통합시험으로 확인합니다.</p>
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { label: '확장자 검증', desc: '허용된 확장자만 업로드 가능' },
@@ -595,11 +637,12 @@ export default function SecurityManagement() {
         {/* SEC-WEB-7: 네트워크 보안 */}
         <TabsContent value="network" className="mt-4 space-y-4">
           <Card>
-            <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Network className="h-4 w-4" />네트워크 보안 아키텍처</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Network className="h-4 w-4" />온프레미스 권장 네트워크 구성</CardTitle></CardHeader>
             <CardContent>
+              <p className="mb-3 text-xs text-amber-700">권장 배포 구성도이며 현재 접속 환경의 방화벽·포트·망 분리를 자동 검증한 결과가 아닙니다. 실제 값은 운영 서버 점검표로 확인합니다.</p>
               <div className="bg-muted/30 rounded-lg p-4 font-mono text-[11px] leading-relaxed overflow-x-auto">
                 <div className="space-y-1">
-                  <p className="text-center text-muted-foreground mb-3">── ParkMaster™ 보안 네트워크 구성 ──</p>
+                  <p className="text-center text-muted-foreground mb-3">── ParkMaster 권장 보안 네트워크 구성 ──</p>
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Globe className="h-4 w-4 text-muted-foreground" />
                     <span className="text-muted-foreground">인터넷/내부망</span>
@@ -652,7 +695,7 @@ export default function SecurityManagement() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
-              <CardHeader><CardTitle className="text-sm">보안 헤더 (8종)</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm">권장 보안 헤더</CardTitle></CardHeader>
               <CardContent className="space-y-1.5">
                 {[
                   { header: 'X-XSS-Protection', value: '1; mode=block' },
@@ -674,7 +717,7 @@ export default function SecurityManagement() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-sm">Rate Limiting</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm">권장 요청 제한 기준</CardTitle></CardHeader>
               <CardContent className="space-y-2">
                 {[
                   { zone: 'API 요청', rate: '30 req/s', burst: 50 },
@@ -696,7 +739,7 @@ export default function SecurityManagement() {
           </div>
 
           <Card>
-            <CardHeader><CardTitle className="text-sm">Docker 네트워크 격리</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">권장 Docker 네트워크 격리</CardTitle></CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>

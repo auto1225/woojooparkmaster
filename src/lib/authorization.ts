@@ -21,6 +21,20 @@ const MODULE_PREFIXES: Array<[string, string]> = [
   ["/reports", "REPORT"],
 ];
 
+const MASTER_MODULES: Record<string, string> = {
+  surveys: "SURVEY",
+  ops: "OPS",
+  facility: "FACILITY",
+  revenue: "REVENUE",
+  budget: "BUDGET",
+  procurement: "PROCUREMENT",
+  service: "SERVICE",
+  complaints: "COMPLAINT",
+  planning: "PLANNING",
+  realtime: "REALTIME",
+  reports: "REPORT",
+};
+
 const ROLE_RANK: Record<UserRole, number> = {
   viewer: 0,
   editor: 1,
@@ -29,6 +43,9 @@ const ROLE_RANK: Record<UserRole, number> = {
 };
 
 export function getModuleForPath(pathname: string): string | null {
+  if (pathname.startsWith("/master/")) {
+    return MASTER_MODULES[pathname.split("/")[2]?.toLowerCase()] || null;
+  }
   return MODULE_PREFIXES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`))?.[1] ?? null;
 }
 

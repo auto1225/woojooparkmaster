@@ -26,6 +26,7 @@ import {
 } from "@/types/planning";
 import { LOT_TYPE_LABELS } from "@/types/database";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
+import { createSiteCandidate } from "@/lib/workflow-commands";
 
 export default function PlanningSites() {
   const { profile } = useAuth();
@@ -60,55 +61,16 @@ export default function PlanningSites() {
   const updateForm = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
 
   const handleSave = async () => {
-    if (!form.name) { toast({ title: "부지명을 입력해주세요", variant: "destructive" }); return; }
-    const year = new Date().getFullYear();
-    const count = (sites || []).length + 1;
-    const siteNumber = `SC-${year}-${String(count).padStart(3, '0')}`;
-
-    const { error } = await supabase.from("site_candidates").insert([{
-      site_number: siteNumber,
-      name: form.name,
-      address_jibun: form.address_jibun || null,
-      address_road: form.address_road || null,
-      latitude: form.latitude ? Number(form.latitude) : null,
-      longitude: form.longitude ? Number(form.longitude) : null,
-      administrative_dong: form.administrative_dong || null,
-      area_sqm: form.area_sqm ? Number(form.area_sqm) : null,
-      shape: form.shape || null,
-      frontage_m: form.frontage_m ? Number(form.frontage_m) : null,
-      depth_m: form.depth_m ? Number(form.depth_m) : null,
-      slope_pct: form.slope_pct ? Number(form.slope_pct) : null,
-      ground_condition: form.ground_condition || null,
-      zoning: form.zoning || null,
-      land_use: form.land_use || null,
-      land_category: form.land_category || null,
-      ownership: form.ownership || null,
-      owner_name: form.owner_name || null,
-      acquisition_method: form.acquisition_method || null,
-      estimated_land_cost: form.estimated_land_cost ? Number(form.estimated_land_cost) : null,
-      planned_lot_type: form.planned_lot_type || null,
-      estimated_spaces: form.estimated_spaces ? Number(form.estimated_spaces) : null,
-      estimated_floors: form.estimated_floors ? Number(form.estimated_floors) : 1,
-      building_coverage_ratio: form.building_coverage_ratio ? Number(form.building_coverage_ratio) : null,
-      floor_area_ratio: form.floor_area_ratio ? Number(form.floor_area_ratio) : null,
-      height_limit_m: form.height_limit_m ? Number(form.height_limit_m) : null,
-      setback_m: form.setback_m ? Number(form.setback_m) : null,
-      nearest_road: form.nearest_road || null,
-      road_width_m: form.road_width_m ? Number(form.road_width_m) : null,
-      traffic_volume: form.traffic_volume || null,
-      public_transport_access: form.public_transport_access || null,
-      pedestrian_access: form.pedestrian_access || null,
-      nearby_facilities: form.nearby_facilities || null,
-      surrounding_population: form.surrounding_population ? Number(form.surrounding_population) : null,
-      surrounding_commercial_area: form.surrounding_commercial_area ? Number(form.surrounding_commercial_area) : null,
-      legal_restrictions: form.legal_restrictions || null,
-      environmental_review: form.environmental_review || false,
-      traffic_impact_review: form.traffic_impact_review || false,
-      cultural_heritage_review: form.cultural_heritage_review || false,
-      created_by: profile?.id,
-      author_name: form.author_name || null,
-    }] as any);
-    if (error) { toast({ title: "등록 실패", description: error.message, variant: "destructive" }); return; }
+    if (!form.name?.trim() || !form.planned_lot_type) {
+      toast({ title: "후보지명과 계획 주차장 형태를 입력해 주세요", variant: "destructive" });
+      return;
+    }
+    try {
+      await createSiteCandidate({ ...form, name: form.name.trim() }, crypto.randomUUID());
+    } catch (error) {
+      toast({ title: "등록 실패", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+      return;
+    }
     toast({ title: "후보부지 등록 완료" });
     logActivity({ module: "PLANNING", action: "site_created", targetType: "site_candidate", targetName: form.name });
     setShowNew(false);

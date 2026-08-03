@@ -8,7 +8,7 @@ import { Check, X, Pencil } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { PHOTO_CATEGORIES } from "@/types/survey";
+import { getSurveyPhotoCategories } from "@/types/survey";
 
 interface Props {
   data: {
@@ -19,6 +19,7 @@ interface Props {
     usage: any;
     sensor: any;
     photos: any[];
+    documentLinks: any[];
   };
   onGoToStep: (step: number) => void;
   onSubmit: () => void;
@@ -45,25 +46,43 @@ function SummaryRow({ label, value }: { label: string; value?: string | number |
 }
 
 export function StepReview({ data, onGoToStep, onSubmit, isReadOnly }: Props) {
-  const { basic, operation, infra, usage, sensor, photos, survey } = data;
+  const { basic, operation, infra, usage, sensor, photos, documentLinks, survey } = data;
   const [notes, setNotes] = useState(survey?.notes || "");
   const [savingNotes, setSavingNotes] = useState(false);
 
+  const typeSpecificComplete = basic?.lot_type === "multilevel"
+    ? (basic?.lot_type_floor ?? 0) > 0 && !!basic?.fire_safety_condition && !!basic?.ventilation_condition && !!basic?.ramp_condition
+    : basic?.lot_type === "onstreet"
+      ? !!basic?.road_segment && !!basic?.road_side && !!basic?.sign_condition
+      : basic?.lot_type === "offstreet"
+        ? !!basic?.drainage_condition && !!basic?.pedestrian_route_condition
+        : true;
+  const typePhotoComplete = basic?.lot_type === "multilevel"
+    ? photos.some((photo: any) => photo.category === "ramp")
+    : basic?.lot_type === "onstreet"
+      ? photos.some((photo: any) => ["street_segment", "road_sign"].includes(photo.category))
+      : basic?.lot_type === "offstreet"
+        ? photos.some((photo: any) => ["drainage", "pedestrian_route"].includes(photo.category))
+        : true;
   const checks = [
-    { label: "기본현황 입력 완료", ok: (basic?.total_spaces ?? 0) > 0 },
+    { label: "기본현황과 GPS 입력 완료", ok: (basic?.total_spaces ?? 0) > 0 && basic?.gps_lat != null && basic?.gps_lng != null },
+    { label: "주차장 유형별 현장 항목 입력 완료", ok: typeSpecificComplete },
     { label: "운영현황 입력 완료", ok: !!operation?.operating_hours },
     { label: "인프라현황 입력 완료", ok: !!infra?.power_status },
     { label: "이용현황 입력 완료", ok: !!usage?.avg_usage_rate },
     { label: "센서설치예상 입력 완료", ok: (sensor?.planned_sensors ?? -1) >= 0 },
-    { label: "사진 1장 이상 업로드", ok: photos.length > 0 },
+    { label: "전경 사진 업로드", ok: photos.some((photo: any) => photo.category === "panorama") },
+    { label: "주차장 유형별 현장 사진 업로드", ok: typePhotoComplete },
+    { label: "공식 문서번호 연결", ok: documentLinks.length > 0 },
   ];
 
   const allComplete = checks.every(c => c.ok);
 
   const saveNotes = async () => {
     setSavingNotes(true);
-    await supabase.from("surveys").update({ notes } as any).eq("id", survey.id);
-    toast({ title: "특이사항 저장됨" });
+    const { error } = await supabase.from("surveys").update({ notes } as any).eq("id", survey.id);
+    if (error) toast({ title: "특이사항 저장 실패", description: error.message, variant: "destructive" });
+    else toast({ title: "특이사항 저장됨" });
     setSavingNotes(false);
   };
 
@@ -143,7 +162,7 @@ export function StepReview({ data, onGoToStep, onSubmit, isReadOnly }: Props) {
         <CardContent>
           <p className="text-xs text-muted-foreground mb-2">총 {photos.length}장</p>
           <div className="flex flex-wrap gap-1">
-            {PHOTO_CATEGORIES.map(c => {
+            {getSurveyPhotoCategories(basic?.lot_type).map(c => {
               const count = photos.filter((p: any) => p.category === c.code).length;
               return <Badge key={c.code} variant={count > 0 ? "default" : "outline"} className="text-[10px]">{c.label} {count}</Badge>;
             })}

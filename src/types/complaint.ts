@@ -72,6 +72,7 @@ export const CHANNEL_LABELS: Record<string, string> = {
 
 export const CATEGORY_LABELS: Record<string, string> = {
   fee: "요금", facility: "시설", operation: "운영", enforcement_appeal: "단속이의",
+  enforcement: "단속이의",
   noise: "소음", safety: "안전", cleanliness: "청결", guidance: "안내/문의",
   suggestion: "건의", other: "기타",
 };
@@ -136,7 +137,7 @@ export function isComplaintOverdue(complaint: Pick<Complaint, "due_date" | "stat
 }
 
 export function getTeamRecommendation(category: string): string | null {
-  if (["fee", "operation", "enforcement_appeal"].includes(category)) return "operations";
+  if (["fee", "operation", "enforcement", "enforcement_appeal"].includes(category)) return "operations";
   if (["facility", "safety", "cleanliness"].includes(category)) return "facilities";
   return null;
 }

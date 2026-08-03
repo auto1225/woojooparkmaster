@@ -21,23 +21,43 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import { AuthorField } from "@/components/common/AuthorField";
 import { useAuth } from "@/hooks/useAuth";
 
+const optionalCoordinate = (min: number, max: number, message: string) => z.preprocess(
+  (value) => value === "" || value === null ? undefined : value,
+  z.coerce.number().min(min, message).max(max, message).optional(),
+);
+
 const schema = z.object({
-  name: z.string().min(1, "주차장명을 입력하세요"),
-  code: z.string().min(1, "코드를 입력하세요"),
+  name: z.string().trim().min(1, "주차장명을 입력하세요"),
+  code: z.string().trim().min(1, "코드를 입력하세요"),
   address_jibun: z.string().optional(),
   address_road: z.string().optional(),
-  latitude: z.coerce.number().optional(),
-  longitude: z.coerce.number().optional(),
+  admin_dong: z.string().optional(),
+  area_sqm: z.coerce.number().min(0, "면적은 0 이상이어야 합니다").default(0),
+  latitude: optionalCoordinate(-90, 90, "위도는 -90에서 90 사이여야 합니다"),
+  longitude: optionalCoordinate(-180, 180, "경도는 -180에서 180 사이여야 합니다"),
   lot_type: z.enum(["offstreet", "onstreet", "multilevel", "vacant_lot", "underground"]),
   floors: z.coerce.number().min(1).default(1),
   operator_type: z.enum(["direct", "outsourced", "other"]),
   operator_name: z.string().optional(),
   surface_type: z.enum(["ascon", "block", "concrete", "other"]).optional(),
   total_spaces: z.coerce.number().min(0, "주차면수를 입력하세요"),
+  disabled_spaces: z.coerce.number().min(0).default(0),
+  ev_spaces: z.coerce.number().min(0).default(0),
+  compact_spaces: z.coerce.number().min(0).default(0),
+  pregnant_spaces: z.coerce.number().min(0).default(0),
+  other_spaces: z.coerce.number().min(0).default(0),
   power_status: z.enum(["supplied", "available", "unavailable"]).optional(),
   network_type: z.string().optional(),
   status: z.enum(["active", "inactive", "construction", "closed"]).default("active"),
   notes: z.string().optional(),
+}).superRefine((data, ctx) => {
+  const allocated = data.disabled_spaces + data.ev_spaces + data.compact_spaces + data.pregnant_spaces + data.other_spaces;
+  if (allocated > data.total_spaces) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["total_spaces"], message: "구분 주차면 합계가 총 주차면수를 초과합니다" });
+  }
+  if (data.lot_type === "multilevel" && data.floors < 2) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["floors"], message: "주차빌딩은 2층 이상으로 입력하세요" });
+  }
 });
 
 type FormData = z.infer<typeof schema>;
@@ -76,7 +96,7 @@ export default function LotEditPage() {
     enabled: !!id,
   });
 
-  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
@@ -87,6 +107,8 @@ export default function LotEditPage() {
       code: lot.code,
       address_jibun: lot.address_jibun ?? "",
       address_road: lot.address_road ?? "",
+      admin_dong: lot.admin_dong ?? "",
+      area_sqm: lot.area_sqm ?? 0,
       latitude: lot.latitude ?? undefined,
       longitude: lot.longitude ?? undefined,
       lot_type: lot.lot_type as any,
@@ -95,6 +117,11 @@ export default function LotEditPage() {
       operator_name: lot.operator_name ?? "",
       surface_type: lot.surface_type as any ?? undefined,
       total_spaces: lot.total_spaces ?? 0,
+      disabled_spaces: lot.disabled_spaces ?? 0,
+      ev_spaces: lot.ev_spaces ?? 0,
+      compact_spaces: lot.compact_spaces ?? 0,
+      pregnant_spaces: lot.pregnant_spaces ?? 0,
+      other_spaces: lot.other_spaces ?? 0,
       power_status: lot.power_status as any ?? undefined,
       network_type: lot.network_type ?? "",
       status: lot.status as any,
@@ -181,8 +208,20 @@ export default function LotEditPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">코드 *</Label>
-                <Input {...register("code")} />
+                <Input {...register("code")} readOnly className="bg-muted/40" />
+                <p className="text-[10px] text-muted-foreground">코드는 문서·시설·민원 연계 기준값이므로 등록 후 변경할 수 없습니다.</p>
                 {errors.code && <p className="text-[10px] text-destructive">{errors.code.message}</p>}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">행정동</Label>
+                <Input {...register("admin_dong")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">부지·시설 면적(㎡)</Label>
+                <Input {...register("area_sqm")} type="number" min={0} step="0.01" />
+                {errors.area_sqm && <p className="text-[10px] text-destructive">{errors.area_sqm.message}</p>}
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -199,10 +238,12 @@ export default function LotEditPage() {
               <div className="space-y-1.5">
                 <Label className="text-xs">위도</Label>
                 <Input {...register("latitude")} type="number" step="any" />
+                {errors.latitude && <p className="text-[10px] text-destructive">{errors.latitude.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">경도</Label>
                 <Input {...register("longitude")} type="number" step="any" />
+                {errors.longitude && <p className="text-[10px] text-destructive">{errors.longitude.message}</p>}
               </div>
             </div>
           </CardContent>
@@ -213,7 +254,7 @@ export default function LotEditPage() {
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-xs">주차장 유형 *</Label>
-              <RadioGroup value={lotType} onValueChange={(v) => reset((prev) => ({ ...prev, lot_type: v as any }))} className="flex flex-wrap gap-3">
+              <RadioGroup value={lotType} onValueChange={(value) => setValue("lot_type", value as FormData["lot_type"], { shouldDirty: true, shouldValidate: true })} className="flex flex-wrap gap-3">
                 {Object.entries(LOT_TYPE_LABELS).map(([k, v]) => (
                   <div key={k} className="flex items-center space-x-1.5">
                     <RadioGroupItem value={k} id={`lot-${k}`} />
@@ -225,12 +266,16 @@ export default function LotEditPage() {
             {lotType === "multilevel" && (
               <div className="space-y-1.5">
                 <Label className="text-xs">층수</Label>
-                <Input {...register("floors")} type="number" className="w-24" />
+                <Input {...register("floors")} type="number" min={2} className="w-24" />
+                {errors.floors && <p className="text-[10px] text-destructive">{errors.floors.message}</p>}
               </div>
+            )}
+            {lotType === "onstreet" && (
+              <p className="text-xs text-muted-foreground">노상주차장은 도로명 주소와 구간을 비고에 함께 기록하면 현장 민원 위치를 더 빨리 찾을 수 있습니다.</p>
             )}
             <div className="space-y-1.5">
               <Label className="text-xs">운영주체 *</Label>
-              <RadioGroup value={operatorType} onValueChange={(v) => reset((prev) => ({ ...prev, operator_type: v as any }))} className="flex flex-wrap gap-3">
+              <RadioGroup value={operatorType} onValueChange={(value) => setValue("operator_type", value as FormData["operator_type"], { shouldDirty: true, shouldValidate: true })} className="flex flex-wrap gap-3">
                 {Object.entries(OPERATOR_LABELS).map(([k, v]) => (
                   <div key={k} className="flex items-center space-x-1.5">
                     <RadioGroupItem value={k} id={`op-${k}`} />
@@ -247,7 +292,7 @@ export default function LotEditPage() {
             )}
             <div className="space-y-1.5">
               <Label className="text-xs">바닥 포장재</Label>
-              <RadioGroup value={watch("surface_type") ?? ""} onValueChange={(v) => reset((prev) => ({ ...prev, surface_type: v as any }))} className="flex flex-wrap gap-3">
+              <RadioGroup value={watch("surface_type") ?? ""} onValueChange={(value) => setValue("surface_type", value as FormData["surface_type"], { shouldDirty: true })} className="flex flex-wrap gap-3">
                 {Object.entries(SURFACE_LABELS).map(([k, v]) => (
                   <div key={k} className="flex items-center space-x-1.5">
                     <RadioGroupItem value={k} id={`sf-${k}`} />
@@ -260,6 +305,17 @@ export default function LotEditPage() {
               <Label className="text-xs">총 주차면수 *</Label>
               <Input {...register("total_spaces")} type="number" className="w-32" />
               {errors.total_spaces && <p className="text-[10px] text-destructive">{errors.total_spaces.message}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              {[
+                ["disabled_spaces", "장애인"], ["ev_spaces", "전기차"], ["compact_spaces", "경차"],
+                ["pregnant_spaces", "임산부"], ["other_spaces", "기타 전용"],
+              ].map(([name, label]) => (
+                <div key={name} className="space-y-1.5">
+                  <Label className="text-xs">{label}</Label>
+                  <Input {...register(name as keyof FormData)} type="number" min={0} />
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -287,7 +343,7 @@ export default function LotEditPage() {
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-xs">전기 공급</Label>
-              <RadioGroup value={watch("power_status") ?? ""} onValueChange={(v) => reset((prev) => ({ ...prev, power_status: v as any }))} className="flex flex-wrap gap-3">
+              <RadioGroup value={watch("power_status") ?? ""} onValueChange={(value) => setValue("power_status", value as FormData["power_status"], { shouldDirty: true })} className="flex flex-wrap gap-3">
                 {Object.entries(POWER_LABELS).map(([k, v]) => (
                   <div key={k} className="flex items-center space-x-1.5">
                     <RadioGroupItem value={k} id={`pw-${k}`} />
@@ -302,7 +358,7 @@ export default function LotEditPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">상태</Label>
-              <RadioGroup value={watch("status")} onValueChange={(v) => reset((prev) => ({ ...prev, status: v as any }))} className="flex flex-wrap gap-3">
+              <RadioGroup value={watch("status")} onValueChange={(value) => setValue("status", value as FormData["status"], { shouldDirty: true, shouldValidate: true })} className="flex flex-wrap gap-3">
                 {Object.entries(LOT_STATUS_LABELS).map(([k, v]) => (
                   <div key={k} className="flex items-center space-x-1.5">
                     <RadioGroupItem value={k} id={`st-${k}`} />
@@ -328,11 +384,11 @@ export default function LotEditPage() {
           </CardContent>
         </Card>
 
-        <div className="flex gap-3">
-          <Button type="submit" disabled={saving}>
+        <div className="sticky bottom-0 z-10 flex gap-3 border-t bg-background/95 p-3 backdrop-blur">
+          <Button type="submit" className="min-h-11 flex-1 sm:flex-none" disabled={saving}>
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />} 저장
           </Button>
-          <Button type="button" variant="outline" onClick={() => navigate(`/lots/${id}`)}>취소</Button>
+          <Button type="button" variant="outline" className="min-h-11 flex-1 sm:flex-none" onClick={() => navigate(`/lots/${id}`)}>취소</Button>
         </div>
       </form>
     </DashboardLayout>

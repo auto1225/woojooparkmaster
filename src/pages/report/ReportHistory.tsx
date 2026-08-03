@@ -12,6 +12,7 @@ import {
   FileText,
   HardDrive,
   Loader2,
+  Link2,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -28,6 +29,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { stableMultiSort, type NullPlacement, type SortDirection } from "@/lib/list-sorting";
@@ -99,6 +102,7 @@ export default function ReportHistory() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [secondarySortKey, setSecondarySortKey] = useState<SortKey | "none">("report_number");
   const [nullPlacement, setNullPlacement] = useState<NullPlacement>("last");
+  const [documentReport, setDocumentReport] = useState<any | null>(null);
 
   const { data: reports, isLoading, isError, refetch } = useQuery({
     queryKey: ["report-history"],
@@ -145,18 +149,22 @@ export default function ReportHistory() {
 
   const deleteMutation = useMutation({
     mutationFn: async (report: any) => {
+      if (profile?.role !== "admin") throw new Error("보고서 영구 삭제는 관리자만 수행할 수 있습니다.");
+      if (report.status !== "archived") throw new Error("보고서를 먼저 보관 처리한 뒤 삭제해 주세요.");
       const paths = [report.file_path, report.excel_path].filter(Boolean) as string[];
-      if (paths.length) {
-        const { error: storageError } = await supabase.storage.from("reports").remove(paths);
-        if (storageError) throw storageError;
-      }
       const { error } = await supabase.from("report_generated").delete().eq("id", report.id);
       if (error) throw error;
+      if (paths.length) {
+        const { error: storageError } = await supabase.storage.from("reports").remove(paths);
+        if (storageError) return { storageWarning: storageError.message };
+      }
+      return { storageWarning: null };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["report-history"] });
       queryClient.invalidateQueries({ queryKey: ["recent-reports"] });
-      toast.success("보고서를 삭제했습니다");
+      if (result.storageWarning) toast.warning("보고서 이력은 삭제했지만 저장 파일 정리가 필요합니다.", { description: result.storageWarning });
+      else toast.success("보관 보고서와 저장 파일을 삭제했습니다");
     },
     onError: (error: Error) => toast.error(error.message || "삭제에 실패했습니다"),
   });
@@ -195,7 +203,7 @@ export default function ReportHistory() {
 
   const handleArchive = async (report: any) => {
     const nextStatus = report.status === "archived" ? "completed" : "archived";
-    const { error } = await supabase.from("report_generated").update({ status: nextStatus }).eq("id", report.id);
+    const { error } = await supabase.from("report_generated").update({ status: nextStatus, archive_reason: nextStatus === "archived" ? "사용자 보관 처리" : null }).eq("id", report.id);
     if (error) return toast.error(nextStatus === "archived" ? "보관 처리에 실패했습니다" : "복원에 실패했습니다");
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["report-history"] }),
@@ -316,7 +324,39 @@ export default function ReportHistory() {
           </div>
         </div>
 
-        <Card className="overflow-hidden">
+        <div className="space-y-3 md:hidden">
+          {isLoading ? <div className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></div>
+            : isError ? <div className="rounded-md border p-4 text-center"><p className="mb-2 text-sm text-destructive">보고서 이력을 불러오지 못했습니다.</p><Button variant="outline" size="sm" onClick={() => refetch()}>다시 시도</Button></div>
+            : !filteredReports.length ? <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">조건에 맞는 보고서가 없습니다.</div>
+            : filteredReports.map((report: any) => {
+              const status = REPORT_STATUS_LABELS[report.status] || { label: report.status, color: "bg-muted" };
+              return (
+                <Card key={report.id}>
+                  <CardContent className="space-y-3 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0"><p className="break-words text-sm font-semibold">{report.title}</p><p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">{report.report_number}</p></div>
+                      <Badge className={`shrink-0 text-[10px] ${status.color}`}>{status.label}</Badge>
+                    </div>
+                    <dl className="grid grid-cols-[76px_1fr] gap-x-2 gap-y-1 text-xs">
+                      <dt className="text-muted-foreground">공문번호</dt><dd className="break-all">{report.parameters_used?.official_document_number || "미연계"}</dd>
+                      <dt className="text-muted-foreground">분류</dt><dd>{REPORT_CATEGORY_LABELS[report.template?.report_category] || report.template?.report_category || "-"} · {REPORT_TYPE_LABELS[report.template?.report_type] || report.template?.report_type || "-"}</dd>
+                      <dt className="text-muted-foreground">보고기간</dt><dd>{report.period_start ? `${report.period_start} ~ ${report.period_end || "-"}` : "-"}</dd>
+                      <dt className="text-muted-foreground">파일</dt><dd>{(report.file_format || "pdf").toUpperCase()} · {formatSize(report.file_size)} · {report.page_count ? `${report.page_count}쪽` : "쪽수 미확인"}</dd>
+                    </dl>
+                    <div className="flex flex-wrap justify-end gap-1 border-t pt-2">
+                      {report.status === "completed" && <Button variant="outline" size="icon" className="h-9 w-9" title="PDF 열기" onClick={() => handleDownload(report.file_path)}><Download className="h-4 w-4" /></Button>}
+                      {report.status === "completed" && report.excel_path && <Button variant="outline" size="icon" className="h-9 w-9" title="엑셀 열기" onClick={() => handleDownload(report.excel_path)}><FileSpreadsheet className="h-4 w-4" /></Button>}
+                      {report.template && <Button variant="outline" size="icon" className="h-9 w-9" title="조건 복사 작성" onClick={() => navigate(`/reports/generate?template=${encodeURIComponent(report.template.template_code)}&source=${report.id}`)}><Copy className="h-4 w-4" /></Button>}
+                      <Button variant="outline" size="icon" className="h-9 w-9" title="공식 문서 연결" onClick={() => setDocumentReport(report)}><Link2 className="h-4 w-4" /></Button>
+                      {(report.status === "completed" || report.status === "archived") && <Button variant="outline" size="icon" className="h-9 w-9" title={report.status === "archived" ? "복원" : "보관"} onClick={() => handleArchive(report)}><ArchiveRestore className="h-4 w-4" /></Button>}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+        </div>
+
+        <Card className="hidden overflow-hidden md:block">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table className="min-w-[1180px]">
@@ -343,9 +383,10 @@ export default function ReportHistory() {
                             {report.status === "completed" && <Button variant="ghost" size="icon" className="h-8 w-8" title="PDF 열기" onClick={() => handleDownload(report.file_path)}><Download className="h-3.5 w-3.5" /></Button>}
                             {report.status === "completed" && report.excel_path && <Button variant="ghost" size="icon" className="h-8 w-8" title="엑셀 열기" onClick={() => handleDownload(report.excel_path)}><FileSpreadsheet className="h-3.5 w-3.5" /></Button>}
                             {report.template && <Button variant="ghost" size="icon" className="h-8 w-8" title="조건 복사 작성" onClick={() => navigate(`/reports/generate?template=${encodeURIComponent(report.template.template_code)}&source=${report.id}`)}><Copy className="h-3.5 w-3.5" /></Button>}
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="공식 문서 연결" onClick={() => setDocumentReport(report)}><Link2 className="h-3.5 w-3.5" /></Button>
                             {report.status === "failed" && <Button variant="ghost" size="icon" className="h-8 w-8" title="같은 보고서 재생성" disabled={retryMutation.isPending} onClick={() => retryMutation.mutate(report)}><RefreshCw className={`h-3.5 w-3.5 ${retryMutation.isPending && retryMutation.variables?.id === report.id ? "animate-spin" : ""}`} /></Button>}
                             {(report.status === "completed" || report.status === "archived") && <Button variant="ghost" size="icon" className="h-8 w-8" title={report.status === "archived" ? "복원" : "보관"} onClick={() => handleArchive(report)}><ArchiveRestore className="h-3.5 w-3.5" /></Button>}
-                            <AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="삭제"><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>보고서 삭제</AlertDialogTitle><AlertDialogDescription>“{report.title}” 보고서와 저장 파일을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>취소</AlertDialogCancel><AlertDialogAction onClick={() => deleteMutation.mutate(report)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">삭제</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+                            {profile?.role === "admin" && report.status === "archived" && <AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="영구 삭제"><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>보관 보고서 영구 삭제</AlertDialogTitle><AlertDialogDescription>“{report.title}” 보고서 이력과 저장 파일을 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>취소</AlertDialogCancel><AlertDialogAction onClick={() => deleteMutation.mutate(report)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">영구 삭제</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}
                           </div>
                         </TableCell>
                       </TableRow>;
@@ -355,6 +396,20 @@ export default function ReportHistory() {
             </div>
           </CardContent>
         </Card>
+        <Dialog open={Boolean(documentReport)} onOpenChange={(open) => { if (!open) setDocumentReport(null); }}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader><DialogTitle>보고서 공식 문서 연결</DialogTitle></DialogHeader>
+            {documentReport && (
+              <DocumentLinksPanel
+                module="REPORT"
+                recordId={documentReport.id}
+                recordPath={`/reports/history?report=${documentReport.id}`}
+                recordTitle={`${documentReport.report_number} ${documentReport.title}`}
+                initialDocumentNumber={documentReport.parameters_used?.official_document_number || ""}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

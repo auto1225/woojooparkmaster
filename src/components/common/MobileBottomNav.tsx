@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Car, ClipboardCheck, Bell, Menu, Wrench, Banknote, Megaphone, Radio, FileBarChart, Gavel, Briefcase, Users } from "lucide-react";
+import { LayoutDashboard, Car, ClipboardCheck, Bell, Menu, Wrench, Banknote, Megaphone, Radio, FileBarChart, FileText, Gavel, Briefcase, Users, ListTodo } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
 import { isModuleEnabled } from "@/lib/authorization";
@@ -14,6 +14,8 @@ const NAV_ITEMS = [
 ];
 
 const MORE_ITEMS = [
+  { label: "팀 업무", path: "/team-work", icon: ListTodo, module: "CORE" },
+  { label: "문서대장", path: "/documents", icon: FileText, module: "CORE" },
   { label: "운영관리", path: "/ops", icon: Users, module: "OPS" },
   { label: "시설관리", path: "/facility", icon: Wrench, module: "FACILITY" },
   { label: "수입관리", path: "/revenue", icon: Banknote, module: "REVENUE" },

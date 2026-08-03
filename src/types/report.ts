@@ -11,6 +11,7 @@ export interface ReportTemplate {
   parameters?: any[];
   sections?: any[];
   is_system: boolean;
+  is_active?: boolean;
   is_favorite: boolean;
   sort_order: number;
   created_by?: string;

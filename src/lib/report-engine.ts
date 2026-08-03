@@ -6,6 +6,7 @@ import { LOT_STATUS_LABELS, LOT_TYPE_LABELS, OPERATOR_LABELS } from "@/types/dat
 import { CATEGORY_LABELS as COMPLAINT_CATEGORY_LABELS, COMPLAINT_STATUS_LABELS, PRIORITY_LABELS as COMPLAINT_PRIORITY_LABELS } from "@/types/complaint";
 import { MAINT_STATUS_LABELS, MAINT_TYPE_LABELS, PRIORITY_LABELS as MAINT_PRIORITY_LABELS } from "@/types/facility";
 import { OPEN_COMPLAINT_STATUS_SET, OPEN_MAINTENANCE_STATUS_SET } from "@/lib/work-status";
+import { findOfficialDocumentByNumber, linkOfficialDocument } from "@/lib/official-document-registry";
 
 type ReportParameters = Record<string, string>;
 
@@ -15,6 +16,9 @@ interface ReportDataset {
   complaints: any[];
   equipment: any[];
   maintenance: any[];
+  budgetExecutions: any[];
+  surveys: any[];
+  sensors: any[];
   summary: Record<string, number>;
 }
 
@@ -44,6 +48,20 @@ export interface GeneratedReportResult {
   reportNumber: string;
   filePath: string;
   excelPath?: string;
+  documentLinked: boolean;
+  documentNumber?: string;
+}
+
+function localDateString(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function endOfMonth(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
 }
 
 export interface GenerateReportSamplesInput {
@@ -99,7 +117,7 @@ function localizedMaintenance(rows: any[]) {
   }));
 }
 
-function getPeriod(parameters: ReportParameters): { start: string; end: string } {
+export function getReportPeriod(parameters: ReportParameters): { start: string; end: string } {
   if (parameters.period_start) {
     return { start: parameters.period_start, end: parameters.period_end || parameters.period_start };
   }
@@ -107,27 +125,26 @@ function getPeriod(parameters: ReportParameters): { start: string; end: string }
   if (parameters.week_start) {
     const end = new Date(`${parameters.week_start}T00:00:00`);
     end.setDate(end.getDate() + 6);
-    return { start: parameters.week_start, end: end.toISOString().slice(0, 10) };
+    return { start: parameters.week_start, end: localDateString(end) };
   }
   if (parameters.month) {
     const [year, month] = parameters.month.split("-").map(Number);
-    const end = new Date(year, month, 0);
-    return { start: `${parameters.month}-01`, end: end.toISOString().slice(0, 10) };
+    return { start: `${parameters.month}-01`, end: endOfMonth(year, month) };
   }
   if (parameters.quarter_year && parameters.quarter_q) {
     const year = Number(parameters.quarter_year);
     const quarter = Number(parameters.quarter_q);
     const startMonth = (quarter - 1) * 3;
-    const end = new Date(year, startMonth + 3, 0);
+    const endMonth = startMonth + 3;
     return {
       start: `${year}-${String(startMonth + 1).padStart(2, "0")}-01`,
-      end: end.toISOString().slice(0, 10),
+      end: endOfMonth(year, endMonth),
     };
   }
   if (parameters.year) return { start: `${parameters.year}-01-01`, end: `${parameters.year}-12-31` };
 
   const today = new Date();
-  const date = today.toISOString().slice(0, 10);
+  const date = localDateString(today);
   return { start: date, end: date };
 }
 
@@ -135,7 +152,7 @@ function defaultParameters(reportType: string, at = new Date()): ReportParameter
   if (reportType === "daily") {
     const day = new Date(at);
     day.setDate(day.getDate() - 1);
-    return { date: day.toISOString().slice(0, 10) };
+    return { date: localDateString(day) };
   }
   if (reportType === "weekly") {
     const end = new Date(at);
@@ -143,7 +160,7 @@ function defaultParameters(reportType: string, at = new Date()): ReportParameter
     end.setDate(end.getDate() - diff);
     const start = new Date(end);
     start.setDate(start.getDate() - 6);
-    return { week_start: start.toISOString().slice(0, 10) };
+    return { week_start: localDateString(start) };
   }
   if (reportType === "quarterly") {
     const currentQuarter = Math.floor(at.getMonth() / 3) + 1;
@@ -154,7 +171,7 @@ function defaultParameters(reportType: string, at = new Date()): ReportParameter
   if (reportType === "yearly") return { year: String(at.getFullYear() - 1) };
 
   const previousMonth = new Date(at.getFullYear(), at.getMonth() - 1, 1);
-  return { month: previousMonth.toISOString().slice(0, 7) };
+  return { month: localDateString(previousMonth).slice(0, 7) };
 }
 
 export function getDefaultReportParameters(reportType: string, at = new Date()): ReportParameters {
@@ -162,7 +179,7 @@ export function getDefaultReportParameters(reportType: string, at = new Date()):
 }
 
 export async function getReportEvidence(parameters: ReportParameters) {
-  const period = getPeriod(parameters);
+  const period = getReportPeriod(parameters);
   const dataset = await collectReportData(period.start, period.end);
   return {
     period,
@@ -173,6 +190,9 @@ export async function getReportEvidence(parameters: ReportParameters) {
       complaintRows: dataset.complaints.length,
       equipmentRows: dataset.equipment.length,
       maintenanceRows: dataset.maintenance.length,
+      budgetRows: dataset.budgetExecutions.length,
+      surveyRows: dataset.surveys.length,
+      sensorRows: dataset.sensors.length,
     },
   };
 }
@@ -180,46 +200,91 @@ export async function getReportEvidence(parameters: ReportParameters) {
 async function collectReportData(start: string, end: string): Promise<ReportDataset> {
   const startAt = `${start}T00:00:00`;
   const endAt = `${end}T23:59:59`;
-  const [lotsResult, revenueResult, complaintsResult, equipmentResult, maintenanceResult] = await Promise.all([
+  const [lotsResult, revenueResult, complaintsResult, equipmentResult, maintenanceResult, budgetResult, surveyResult, sensorResult] = await Promise.all([
     supabase
       .from("parking_lots")
       .select("id, code, name, lot_type, operator_type, total_spaces, disabled_spaces, ev_spaces, status")
       .order("name"),
     supabase
       .from("revenue_daily")
-      .select("revenue_date, total_amount, total_vehicles, verified, parking_lots(name)")
+      .select("revenue_date, total_amount, total_vehicles, verified, parking_lots(name)", { count: "exact" })
       .gte("revenue_date", start)
       .lte("revenue_date", end)
       .order("revenue_date", { ascending: false })
-      .limit(500),
+      .limit(5000),
     supabase
       .from("complaints")
-      .select("complaint_number, title, category, priority, status, due_date, received_at, parking_lots(name)")
+      .select("complaint_number, title, category, priority, status, due_date, received_at, parking_lots(name)", { count: "exact" })
       .gte("received_at", startAt)
       .lte("received_at", endAt)
       .order("received_at", { ascending: false })
       .limit(500),
     supabase
       .from("equipment")
-      .select("equipment_code, name, equipment_type, status, next_maintenance_date, parking_lots(name)")
+      .select("equipment_code, name, equipment_type, status, next_maintenance_date, parking_lots(name)", { count: "exact" })
       .order("status")
       .limit(500),
     supabase
       .from("maintenance_logs")
-      .select("log_number, title, maintenance_type, priority, status, total_cost, reported_at, parking_lots(name)")
+      .select("log_number, title, maintenance_type, priority, status, total_cost, reported_at, parking_lots(name)", { count: "exact" })
       .gte("reported_at", startAt)
       .lte("reported_at", endAt)
       .order("reported_at", { ascending: false })
       .limit(500),
+    supabase
+      .from("budget_executions")
+      .select("execution_number, description, execution_type, execution_date, amount, status, vendor_name, document_number", { count: "exact" })
+      .gte("execution_date", start)
+      .lte("execution_date", end)
+      .order("execution_date", { ascending: false })
+      .limit(1000),
+    supabase
+      .from("surveys")
+      .select("id, survey_date, survey_type, status, author_name, parking_lots(name)", { count: "exact" })
+      .gte("survey_date", start)
+      .lte("survey_date", end)
+      .order("survey_date", { ascending: false })
+      .limit(1000),
+    supabase
+      .from("sensor_devices")
+      .select("device_id, device_name, device_type, status, battery_level, last_heartbeat, location_detail, parking_lots(name)", { count: "exact" })
+      .order("device_id")
+      .limit(2000),
   ]);
 
-  if (lotsResult.error) throw lotsResult.error;
+  const failedSource = [
+    ["주차장", lotsResult.error],
+    ["수입", revenueResult.error],
+    ["민원", complaintsResult.error],
+    ["장비", equipmentResult.error],
+    ["유지보수", maintenanceResult.error],
+    ["예산집행", budgetResult.error],
+    ["현황조사", surveyResult.error],
+    ["실시간 센서", sensorResult.error],
+  ].find(([, error]) => Boolean(error));
+  if (failedSource) throw new Error(`${failedSource[0]} 자료 조회에 실패했습니다: ${(failedSource[1] as Error).message}`);
+
   const parkingLots = lotsResult.data || [];
-  const revenue = revenueResult.error ? [] : revenueResult.data || [];
-  const complaints = complaintsResult.error ? [] : complaintsResult.data || [];
-  const equipment = equipmentResult.error ? [] : equipmentResult.data || [];
-  const maintenance = maintenanceResult.error ? [] : maintenanceResult.data || [];
-  const today = new Date().toISOString().slice(0, 10);
+  const revenue = revenueResult.data || [];
+  const complaints = complaintsResult.data || [];
+  const equipment = equipmentResult.data || [];
+  const maintenance = maintenanceResult.data || [];
+  const budgetExecutions = budgetResult.data || [];
+  const surveys = surveyResult.data || [];
+  const sensors = sensorResult.data || [];
+  const truncatedSource = [
+    ["수입", revenueResult.count, revenue.length],
+    ["민원", complaintsResult.count, complaints.length],
+    ["장비", equipmentResult.count, equipment.length],
+    ["유지보수", maintenanceResult.count, maintenance.length],
+    ["예산집행", budgetResult.count, budgetExecutions.length],
+    ["현황조사", surveyResult.count, surveys.length],
+    ["실시간 센서", sensorResult.count, sensors.length],
+  ].find(([, count, loaded]) => typeof count === "number" && count > Number(loaded));
+  if (truncatedSource) {
+    throw new Error(`${truncatedSource[0]} 자료 ${truncatedSource[1]}건 중 ${truncatedSource[2]}건만 조회되어 보고서 생성을 중단했습니다.`);
+  }
+  const today = localDateString(new Date());
 
   return {
     parkingLots,
@@ -227,6 +292,9 @@ async function collectReportData(start: string, end: string): Promise<ReportData
     complaints,
     equipment,
     maintenance,
+    budgetExecutions,
+    surveys,
+    sensors,
     summary: {
       parkingLotCount: parkingLots.length,
       activeParkingLots: parkingLots.filter((row: any) => row.status === "active").length,
@@ -242,6 +310,15 @@ async function collectReportData(start: string, end: string): Promise<ReportData
       maintenanceCount: maintenance.length,
       openMaintenance: maintenance.filter((row: any) => OPEN_MAINTENANCE_STATUS_SET.has(row.status)).length,
       maintenanceCost: maintenance.reduce((sum: number, row: any) => sum + Number(row.total_cost || 0), 0),
+      budgetExecutionCount: budgetExecutions.length,
+      budgetExecutionAmount: budgetExecutions.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0),
+      surveyCount: surveys.length,
+      approvedSurveyCount: surveys.filter((row: any) => row.status === "approved").length,
+      sensorCount: sensors.length,
+      sensorAttention: sensors.filter((row: any) => !["online", "active", "normal"].includes(row.status)).length,
+      offstreetLots: parkingLots.filter((row: any) => ["offstreet", "surface"].includes(row.lot_type)).length,
+      buildingLots: parkingLots.filter((row: any) => ["building", "parking_building", "multilevel"].includes(row.lot_type)).length,
+      onstreetLots: parkingLots.filter((row: any) => row.lot_type === "onstreet").length,
     },
   };
 }
@@ -257,6 +334,7 @@ function toBase64(buffer: ArrayBuffer): string {
 }
 
 async function createPdf(
+  template: ReportTemplate,
   orgName: string,
   reportNumber: string,
   officialDocumentNumber: string,
@@ -284,6 +362,25 @@ async function createPdf(
   const agencyName = orgName && orgName !== "ParkMaster" ? orgName : PRIMARY_ORGANIZATION;
   const departmentName = PRIMARY_DEPARTMENT.replace(`${PRIMARY_ORGANIZATION} `, "");
   const issuedDate = new Date().toLocaleDateString("ko-KR");
+  const category = template.report_category;
+  const code = template.template_code;
+  const comprehensive = category === "comprehensive";
+  const includeRevenue = comprehensive || category === "revenue" || category === "operation";
+  const includeComplaint = comprehensive || category === "complaint" || category === "operation";
+  const includeFacility = comprehensive || category === "facility" || category === "safety" || category === "operation";
+  const includeBudget = comprehensive || category === "budget" || code === "RPT-BUDGET";
+  const includeSurvey = code === "RPT-SURVEY";
+  const includeRealtime = code === "RPT-REALTIME" || category === "realtime";
+  const includeLotDetail = !["RPT-BUDGET", "RPT-SURVEY", "RPT-REALTIME"].includes(code);
+  const scopeLabels = [
+    "주차장",
+    includeRevenue && "수입",
+    includeComplaint && "민원",
+    includeFacility && "시설장비·유지보수",
+    includeBudget && "예산집행",
+    includeSurvey && "현황조사",
+    includeRealtime && "실시간 센서",
+  ].filter(Boolean).join(", ");
   let y = 14;
 
   const newPage = () => {
@@ -413,18 +510,21 @@ async function createPdf(
   doc.setFontSize(8.5);
   const purpose = description || `${period.start}부터 ${period.end}까지 공영주차장 운영 실적과 주요 현안을 종합하여 보고함.`;
   doc.text(doc.splitTextToSize(`가. 보고목적: ${purpose}`, contentWidth - 6), margin + 3, y + 5);
-  doc.text(`나. 자료범위: 주차장, 수입, 민원, 시설장비 및 유지보수 등록자료`, margin + 3, y + 13);
+  doc.text(`나. 자료범위: ${scopeLabels} 등록자료`, margin + 3, y + 13);
   y += 23;
 
   sectionTitle("2. 핵심 지표");
   const metrics = [
     ["주차장", `${data.summary.activeParkingLots}/${data.summary.parkingLotCount}개 운영`],
     ["주차면", `${data.summary.totalSpaces.toLocaleString("ko-KR")}면`],
-    ["기간 수입", `${data.summary.revenueTotal.toLocaleString("ko-KR")}원`],
-    ["민원", `${data.summary.complaintCount}건 (기한초과 ${data.summary.overdueComplaints}건)`],
-    ["유지보수", `${data.summary.maintenanceCount}건 (미완료 ${data.summary.openMaintenance}건)`],
-    ["시설 주의", `${data.summary.equipmentAttention}건`],
-  ];
+    includeRevenue && ["기간 수입", `${data.summary.revenueTotal.toLocaleString("ko-KR")}원`],
+    includeComplaint && ["민원", `${data.summary.complaintCount}건 (기한초과 ${data.summary.overdueComplaints}건)`],
+    includeFacility && ["유지보수", `${data.summary.maintenanceCount}건 (미완료 ${data.summary.openMaintenance}건)`],
+    includeFacility && ["시설 주의", `${data.summary.equipmentAttention}건`],
+    includeBudget && ["예산 집행", `${data.summary.budgetExecutionAmount.toLocaleString("ko-KR")}원`],
+    includeSurvey && ["현황조사", `${data.summary.surveyCount}건 (승인 ${data.summary.approvedSurveyCount}건)`],
+    includeRealtime && ["센서", `${data.summary.sensorCount}대 (확인필요 ${data.summary.sensorAttention}대)`],
+  ].filter(Boolean) as string[][];
   metrics.forEach(([label, value], index) => {
     const col = index % 2;
     const row = Math.floor(index / 2);
@@ -439,7 +539,21 @@ async function createPdf(
     doc.setTextColor(30, 41, 59);
     doc.text(value, x + 25, boxY + 4);
   });
-  y += 43;
+  y += Math.ceil(metrics.length / 2) * 13 + 4;
+
+  sectionTitle("주차장 유형별 현황");
+  table(
+    [
+      { label: "구분", key: "type", width: 70 },
+      { label: "주차장 수", key: "count", width: 45 },
+      { label: "관리 중점", key: "focus", width: 65 },
+    ],
+    [
+      { type: "노외주차장", count: `${data.summary.offstreetLots}개`, focus: "노면·조명·배수·출입설비" },
+      { type: "주차빌딩", count: `${data.summary.buildingLots}개`, focus: "소방·승강기·환기·구조안전" },
+      { type: "노상주차장", count: `${data.summary.onstreetLots}개`, focus: "노면표시·표지·도로점용·안전" },
+    ],
+  );
 
   if (aiSummary) {
     sectionTitle("검토 총평");
@@ -453,8 +567,9 @@ async function createPdf(
     y += 3;
   }
 
-  sectionTitle("3. 주차장 운영 현황");
-  table(
+  if (includeLotDetail) {
+    sectionTitle("3. 주차장 운영 현황");
+    table(
     [
       { label: "코드", key: "code", width: 25 },
       { label: "주차장", key: "name", width: 72 },
@@ -464,9 +579,11 @@ async function createPdf(
     ],
     localizedParkingLots(data.parkingLots),
   );
+  }
 
-  sectionTitle("4. 수입 현황");
-  table(
+  if (includeRevenue) {
+    sectionTitle("4. 수입 현황");
+    table(
     [
       { label: "일자", key: "date", width: 30 },
       { label: "주차장", key: "lot", width: 62 },
@@ -482,9 +599,11 @@ async function createPdf(
       verified: row.verified ? "완료" : "미검증",
     })),
   );
+  }
 
-  sectionTitle("5. 민원 현황");
-  table(
+  if (includeComplaint) {
+    sectionTitle("5. 민원 현황");
+    table(
     [
       { label: "번호", key: "number", width: 36 },
       { label: "주차장", key: "lot", width: 46 },
@@ -499,10 +618,23 @@ async function createPdf(
       priority: row.priority,
       status: row.status,
     })),
-  );
+    );
+  }
 
-  sectionTitle("6. 유지보수 현황");
-  table(
+  if (includeFacility) {
+    sectionTitle("6. 시설장비 현황");
+    table(
+      [
+        { label: "장비코드", key: "equipment_code", width: 35 },
+        { label: "주차장", key: "lot", width: 48 },
+        { label: "장비명", key: "name", width: 50 },
+        { label: "종류", key: "equipment_type", width: 27 },
+        { label: "상태", key: "status", width: 20 },
+      ],
+      data.equipment.map((row: any) => ({ ...row, lot: relationName(row.parking_lots) })),
+    );
+    sectionTitle("7. 유지보수 현황");
+    table(
     [
       { label: "번호", key: "number", width: 36 },
       { label: "주차장", key: "lot", width: 46 },
@@ -517,7 +649,51 @@ async function createPdf(
       priority: row.priority,
       status: row.status,
     })),
-  );
+    );
+  }
+
+  if (includeBudget) {
+    sectionTitle("8. 예산 집행 현황");
+    table(
+      [
+        { label: "집행번호", key: "execution_number", width: 35 },
+        { label: "집행일", key: "execution_date", width: 25 },
+        { label: "내용", key: "description", width: 62 },
+        { label: "거래처", key: "vendor_name", width: 34 },
+        { label: "금액(원)", key: "amount_label", width: 24 },
+      ],
+      data.budgetExecutions.map((row: any) => ({ ...row, amount_label: Number(row.amount || 0).toLocaleString("ko-KR") })),
+    );
+  }
+
+  if (includeSurvey) {
+    sectionTitle("현황조사 결과");
+    table(
+      [
+        { label: "조사일", key: "survey_date", width: 30 },
+        { label: "주차장", key: "lot", width: 70 },
+        { label: "조사유형", key: "survey_type", width: 35 },
+        { label: "상태", key: "status", width: 25 },
+        { label: "조사자", key: "author_name", width: 20 },
+      ],
+      data.surveys.map((row: any) => ({ ...row, lot: relationName(row.parking_lots) })),
+    );
+  }
+
+  if (includeRealtime) {
+    sectionTitle("실시간 센서 상태");
+    table(
+      [
+        { label: "장치ID", key: "device_id", width: 38 },
+        { label: "주차장", key: "lot", width: 55 },
+        { label: "종류", key: "device_type", width: 28 },
+        { label: "상태", key: "status", width: 24 },
+        { label: "배터리", key: "battery", width: 18 },
+        { label: "최근신호", key: "last_heartbeat", width: 17 },
+      ],
+      data.sensors.map((row: any) => ({ ...row, lot: relationName(row.parking_lots), battery: row.battery_level == null ? "-" : `${row.battery_level}%` })),
+    );
+  }
 
   const pageCount = doc.getNumberOfPages();
   for (let page = 1; page <= pageCount; page += 1) {
@@ -533,8 +709,8 @@ async function createPdf(
   return { blob: doc.output("blob"), pageCount };
 }
 
-function createExcelSheets(data: ReportDataset): ExcelSheetConfig[] {
-  return [
+function createExcelSheets(template: ReportTemplate, data: ReportDataset): ExcelSheetConfig[] {
+  const sheets: ExcelSheetConfig[] = [
     {
       name: "요약",
       columns: [
@@ -551,6 +727,14 @@ function createExcelSheets(data: ReportDataset): ExcelSheetConfig[] {
         { metric: "기한초과 민원", value: data.summary.overdueComplaints },
         { metric: "유지보수", value: data.summary.maintenanceCount },
         { metric: "미완료 유지보수", value: data.summary.openMaintenance },
+        { metric: "예산 집행 건수", value: data.summary.budgetExecutionCount },
+        { metric: "예산 집행 금액", value: data.summary.budgetExecutionAmount },
+        { metric: "현황조사", value: data.summary.surveyCount },
+        { metric: "등록 센서", value: data.summary.sensorCount },
+        { metric: "확인 필요 센서", value: data.summary.sensorAttention },
+        { metric: "노외주차장", value: data.summary.offstreetLots },
+        { metric: "주차빌딩", value: data.summary.buildingLots },
+        { metric: "노상주차장", value: data.summary.onstreetLots },
       ],
     },
     {
@@ -610,6 +794,74 @@ function createExcelSheets(data: ReportDataset): ExcelSheetConfig[] {
       totalRow: { label: "합계" },
     },
   ];
+
+  sheets.push(
+    {
+      name: "시설장비",
+      columns: [
+        { key: "equipment_code", label: "장비코드", width: 130 },
+        { key: "lot", label: "주차장", width: 180 },
+        { key: "name", label: "장비명", width: 200 },
+        { key: "equipment_type", label: "장비종류", width: 110 },
+        { key: "status", label: "상태", width: 90 },
+        { key: "next_maintenance_date", label: "차기 정비일", width: 110, format: "date" },
+      ],
+      data: data.equipment.map((row: any) => ({ ...row, lot: relationName(row.parking_lots) })),
+    },
+    {
+      name: "예산집행",
+      columns: [
+        { key: "execution_number", label: "집행번호", width: 130 },
+        { key: "execution_date", label: "집행일", width: 110, format: "date" },
+        { key: "description", label: "집행내용", width: 260 },
+        { key: "vendor_name", label: "거래처", width: 160 },
+        { key: "amount", label: "금액", width: 130, format: "currency", aggregation: "sum" },
+        { key: "document_number", label: "문서번호", width: 180 },
+        { key: "status", label: "상태", width: 90 },
+      ],
+      data: data.budgetExecutions,
+      totalRow: { label: "합계" },
+    },
+    {
+      name: "현황조사",
+      columns: [
+        { key: "survey_date", label: "조사일", width: 110, format: "date" },
+        { key: "lot", label: "주차장", width: 200 },
+        { key: "survey_type", label: "조사유형", width: 110 },
+        { key: "status", label: "상태", width: 90 },
+        { key: "author_name", label: "조사자", width: 100 },
+      ],
+      data: data.surveys.map((row: any) => ({ ...row, lot: relationName(row.parking_lots) })),
+    },
+    {
+      name: "실시간센서",
+      columns: [
+        { key: "device_id", label: "장치ID", width: 150 },
+        { key: "lot", label: "주차장", width: 190 },
+        { key: "device_type", label: "종류", width: 110 },
+        { key: "status", label: "상태", width: 90 },
+        { key: "battery_level", label: "배터리", width: 90, format: "number" },
+        { key: "last_heartbeat", label: "최근 신호", width: 180 },
+        { key: "location_detail", label: "설치 위치", width: 180 },
+      ],
+      data: data.sensors.map((row: any) => ({ ...row, lot: relationName(row.parking_lots) })),
+    },
+  );
+
+  const excelCategory = template.report_category;
+  const excelComprehensive = excelCategory === "comprehensive";
+  const allowed = new Set(["요약"]);
+  if (!["RPT-BUDGET", "RPT-SURVEY", "RPT-REALTIME"].includes(template.template_code)) allowed.add("주차장");
+  if (excelComprehensive || excelCategory === "operation" || excelCategory === "revenue") allowed.add("수입");
+  if (excelComprehensive || excelCategory === "operation" || excelCategory === "complaint") allowed.add("민원");
+  if (excelComprehensive || excelCategory === "operation" || excelCategory === "facility" || excelCategory === "safety") {
+    allowed.add("시설장비");
+    allowed.add("유지보수");
+  }
+  if (excelComprehensive || excelCategory === "budget" || template.template_code === "RPT-BUDGET") allowed.add("예산집행");
+  if (template.template_code === "RPT-SURVEY") allowed.add("현황조사");
+  if (excelCategory === "realtime" || template.template_code === "RPT-REALTIME") allowed.add("실시간센서");
+  return sheets.filter((sheet) => allowed.has(sheet.name));
 }
 
 function reportNumber(): string {
@@ -631,7 +883,7 @@ function safeFileName(value: string): string {
 
 export async function generateReport(input: GenerateReportInput): Promise<GeneratedReportResult> {
   const startedAt = Date.now();
-  const period = getPeriod(input.parameters);
+  const period = getReportPeriod(input.parameters);
   let number = input.reportNumber || reportNumber();
   let id = input.reportId;
   const uploadedPaths: string[] = [];
@@ -682,7 +934,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
       collectReportData(period.start, period.end),
     ]);
     const orgName = configRows?.find((row) => row.config_key === "org_name")?.config_value || "ParkMaster";
-    const pdf = await createPdf(orgName, number, input.parameters.official_document_number || "", input.title, input.description || "", input.authorName || "", period, dataset, input.aiSummary);
+    const pdf = await createPdf(input.template, orgName, number, input.parameters.official_document_number || "", input.title, input.description || "", input.authorName || "", period, dataset, input.aiSummary);
     const basePath = `${input.userId}/${id}`;
     const fileBase = `${safeFileName(input.template.template_code || number)}_${period.start}_${period.end}`;
     const pdfPath = `${basePath}/${fileBase}.pdf`;
@@ -702,7 +954,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
         title: input.title,
         subtitle: `${period.start} ~ ${period.end}`,
         creator: input.authorName,
-        sheets: createExcelSheets(dataset),
+        sheets: createExcelSheets(input.template, dataset),
       });
       excelPath = `${basePath}/${fileBase}.xlsx`;
       const { error: excelError } = await supabase.storage.from("reports").upload(excelPath, excel, {
@@ -734,7 +986,28 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     const obsoletePaths = replacedPaths.filter((path) => !uploadedPaths.includes(path));
     if (obsoletePaths.length) await supabase.storage.from("reports").remove(obsoletePaths);
 
-    return { id, reportNumber: number, filePath: pdfPath, excelPath };
+    const documentNumber = input.parameters.official_document_number?.trim();
+    let documentLinked = false;
+    if (documentNumber) {
+      try {
+        const document = await findOfficialDocumentByNumber(documentNumber);
+        if (document) {
+          await linkOfficialDocument({
+            document,
+            module: "REPORT",
+            recordId: id,
+            relationType: "reference",
+            recordPath: `/reports/history?report=${id}`,
+            recordLabel: `${number} ${input.title}`,
+          });
+          documentLinked = true;
+        }
+      } catch {
+        documentLinked = false;
+      }
+    }
+
+    return { id, reportNumber: number, filePath: pdfPath, excelPath, documentLinked, documentNumber };
   } catch (error) {
     if (uploadedPaths.length) await supabase.storage.from("reports").remove(uploadedPaths);
     const message = error instanceof Error ? error.message : "보고서 생성 중 오류가 발생했습니다.";

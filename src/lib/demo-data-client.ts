@@ -1107,7 +1107,7 @@ export async function runDemoSeed(supabase: any, userId: string) {
     { template_code: "RPT-DEMO-COMPLAINT", name: "민원 처리현황 보고서", report_type: "monthly", report_category: "complaint", is_system: true },
   ].map(t => ({
     ...t,
-    description: `[DEMO] ${t.name}`,
+    description: `${t.name} 업무 검증용 표준 양식`,
     target_audience: "internal",
     required_modules: ["CORE", "OPS"],
     data_sources: [{ table: "parking_lots" }],

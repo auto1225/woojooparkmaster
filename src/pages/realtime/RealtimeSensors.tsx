@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -19,8 +19,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { SENSOR_TYPE_LABELS, SENSOR_STATUS_LABELS, SENSOR_STATUS_COLORS, MOUNTING_TYPE_LABELS } from "@/types/realtime";
-import { advanceSensorIncident } from "@/lib/workflow-commands";
+import { advanceSensorIncident, archiveRealtimeDevice, createRealtimeSensor, updateRealtimeDevice } from "@/lib/workflow-commands";
 import { useNavigate } from "react-router-dom";
+import { OperationalListControls } from "@/components/common/OperationalListControls";
+import { getParkingLotTypeLabel } from "@/lib/parking-lot-type-labels";
+import { getEffectiveSensorStatus } from "@/lib/realtime-health";
 
 const STATUS_SORT: Record<string, number> = { error: 0, offline: 1, low_battery: 2, active: 3, maintenance: 4, decommissioned: 5 };
 
@@ -31,15 +34,22 @@ export default function RealtimeSensors() {
   const canEdit = profile && ['admin', 'manager'].includes(profile.role);
   const [lotFilter, setLotFilter] = useState("__all__");
   const [statusFilter, setStatusFilter] = useState("__all__");
+  const [lotTypeFilter, setLotTypeFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState("health");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [incidentLimit, setIncidentLimit] = useState(10);
   const [showRegister, setShowRegister] = useState(false);
   const [showDetail, setShowDetail] = useState<any>(null);
   const [recoveryNote, setRecoveryNote] = useState("");
   const [form, setForm] = useState<Record<string, any>>({});
+  const [manageForm, setManageForm] = useState<Record<string, any>>({});
+  const [archiveReason, setArchiveReason] = useState("");
 
   const { data: lots } = useQuery({
     queryKey: ["parking-lots-simple"],
     queryFn: async () => {
-      const { data } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+      const { data } = await supabase.from("parking_lots").select("id, code, name, lot_type").eq("status", "active").order("code");
       return data || [];
     },
   });
@@ -59,10 +69,10 @@ export default function RealtimeSensors() {
     queryKey: ["sensors-list", lotFilter, statusFilter],
     queryFn: async () => {
       let q = supabase.from("sensor_devices")
-        .select("*, parking_lots(code, name), gateway_devices(device_id)")
+        .select("*, parking_lots(code, name, lot_type), gateway_devices(device_id)")
+        .is("archived_at", null)
         .order("status").order("last_heartbeat", { ascending: true });
       if (lotFilter !== "__all__") q = q.eq("lot_id", lotFilter);
-      if (statusFilter !== "__all__") q = q.eq("status", statusFilter);
       const { data, error } = await q;
       if (error) throw error;
       return data || [];
@@ -106,16 +116,37 @@ export default function RealtimeSensors() {
     onError: (error: Error) => toast({ title: "사건 처리 실패", description: error.message, variant: "destructive" }),
   });
 
-  const sorted = [...(sensors || [])].sort((a, b) => (STATUS_SORT[a.status] ?? 9) - (STATUS_SORT[b.status] ?? 9));
+  const sorted = useMemo(() => {
+    const rows = (sensors || []).filter((sensor) => {
+      const lot = sensor.parking_lots as any;
+      if (lotTypeFilter !== "all" && lot?.lot_type !== lotTypeFilter) return false;
+      if (statusFilter !== "__all__" && getEffectiveSensorStatus(sensor) !== statusFilter) return false;
+      const needle = search.trim().toLocaleLowerCase("ko");
+      if (!needle) return true;
+      return [sensor.device_id, sensor.device_name, sensor.zone, sensor.location_detail, lot?.name, lot?.code]
+        .some((value) => String(value || "").toLocaleLowerCase("ko").includes(needle));
+    });
+    const value = (sensor: any) => {
+      if (sortKey === "device") return sensor.device_id || "";
+      if (sortKey === "lot") return `${sensor.parking_lots?.name || ""}${sensor.device_id || ""}`;
+      if (sortKey === "battery") return Number(sensor.battery_level ?? -1);
+      if (sortKey === "heartbeat") return sensor.last_heartbeat || "";
+      if (sortKey === "created") return sensor.created_at || "";
+      return STATUS_SORT[getEffectiveSensorStatus(sensor)] ?? 9;
+    };
+    return [...rows].sort((a, b) => {
+      const av = value(a); const bv = value(b);
+      const result = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv), "ko");
+      return sortDirection === "asc" ? result : -result;
+    });
+  }, [sensors, lotTypeFilter, search, sortDirection, sortKey, statusFilter]);
 
   const totalCount = sorted.length;
-  const activeCount = sorted.filter(s => s.status === 'active').length;
-  const offlineCount = sorted.filter(s => {
-    if (!s.last_heartbeat) return s.status === 'offline';
-    return new Date(s.last_heartbeat) < new Date(Date.now() - 30 * 60 * 1000);
-  }).length;
-  const lowBatteryCount = sorted.filter(s => s.battery_level != null && Number(s.battery_level) < 20).length;
-  const errorCount = sorted.filter(s => s.status === 'error').length;
+  const effectiveStatuses = sorted.map((sensor) => getEffectiveSensorStatus(sensor));
+  const activeCount = effectiveStatuses.filter((status) => status === "active").length;
+  const offlineCount = effectiveStatuses.filter((status) => status === "offline").length;
+  const lowBatteryCount = effectiveStatuses.filter((status) => status === "low_battery").length;
+  const errorCount = effectiveStatuses.filter((status) => status === "error").length;
   const incidentBySensor = new Map((incidents || []).map((incident: any) => [incident.sensor_id, incident]));
   const detailIncident = showDetail ? incidentBySensor.get(showDetail.id) as any : null;
 
@@ -126,28 +157,45 @@ export default function RealtimeSensors() {
       toast({ title: "필수 항목을 입력하세요", variant: "destructive" });
       return;
     }
-    const { error } = await supabase.from("sensor_devices").insert({
-      lot_id: form.lot_id,
-      device_id: form.device_id,
-      device_name: form.device_name || null,
-      device_type: form.device_type || 'radar_60ghz',
-      gateway_id: form.gateway_id || null,
-      floor: form.floor ? Number(form.floor) : null,
-      zone: form.zone || null,
-      location_detail: form.location_detail || null,
-      mounting_type: form.mounting_type || null,
-      mounting_height_cm: form.mounting_height_cm ? Number(form.mounting_height_cm) : null,
-      install_date: form.install_date || null,
-      author_name: form.author_name || null,
-    });
-    if (error) {
-      toast({ title: "등록 실패", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await createRealtimeSensor(form, crypto.randomUUID());
       await logActivity({ module: "realtime", action: "create", targetType: "sensor", targetName: form.device_id });
       toast({ title: "센서가 등록되었습니다" });
       setShowRegister(false);
       setForm({});
       queryClient.invalidateQueries({ queryKey: ["sensors-list"] });
+    } catch (error) {
+      toast({ title: "등록 실패", description: error instanceof Error ? error.message : "등록하지 못했습니다.", variant: "destructive" });
+    }
+  };
+
+  const openDetail = (sensor: any) => {
+    setShowDetail(sensor);
+    setArchiveReason("");
+    setManageForm({ device_name: sensor.device_name || "", zone: sensor.zone || "", location_detail: sensor.location_detail || "", status: sensor.status });
+  };
+
+  const saveDevice = async () => {
+    if (!showDetail) return;
+    try {
+      await updateRealtimeDevice("sensor", showDetail.id, manageForm, showDetail.row_version);
+      toast({ title: "센서 정보를 수정했습니다" });
+      setShowDetail(null);
+      queryClient.invalidateQueries({ queryKey: ["sensors-list"] });
+    } catch (error) {
+      toast({ title: "수정 실패", description: error instanceof Error ? error.message : "수정하지 못했습니다.", variant: "destructive" });
+    }
+  };
+
+  const archiveDevice = async () => {
+    if (!showDetail) return;
+    try {
+      await archiveRealtimeDevice("sensor", showDetail.id, archiveReason, showDetail.row_version);
+      toast({ title: "센서를 보관했습니다" });
+      setShowDetail(null);
+      queryClient.invalidateQueries({ queryKey: ["sensors-list"] });
+    } catch (error) {
+      toast({ title: "보관 실패", description: error instanceof Error ? error.message : "보관하지 못했습니다.", variant: "destructive" });
     }
   };
 
@@ -186,22 +234,21 @@ export default function RealtimeSensors() {
           <KpiCard label="오류" value={String(errorCount)} icon={AlertTriangle} />
         </div>
 
-        <div className="flex gap-2 flex-wrap">
-          <Select value={lotFilter} onValueChange={setLotFilter}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="주차장" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">전체 주차장</SelectItem>
-              {(lots || []).map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[150px]"><SelectValue placeholder="상태" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">전체 상태</SelectItem>
-              {Object.entries(SENSOR_STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+        <OperationalListControls
+          search={search} onSearchChange={setSearch} searchPlaceholder="장치ID, 주차장, 구역, 위치 검색"
+          lots={(lots || []).map((lot) => ({ value: lot.id, label: `${lot.name} · ${getParkingLotTypeLabel(lot.lot_type)}` }))}
+          lotId={lotFilter === "__all__" ? "all" : lotFilter}
+          onLotChange={(value) => setLotFilter(value === "all" ? "__all__" : value)}
+          categories={[{ value: "offstreet", label: "노외주차장" }, { value: "multilevel", label: "주차빌딩" }, { value: "onstreet", label: "노상주차장" }]}
+          category={lotTypeFilter} onCategoryChange={setLotTypeFilter} categoryLabel="전체 주차장 유형"
+          statuses={Object.entries(SENSOR_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
+          status={statusFilter === "__all__" ? "all" : statusFilter}
+          onStatusChange={(value) => setStatusFilter(value === "all" ? "__all__" : value)}
+          sortOptions={[{ value: "health", label: "상태 위험순" }, { value: "heartbeat", label: "마지막 통신순" }, { value: "battery", label: "배터리순" }, { value: "lot", label: "주차장순" }, { value: "device", label: "장치ID순" }, { value: "created", label: "등록일순" }]}
+          sortKey={sortKey} onSortKeyChange={setSortKey} sortDirection={sortDirection} onSortDirectionChange={setSortDirection}
+          resultCount={sorted.length} totalCount={(sensors || []).length}
+          onReset={() => { setSearch(""); setLotFilter("__all__"); setStatusFilter("__all__"); setLotTypeFilter("all"); setSortKey("health"); setSortDirection("asc"); }}
+        />
 
         {!!incidents?.length && (
           <Card>
@@ -216,7 +263,7 @@ export default function RealtimeSensors() {
                   <TableHead>사건번호</TableHead><TableHead>센서</TableHead><TableHead>주차장</TableHead>
                   <TableHead>이상</TableHead><TableHead>탐지</TableHead><TableHead>상태</TableHead><TableHead>조치</TableHead>
                 </TableRow></TableHeader>
-                <TableBody>{incidents.map((incident: any) => (
+                <TableBody>{incidents.slice(0, incidentLimit).map((incident: any) => (
                   <TableRow key={incident.id}>
                     <TableCell className="font-mono text-xs">{incident.incident_number}</TableCell>
                     <TableCell className="font-mono text-xs">{incident.sensor_devices?.device_id}</TableCell>
@@ -230,13 +277,20 @@ export default function RealtimeSensors() {
                       {incident.status === "open" && canEdit && (
                         <Button size="sm" variant="outline" onClick={() => incidentMutation.mutate({ id: incident.id, action: "acknowledge" })}>접수</Button>
                       )}
-                      <Button size="icon" variant="ghost" title="연결 작업지시" onClick={() => navigate("/facility/maintenance")}>
+                      <Button size="icon" variant="ghost" title="연결 작업지시" onClick={() => navigate(`/facility/maintenance?work=${incident.maintenance_log_id}`)} disabled={!incident.maintenance_log_id}>
                         <Wrench className="h-3.5 w-3.5" />
                       </Button>
                     </div></TableCell>
                   </TableRow>
                 ))}</TableBody>
               </Table>
+              {incidents.length > incidentLimit && (
+                <div className="border-t p-2 text-center">
+                  <Button variant="ghost" size="sm" onClick={() => setIncidentLimit((value) => value + 20)}>
+                    다음 20건 보기 ({incidentLimit}/{incidents.length})
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -253,23 +307,24 @@ export default function RealtimeSensors() {
                     <TableHead>게이트웨이</TableHead>
                     <TableHead>유형</TableHead>
                     <TableHead>배터리</TableHead>
+                    <TableHead>사건</TableHead>
                     <TableHead>신호</TableHead>
                     <TableHead>마지막 통신</TableHead>
                     <TableHead>상태</TableHead>
-                    <TableHead>사건</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sorted.map(s => {
                     const battery = s.battery_level != null ? Number(s.battery_level) : null;
                     const isLowBat = battery != null && battery < 20;
-                    const isOffline = s.last_heartbeat && new Date(s.last_heartbeat) < new Date(Date.now() - 30 * 60 * 1000);
+                    const effectiveStatus = getEffectiveSensorStatus(s);
+                    const isOffline = effectiveStatus === "offline";
                     return (
                       <TableRow key={s.id}
                         className={`cursor-pointer hover:bg-muted/50 ${isOffline ? 'bg-red-50/50' : ''}`}
-                        onClick={() => setShowDetail(s)}>
+                        onClick={() => openDetail(s)}>
                         <TableCell className="font-mono text-xs">{s.device_id}</TableCell>
-                        <TableCell className="text-sm">{(s.parking_lots as any)?.name || '—'}</TableCell>
+                        <TableCell className="text-sm"><div>{(s.parking_lots as any)?.name || '—'}</div><div className="text-[10px] text-muted-foreground">{getParkingLotTypeLabel((s.parking_lots as any)?.lot_type || s.lot_type_snapshot)}</div></TableCell>
                         <TableCell className="text-xs">{s.zone || '—'}{s.floor != null ? ` / ${s.floor}F` : ''}</TableCell>
                         <TableCell className="text-xs font-mono">{(s.gateway_devices as any)?.device_id || '—'}</TableCell>
                         <TableCell><Badge variant="outline" className="text-[10px]">{SENSOR_TYPE_LABELS[s.device_type] || s.device_type}</Badge></TableCell>
@@ -287,8 +342,8 @@ export default function RealtimeSensors() {
                         <TableCell className="text-xs">{s.rssi != null ? `${s.rssi} dBm` : '—'}</TableCell>
                         <TableCell className="text-xs">{minutesAgo(s.last_heartbeat)}</TableCell>
                         <TableCell>
-                          <Badge className={`text-[10px] ${SENSOR_STATUS_COLORS[s.status] || ''}`}>
-                            {SENSOR_STATUS_LABELS[s.status] || s.status}
+                          <Badge className={`text-[10px] ${SENSOR_STATUS_COLORS[effectiveStatus] || ''}`}>
+                            {SENSOR_STATUS_LABELS[effectiveStatus] || effectiveStatus}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -406,9 +461,16 @@ export default function RealtimeSensors() {
                     </div>
                   </div>
                 )}
-                <Badge className={`${SENSOR_STATUS_COLORS[showDetail.status] || ''}`}>
-                  {SENSOR_STATUS_LABELS[showDetail.status] || showDetail.status}
+                <Badge className={`${SENSOR_STATUS_COLORS[getEffectiveSensorStatus(showDetail)] || ''}`}>
+                  {SENSOR_STATUS_LABELS[getEffectiveSensorStatus(showDetail)] || getEffectiveSensorStatus(showDetail)}
                 </Badge>
+                {canEdit && <div className="space-y-3 border-t pt-3">
+                  <div><Label>장치명</Label><Input value={manageForm.device_name || ""} onChange={(event) => setManageForm((value) => ({ ...value, device_name: event.target.value }))} /></div>
+                  <div className="grid grid-cols-2 gap-2"><div><Label>구역</Label><Input value={manageForm.zone || ""} onChange={(event) => setManageForm((value) => ({ ...value, zone: event.target.value }))} /></div><div><Label>관리 상태</Label><Select value={manageForm.status || "active"} onValueChange={(status) => setManageForm((value) => ({ ...value, status }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">가동중</SelectItem><SelectItem value="maintenance">점검중</SelectItem><SelectItem value="offline">오프라인</SelectItem><SelectItem value="error">오류</SelectItem></SelectContent></Select></div></div>
+                  <div><Label>상세 위치</Label><Input value={manageForm.location_detail || ""} onChange={(event) => setManageForm((value) => ({ ...value, location_detail: event.target.value }))} /></div>
+                  <Button className="w-full" onClick={saveDevice}>수정 저장</Button>
+                  <div className="flex gap-2"><Input value={archiveReason} onChange={(event) => setArchiveReason(event.target.value)} placeholder="보관 사유 3자 이상" /><Button variant="destructive" disabled={archiveReason.trim().length < 3} onClick={archiveDevice}>보관</Button></div>
+                </div>}
                 {detailIncident && (
                   <div className="border-t pt-3 space-y-3">
                     <div className="flex items-center justify-between">

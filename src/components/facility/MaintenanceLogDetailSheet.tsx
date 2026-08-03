@@ -7,11 +7,12 @@ import { MAINT_STATUS_LABELS, MAINT_TYPE_LABELS, PRIORITY_COLORS, PRIORITY_LABEL
 import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, ImageIcon } from "lucide-react";
+import { BriefcaseBusiness, ExternalLink, ImageIcon } from "lucide-react";
 import { getMaintenanceEvidenceUrl, listMaintenanceEvidence } from "@/lib/facility-field-work";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { LinkedBusinessContacts } from "@/components/business-cards/LinkedBusinessContacts";
 
 interface MaintenanceLogDetailSheetProps {
   log: MaintenanceLog | null;
@@ -48,6 +49,13 @@ export function MaintenanceLogDetailSheet({ log, onOpenChange, open }: Maintenan
   const sourceComplaintId = log.source_module === "COMPLAINT" && log.source_record_id
     ? log.source_record_id
     : legacyComplaint?.id;
+  const suggestedDueDate = (() => {
+    if (log.due_date) return log.due_date.slice(0, 10);
+    const days = log.parking_lots?.lot_type === "onstreet" ? 2 : log.parking_lots?.lot_type === "multilevel" ? 3 : 5;
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  })();
 
   const parts = Array.isArray(log.parts_used) ? log.parts_used : [];
   const openEvidence = async (filePath: string) => {
@@ -75,6 +83,7 @@ export function MaintenanceLogDetailSheet({ log, onOpenChange, open }: Maintenan
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
+          <Button className="w-full" variant="outline" onClick={() => navigate(`/team-work?new=1&tab=work_order&team=facilities&category=${encodeURIComponent("시설보수")}&title=${encodeURIComponent(`[${log.log_number}] ${log.title}`)}&parkingLotId=${log.lot_id}&ownerId=${log.assigned_to || ""}&dueDate=${suggestedDueDate}&sourceModule=facility_maintenance&sourceRecordId=${log.id}&sourcePath=${encodeURIComponent(`/facility/maintenance?work=${log.id}`)}`)}><BriefcaseBusiness className="mr-2 h-4 w-4" />팀 업무로 연계</Button>
           {sourceComplaintId && (
             <section className="flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 p-4">
               <div className="min-w-0">
@@ -187,6 +196,7 @@ export function MaintenanceLogDetailSheet({ log, onOpenChange, open }: Maintenan
               <DetailRow label="담당자 이메일" value={log.vendor_email || "-"} />
             </dl>
           </section>
+          <LinkedBusinessContacts module="FACILITY_MAINTENANCE" recordId={log.id} title="연결된 시설업체 담당자" />
           <DocumentLinksPanel
             module="FACILITY_MAINTENANCE"
             recordId={log.id}

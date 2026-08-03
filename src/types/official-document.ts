@@ -18,7 +18,16 @@ export interface OfficialDocument {
   status: DocumentStatus;
   notes: string | null;
   createdAt: string;
+  updatedAt?: string;
   linkCount?: number;
+  hasOriginalFile?: boolean;
+  linkedModules?: string[];
+  parkingLots?: Array<{
+    id: string;
+    code: string;
+    name: string;
+    lotType: string;
+  }>;
 }
 
 export interface OfficialDocumentInput {

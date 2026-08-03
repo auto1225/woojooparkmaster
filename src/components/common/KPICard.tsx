@@ -14,15 +14,17 @@ interface KPICardProps {
   trendDirection?: "up" | "down" | "flat";
   changePercent?: number;
   suffix?: string;
+  onClick?: () => void;
+  actionLabel?: string;
 }
 
-export function KPICard({ title, value, sub, icon: Icon, color, trend, trendDirection, changePercent, suffix }: KPICardProps) {
+export function KPICard({ title, value, sub, icon: Icon, color, trend, trendDirection, changePercent, suffix, onClick, actionLabel }: KPICardProps) {
   const trendColor = trendDirection === "up" ? "text-success" : trendDirection === "down" ? "text-destructive" : "text-muted-foreground";
   const trendBg = trendDirection === "up" ? "bg-success/10" : trendDirection === "down" ? "bg-destructive/10" : "bg-sunken";
   const lineColor = trendDirection === "up" ? "hsl(160,84%,39%)" : trendDirection === "down" ? "hsl(0,72%,51%)" : "hsl(221,83%,53%)";
 
   return (
-    <Card className="hover-lift border border-border/60 shadow-xs hover:shadow-premium-md">
+    <Card role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} aria-label={onClick ? actionLabel || `${title} 상세 보기` : undefined} onClick={onClick} onKeyDown={onClick ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); } } : undefined} className={`hover-lift border border-border/60 shadow-xs hover:shadow-premium-md ${onClick ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" : ""}`}>
       <CardContent className="p-6">
         {/* Top row: label + icon + change badge */}
         <div className="flex items-start justify-between mb-5">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { businessCardCompleteness, normalizePhone, parseBusinessCardText } from "@/lib/business-card-ocr";
+import { businessCardCompleteness, inferBusinessCardProfile, normalizePhone, parseBusinessCardText } from "@/lib/business-card-ocr";
 
 describe("business card OCR parser", () => {
   it("organizes Korean business card text", () => {
@@ -21,5 +21,20 @@ describe("business card OCR parser", () => {
 
   it("calculates extraction completeness", () => {
     expect(businessCardCompleteness({ ...parseBusinessCardText("김현수\n010-1234-5678"), company: "제주주차" })).toBeGreaterThan(25);
+  });
+
+  it("separates office and fax numbers written on one line", () => {
+    const parsed = parseBusinessCardText("김민수\n시설사업팀 팀장\nTel 064-728-3950 Fax 064-728-3951");
+    expect(parsed.department).toBe("시설사업팀");
+    expect(parsed.position).toBe("팀장");
+    expect(parsed.phone).toBe("064-728-3950");
+    expect(parsed.fax).toBe("064-728-3951");
+  });
+
+  it("infers facility work and parking lot scopes", () => {
+    const profile = inferBusinessCardProfile("노외·주차빌딩·노상 시설 유지관리 및 전기 소방 점검");
+    expect(profile.businessCategory).toBe("facility");
+    expect(profile.lotTypes).toEqual(["offstreet", "multilevel", "onstreet"]);
+    expect(profile.tags).toContain("시설관리");
   });
 });

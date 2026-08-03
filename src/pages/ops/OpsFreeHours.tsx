@@ -13,20 +13,23 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { DAY_TYPE_LABELS } from "@/types/operations";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { AuthorField } from "@/components/common/AuthorField";
+import { LOT_TYPE_LABELS } from "@/types/database";
 
 export default function OpsFreeHoursPage() {
   const queryClient = useQueryClient();
   const [selectedLot, setSelectedLot] = useState("");
   const [lotSearch, setLotSearch] = useState("");
+  const [lotTypeFilter, setLotTypeFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("day");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
 
   const { data: lots, error: lotsError } = useQuery({ queryKey: ["lots-for-ops"], queryFn: async () => {
-    const { data, error } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+    const { data, error } = await supabase.from("parking_lots").select("id, code, name, lot_type").eq("status", "active").order("code");
     if (error) throw error;
     return data || [];
   }});
@@ -38,14 +41,25 @@ export default function OpsFreeHoursPage() {
     return data || [];
   }, enabled: !!selectedLot });
 
-  const filteredLots = (lots || []).filter((l: any) => !lotSearch || l.name.toLowerCase().includes(lotSearch.toLowerCase()));
+  const filteredLots = (lots || []).filter((l: any) => {
+    if (lotTypeFilter !== "all" && l.lot_type !== lotTypeFilter) return false;
+    return !lotSearch || l.name.toLowerCase().includes(lotSearch.toLowerCase()) || l.code.toLowerCase().includes(lotSearch.toLowerCase());
+  });
+  const sortedSettings = [...(settings || [])].sort((a: any, b: any) => {
+    if (sortBy === "start") return (a.start_time || "").localeCompare(b.start_time || "");
+    if (sortBy === "effective_new") return (b.effective_from || "").localeCompare(a.effective_from || "");
+    if (sortBy === "name") return (a.setting_name || "").localeCompare(b.setting_name || "", "ko");
+    return (a.day_type || "").localeCompare(b.day_type || "");
+  });
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
 
-  const openNew = () => { setEditing(null); setForm({ lot_id: selectedLot, day_type: "everyday", is_active: true, effective_from: new Date().toISOString().split("T")[0] }); setDialogOpen(true); };
+  const openNew = () => { setEditing(null); setForm({ lot_id: selectedLot, day_type: "everyday", is_active: true, start_time: "18:00", end_time: "09:00", effective_from: new Date().toISOString().split("T")[0] }); setDialogOpen(true); };
   const openEdit = (s: any) => { setEditing(s); setForm({ ...s }); setDialogOpen(true); };
 
   const handleSave = async () => {
     if (!form.lot_id || !form.start_time || !form.end_time) { toast({ title: "필수 입력 확인", variant: "destructive" }); return; }
+    const duplicate = (settings || []).some((item: any) => item.id !== editing?.id && item.is_active && item.day_type === form.day_type && item.start_time?.slice(0, 5) === form.start_time && item.end_time?.slice(0, 5) === form.end_time);
+    if (duplicate) { toast({ title: "동일한 무료개방 시간이 이미 있습니다", variant: "destructive" }); return; }
     setSaving(true);
     try {
       const { id, parking_lots, created_at, ...payload } = form;
@@ -58,19 +72,6 @@ export default function OpsFreeHoursPage() {
       setDialogOpen(false);
     } catch (err: any) { toast({ title: "실패", description: err.message, variant: "destructive" }); }
     finally { setSaving(false); }
-  };
-
-  const handleDelete = async () => {
-    if (!editing) return;
-    try {
-      const { error } = await supabase.from("free_hours_settings").delete().eq("id", editing.id);
-      if (error) throw error;
-      toast({ title: "삭제됨" });
-      queryClient.invalidateQueries({ queryKey: ["free-hours"] });
-      setDialogOpen(false);
-    } catch (err: any) {
-      toast({ title: "삭제 실패", description: err.message, variant: "destructive" });
-    }
   };
 
   const toggleActive = async (s: any) => {
@@ -104,11 +105,11 @@ export default function OpsFreeHoursPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="md:col-span-1">
             <CardContent className="p-0">
-              <div className="p-3"><div className="relative"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder="주차장 검색" value={lotSearch} onChange={e => setLotSearch(e.target.value)} className="pl-9 h-9" /></div></div>
+              <div className="space-y-2 p-3"><div className="relative"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder="주차장 검색" value={lotSearch} onChange={e => setLotSearch(e.target.value)} className="pl-9 h-9" /></div><Select value={lotTypeFilter} onValueChange={setLotTypeFilter}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">전체 형태</SelectItem><SelectItem value="offstreet">노외주차장</SelectItem><SelectItem value="multilevel">주차빌딩</SelectItem><SelectItem value="onstreet">노상주차장</SelectItem></SelectContent></Select></div>
               <div className="max-h-[60vh] overflow-y-auto">
                 {filteredLots.map((l: any) => (
                   <button key={l.id} onClick={() => setSelectedLot(l.id)} className={`w-full px-4 py-2.5 text-left text-sm border-b hover:bg-accent/50 ${selectedLot === l.id ? "bg-primary/10 font-medium" : ""}`}>
-                    <span className="font-mono text-[10px] text-muted-foreground mr-2">{l.code}</span>{l.name}
+                    <span className="font-mono text-[10px] text-muted-foreground mr-2">{l.code}</span>{l.name}<span className="ml-2 text-[10px] text-muted-foreground">{LOT_TYPE_LABELS[l.lot_type as keyof typeof LOT_TYPE_LABELS] || "기타"}</span>
                   </button>
                 ))}
               </div>
@@ -116,9 +117,10 @@ export default function OpsFreeHoursPage() {
           </Card>
 
           <div className="md:col-span-2 space-y-3">
+            {selectedLot && <div className="flex justify-end"><Select value={sortBy} onValueChange={setSortBy}><SelectTrigger className="h-9 w-[145px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="day">적용요일순</SelectItem><SelectItem value="start">시작시간순</SelectItem><SelectItem value="effective_new">최근 시행순</SelectItem><SelectItem value="name">설정명순</SelectItem></SelectContent></Select></div>}
             {!selectedLot ? <Card><CardContent className="py-16 text-center text-muted-foreground">좌측에서 주차장을 선택하세요</CardContent></Card> :
             (settings || []).length === 0 ? <Card><CardContent className="py-16 text-center text-muted-foreground">설정된 무료개방 없음</CardContent></Card> :
-            (settings || []).map((s: any) => (
+            sortedSettings.map((s: any) => (
               <Card key={s.id} className="cursor-pointer hover:shadow-sm" onClick={() => openEdit(s)}>
                 <CardContent className="pt-4 pb-3">
                   <div className="flex items-center justify-between">
@@ -155,10 +157,10 @@ export default function OpsFreeHoursPage() {
             </div>
             <div className="space-y-1.5"><Label className="text-xs">사유</Label><Input value={form.reason || ""} onChange={e => set("reason", e.target.value)} /></div>
             <div className="space-y-1.5"><Label className="text-xs">시행일</Label><Input type="date" value={form.effective_from || ""} onChange={e => set("effective_from", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label className="text-xs">관련 공식 문서번호</Label><Input value={form.document_number || ""} onChange={e => set("document_number", e.target.value)} placeholder="제주시청-차량관리과운영팀-연도-번호" /></div>
             <AuthorField value={form.author_name || ""} onChange={v => set("author_name", v)} />
           </div>
-          <DialogFooter className="flex justify-between">
-            {editing && <Button variant="destructive" size="sm" onClick={handleDelete}><Trash2 className="h-3.5 w-3.5 mr-1" />삭제</Button>}
+          <DialogFooter>
             <div className="flex gap-2 ml-auto"><Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button><Button onClick={handleSave} disabled={saving}>저장</Button></div>
           </DialogFooter>
         </DialogContent>

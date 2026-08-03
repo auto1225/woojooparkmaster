@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, CalendarClock, CircleDollarSign, Plus, LayoutGrid, List } from "lucide-react";
+import { AlertTriangle, CalendarClock, ChevronLeft, ChevronRight, CircleDollarSign, Plus, LayoutGrid, List } from "lucide-react";
 import { AuthorField } from "@/components/common/AuthorField";
 import { toast } from "sonner";
 import { EQUIPMENT_TYPE_LABELS, EQUIPMENT_STATUS_LABELS, EQUIPMENT_STATUS_COLORS } from "@/types/facility";
@@ -30,6 +30,7 @@ import { getMissingRequiredEquipment, getParkingLotWorkProfile } from "@/lib/par
 type EquipmentSortKey = "equipment_code" | "name" | "lot" | "type" | "status" | "install_date" | "warranty_end" | "next_maintenance_date" | "maintenance_cost" | "updated_at";
 
 const STATUS_ORDER: Record<EquipmentStatus, number> = { broken: 0, warning: 1, maintenance: 2, normal: 3, decommissioned: 4 };
+const PAGE_SIZE = 50;
 
 export default function FacilityEquipment() {
   const queryClient = useQueryClient();
@@ -47,6 +48,8 @@ export default function FacilityEquipment() {
   const [secondarySortKey, setSecondarySortKey] = useState<EquipmentSortKey | "none">("name");
   const [nullPlacement, setNullPlacement] = useState<NullPlacement>("last");
   const [groupByLot, setGroupByLot] = useState(() => searchParams.get("group") === "lot");
+  const [page, setPage] = useState(() => Math.max(1, Number(searchParams.get("page")) || 1));
+  const filtersInitialized = useRef(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(() => Boolean(searchParams.get("equipment")));
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string | null>(() => searchParams.get("equipment"));
@@ -102,9 +105,10 @@ export default function FacilityEquipment() {
     if (sortKey !== "equipment_code") next.set("sort", sortKey);
     if (sortDirection !== "asc") next.set("dir", sortDirection);
     if (groupByLot) next.set("group", "lot");
+    if (page > 1) next.set("page", String(page));
     if (selectedEquipmentId && detailOpen) next.set("equipment", selectedEquipmentId);
     setSearchParams(next, { replace: true });
-  }, [detailOpen, filterLot, filterLotType, filterStatus, filterType, groupByLot, search, selectedEquipmentId, setSearchParams, sortDirection, sortKey]);
+  }, [detailOpen, filterLot, filterLotType, filterStatus, filterType, groupByLot, page, search, selectedEquipmentId, setSearchParams, sortDirection, sortKey]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -124,9 +128,11 @@ export default function FacilityEquipment() {
     };
     const matching = equipment.filter((item) => {
         if (filterLot !== "all" && item.lot_id !== filterLot) return false;
-        if (filterLotType !== "all" && item.parking_lots?.lot_type !== filterLotType) return false;
+        if (filterLotType === "other" && ["offstreet", "multilevel", "onstreet"].includes(item.parking_lots?.lot_type || "")) return false;
+        if (filterLotType !== "all" && filterLotType !== "other" && item.parking_lots?.lot_type !== filterLotType) return false;
         if (filterType !== "all" && item.equipment_type !== filterType) return false;
-        if (filterStatus !== "all" && item.status !== filterStatus) return false;
+        if (filterStatus === "attention" && !["warning", "broken", "maintenance"].includes(item.status)) return false;
+        if (filterStatus !== "all" && filterStatus !== "attention" && item.status !== filterStatus) return false;
         if (!query) return true;
         return [item.name, item.equipment_code, item.serial_number, item.manufacturer, item.model, item.parking_lots?.name, item.vendor_name, item.vendor_manager, item.vendor_phone, item.vendor_email]
           .some((value) => String(value || "").toLowerCase().includes(query));
@@ -138,16 +144,31 @@ export default function FacilityEquipment() {
     ], nullPlacement);
   }, [equipment, filterLot, filterLotType, filterStatus, filterType, groupByLot, nullPlacement, search, secondarySortKey, sortDirection, sortKey]);
 
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pagedEquipment = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
+
+  useEffect(() => {
+    if (!filtersInitialized.current) {
+      filtersInitialized.current = true;
+      return;
+    }
+    setPage(1);
+  }, [filterLot, filterLotType, filterStatus, filterType, groupByLot, nullPlacement, search, secondarySortKey, sortDirection, sortKey]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
+
   const groupedEquipment = useMemo(() => {
-    if (!groupByLot) return [{ key: "all", label: "", items: filtered }];
-    return Array.from(filtered.reduce((groups, item) => {
+    if (!groupByLot) return [{ key: "all", label: "", items: pagedEquipment }];
+    return Array.from(pagedEquipment.reduce((groups, item) => {
       const key = item.lot_id || "unassigned";
       const current = groups.get(key) || { key, label: item.parking_lots?.name || "주차장 미지정", items: [] as Equipment[] };
       current.items.push(item);
       groups.set(key, current);
       return groups;
     }, new Map<string, { key: string; label: string; items: Equipment[] }>()).values());
-  }, [filtered, groupByLot]);
+  }, [groupByLot, pagedEquipment]);
 
   const today = new Date();
   const warrantyThreshold = new Date(today.getTime() + 90 * 86400000);
@@ -298,10 +319,10 @@ export default function FacilityEquipment() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">장비 관리</h1>
           <div className="flex items-center gap-2">
-            <Button variant={viewMode === "table" ? "default" : "outline"} size="icon" onClick={() => setViewMode("table")}> 
+            <Button variant={viewMode === "table" ? "default" : "outline"} size="icon" aria-label="목록 보기" title="목록 보기" onClick={() => setViewMode("table")}>
               <List className="h-4 w-4" />
             </Button>
-            <Button variant={viewMode === "card" ? "default" : "outline"} size="icon" onClick={() => setViewMode("card")}> 
+            <Button variant={viewMode === "card" ? "default" : "outline"} size="icon" aria-label="카드 보기" title="카드 보기" onClick={() => setViewMode("card")}>
               <LayoutGrid className="h-4 w-4" />
             </Button>
             {canCreate && <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -367,8 +388,8 @@ export default function FacilityEquipment() {
                   </div>
                   <div><Label>시리얼번호</Label><Input value={form.serial_number} onChange={(event) => setForm((prev) => ({ ...prev, serial_number: event.target.value }))} /></div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div><Label>설치일</Label><Input type="date" value={form.install_date} onChange={(event) => setForm((prev) => ({ ...prev, install_date: event.target.value }))} /></div>
-                    <div><Label>보증만료</Label><Input type="date" value={form.warranty_end} onChange={(event) => setForm((prev) => ({ ...prev, warranty_end: event.target.value }))} /></div>
+                    <div><Label htmlFor="equipment-install-date">설치일</Label><Input id="equipment-install-date" type="date" value={form.install_date} onInput={(event) => setForm((prev) => ({ ...prev, install_date: event.currentTarget.value }))} onChange={(event) => setForm((prev) => ({ ...prev, install_date: event.target.value }))} /></div>
+                    <div><Label htmlFor="equipment-warranty-end">보증만료</Label><Input id="equipment-warranty-end" type="date" value={form.warranty_end} onInput={(event) => setForm((prev) => ({ ...prev, warranty_end: event.currentTarget.value }))} onChange={(event) => setForm((prev) => ({ ...prev, warranty_end: event.target.value }))} /></div>
                   </div>
                   <div><Label>취득원가 (원)</Label><Input type="number" value={form.purchase_cost} onChange={(event) => setForm((prev) => ({ ...prev, purchase_cost: event.target.value }))} /></div>
                   <div><Label>운영 상태</Label><Select value={form.status} onValueChange={(value: EquipmentStatus) => setForm((prev) => ({ ...prev, status: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(EQUIPMENT_STATUS_LABELS).map(([key, value]) => <SelectItem key={key} value={key}>{value}</SelectItem>)}</SelectContent></Select></div>
@@ -396,6 +417,7 @@ export default function FacilityEquipment() {
             <SelectContent>
               <SelectItem value="all">전체 주차장 형태</SelectItem>
               {Object.entries(LOT_TYPE_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+              <SelectItem value="other">기타·미지정</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -411,7 +433,7 @@ export default function FacilityEquipment() {
           categories={Object.entries(EQUIPMENT_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
           category={filterType}
           onCategoryChange={setFilterType}
-          statuses={Object.entries(EQUIPMENT_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
+          statuses={[{ value: "attention", label: "조치 필요" }, ...Object.entries(EQUIPMENT_STATUS_LABELS).map(([value, label]) => ({ value, label }))]}
           status={filterStatus}
           onStatusChange={setFilterStatus}
           sortOptions={[
@@ -442,9 +464,9 @@ export default function FacilityEquipment() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>코드</TableHead><TableHead>장비명</TableHead><TableHead>유형</TableHead>
-                    <TableHead>주차장</TableHead><TableHead>제조사/모델</TableHead><TableHead>설치일</TableHead>
-                    <TableHead>보증만료</TableHead><TableHead>상태</TableHead><TableHead className="text-right">누적수리비</TableHead>
+                    <TableHead sortable={false}>코드</TableHead><TableHead sortable={false}>장비명</TableHead><TableHead sortable={false}>유형</TableHead>
+                    <TableHead sortable={false}>주차장</TableHead><TableHead sortable={false}>제조사/모델</TableHead><TableHead sortable={false}>설치일</TableHead>
+                    <TableHead sortable={false}>보증만료</TableHead><TableHead sortable={false}>상태</TableHead><TableHead sortable={false} className="text-right">누적수리비</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -453,7 +475,7 @@ export default function FacilityEquipment() {
                       {groupByLot && <TableRow className="bg-muted/60 hover:bg-muted/60"><TableCell colSpan={9} className="py-2 font-semibold">{group.label}<Badge variant="secondary" className="ml-2">{group.items.length}대</Badge></TableCell></TableRow>}
                       {group.items.map((item) => (
                         <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEquipmentDetail(item)}>
-                          <TableCell className="font-mono text-xs">{item.equipment_code}</TableCell>
+                          <TableCell><button type="button" className="font-mono text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={(event) => { event.stopPropagation(); openEquipmentDetail(item); }}>{item.equipment_code}</button></TableCell>
                           <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell><Badge variant="outline">{EQUIPMENT_TYPE_LABELS[item.equipment_type] || item.equipment_type}</Badge></TableCell>
                           <TableCell><div>{item.parking_lots?.name || "-"}</div>{item.parking_lots?.lot_type && <Badge variant="secondary" className="mt-1 text-[10px]">{LOT_TYPE_LABELS[item.parking_lots.lot_type as LotType]}</Badge>}</TableCell>
@@ -479,7 +501,7 @@ export default function FacilityEquipment() {
               {groupByLot && <div className="flex items-center gap-2"><h2 className="text-sm font-semibold">{group.label}</h2><Badge variant="secondary">{group.items.length}대</Badge></div>}
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {group.items.map((item) => (
-                  <Card key={item.id} className="cursor-pointer transition-shadow hover:shadow-md" onClick={() => openEquipmentDetail(item)}>
+                  <Card key={item.id} role="button" tabIndex={0} className="cursor-pointer transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => openEquipmentDetail(item)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openEquipmentDetail(item); } }}>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base">{item.name}</CardTitle>
                       <p className="font-mono text-xs text-muted-foreground">{item.equipment_code}</p>
@@ -497,6 +519,16 @@ export default function FacilityEquipment() {
               </div>
             </section>)}
             {filtered.length === 0 && <p className="col-span-3 py-8 text-center text-muted-foreground">등록된 장비가 없습니다</p>}
+          </div>
+        )}
+        {filtered.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm text-muted-foreground">
+            <span>{filtered.length.toLocaleString()}건 중 {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, filtered.length)}건</span>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}><ChevronLeft className="mr-1 h-4 w-4" />이전</Button>
+              <span className="min-w-16 text-center tabular-nums">{page} / {pageCount}</span>
+              <Button type="button" variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>다음<ChevronRight className="ml-1 h-4 w-4" /></Button>
+            </div>
           </div>
         )}
       </div>

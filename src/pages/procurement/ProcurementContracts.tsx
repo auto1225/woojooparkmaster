@@ -3,6 +3,8 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,21 +14,29 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { handoffContractToService } from "@/lib/workflow-commands";
+import { getParkingLotTypeLabel } from "@/lib/parking-lot-type-labels";
+import { ArrowDownUp, Search } from "lucide-react";
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
+const ACTIVE_STATUSES = ['active', 'signed', 'in_progress'];
 
 export default function ProcurementContracts() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sort, setSort] = useState('date_desc');
   const currentYear = new Date().getFullYear();
 
   const { data: contracts } = useQuery({
     queryKey: ['all-bid-contracts'],
     queryFn: async () => {
       const { data } = await supabase.from('bid_contracts')
-        .select('*, bid_projects(title, bid_type, contract_type, bid_number)')
+        .select('*, bid_projects(title, bid_type, contract_type, bid_number, document_number, parking_lots(code, name, lot_type))')
+        .is('archived_at', null)
         .order('contract_date', { ascending: false });
       return data || [];
     },
@@ -38,14 +48,31 @@ export default function ProcurementContracts() {
     const soon = new Date(now.getTime() + 30 * 86400000);
     const thisYear = contracts.filter(c => c.contract_date?.startsWith(String(currentYear)));
     return {
-      active: contracts.filter(c => c.status === 'active').length,
-      activeAmount: contracts.filter(c => c.status === 'active').reduce((s, c) => s + (c.total_amount || 0), 0),
+      active: contracts.filter(c => ACTIVE_STATUSES.includes(c.status)).length,
+      activeAmount: contracts.filter(c => ACTIVE_STATUSES.includes(c.status)).reduce((s, c) => s + (c.total_amount || 0), 0),
       thisYear: thisYear.length,
       thisYearAmount: thisYear.reduce((s, c) => s + (c.total_amount || 0), 0),
-      expiringSoon: contracts.filter(c => c.status === 'active' && c.contract_end && new Date(c.contract_end) <= soon && new Date(c.contract_end) >= now).length,
+      expiringSoon: contracts.filter(c => ACTIVE_STATUSES.includes(c.status) && c.contract_end && new Date(c.contract_end) <= soon && new Date(c.contract_end) >= now).length,
       warranty: contracts.filter(c => c.warranty_end && new Date(c.warranty_end) >= now).length,
     };
   }, [contracts, currentYear]);
+
+  const filtered = useMemo(() => {
+    const keyword = search.trim().toLocaleLowerCase('ko-KR');
+    return (contracts || []).filter((contract: any) => {
+      const project = contract.bid_projects;
+      if (typeFilter !== 'all' && project?.contract_type !== typeFilter) return false;
+      if (statusFilter === 'active' && !ACTIVE_STATUSES.includes(contract.status)) return false;
+      if (statusFilter !== 'all' && statusFilter !== 'active' && contract.status !== statusFilter) return false;
+      return !keyword || [contract.contract_number, contract.document_number, contract.contractor_name, contract.contractor_contact_person, contract.contractor_phone, project?.title, project?.bid_number, project?.document_number, project?.parking_lots?.name].some((value) => String(value || '').toLocaleLowerCase('ko-KR').includes(keyword));
+    }).sort((a: any, b: any) => {
+      if (sort === 'amount_desc') return Number(b.total_amount || 0) - Number(a.total_amount || 0);
+      if (sort === 'amount_asc') return Number(a.total_amount || 0) - Number(b.total_amount || 0);
+      if (sort === 'end_asc') return String(a.contract_end || '9999').localeCompare(String(b.contract_end || '9999'));
+      if (sort === 'company_asc') return String(a.contractor_name).localeCompare(String(b.contractor_name), 'ko');
+      return String(b.contract_date || '').localeCompare(String(a.contract_date || ''));
+    });
+  }, [contracts, search, typeFilter, statusFilter, sort]);
 
   // Pie chart by contract type
   const typeData = useMemo(() => {
@@ -63,9 +90,9 @@ export default function ProcurementContracts() {
     return diff >= 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
   };
 
-  const signContract = async (contractId: string) => {
+  const signContract = async (contractId: string, documentNumber: string | null) => {
     setProcessingId(contractId);
-    const { error } = await supabase.from('bid_contracts').update({ signed_at: new Date().toISOString() }).eq('id', contractId);
+    const { error } = await (supabase as any).rpc('sign_bid_contract', { p_contract_id: contractId, p_document_number: documentNumber });
     setProcessingId(null);
     if (error) { toast.error(error.message); return; }
     toast.success('계약 서명 완료로 기록했습니다');
@@ -115,7 +142,16 @@ export default function ProcurementContracts() {
           </Card>
         )}
 
-        <Card>
+        <div className="grid gap-2 border bg-card p-3 md:grid-cols-[minmax(240px,1fr)_150px_150px_180px]">
+          <div className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="계약·문서·업체·담당자·주차장 찾기" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
+          <Select value={typeFilter} onValueChange={setTypeFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">전체 계약유형</SelectItem>{Object.entries(CONTRACT_TYPE_LABELS).map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}</SelectContent></Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">전체 상태</SelectItem><SelectItem value="active">진행 중</SelectItem><SelectItem value="completed">완료</SelectItem><SelectItem value="terminated">해지</SelectItem></SelectContent></Select>
+          <Select value={sort} onValueChange={setSort}><SelectTrigger><ArrowDownUp className="mr-1 h-4 w-4" /><SelectValue /></SelectTrigger><SelectContent><SelectItem value="date_desc">최근 계약순</SelectItem><SelectItem value="end_asc">종료 임박순</SelectItem><SelectItem value="amount_desc">금액 높은순</SelectItem><SelectItem value="amount_asc">금액 낮은순</SelectItem><SelectItem value="company_asc">업체명순</SelectItem></SelectContent></Select>
+        </div>
+
+        <div className="grid gap-3 md:hidden">{filtered.map((c: any) => { const project = c.bid_projects; return <Card key={c.id} onClick={() => navigate(`/procurement/projects/${c.bid_project_id}?tab=contract`)}><CardContent className="space-y-3 p-4"><div className="flex items-start justify-between gap-2"><div><p className="font-mono text-xs text-muted-foreground">{c.contract_number}</p><p className="font-semibold">{project?.title}</p></div><Badge variant="outline">{CONTRACT_STATUS_LABELS[c.status] || c.status}</Badge></div><p className="text-sm">{c.contractor_name} · {c.contractor_contact_person || '담당자 미등록'} {c.contractor_phone || ''}</p><div className="flex flex-wrap gap-1"><Badge variant="outline">{project?.parking_lots?.name || '주차장 미연결'}</Badge><Badge variant="outline">{getParkingLotTypeLabel(project?.parking_lots?.lot_type)}</Badge><Badge variant="outline">{CONTRACT_TYPE_LABELS[project?.contract_type] || project?.contract_type}</Badge></div><p className="font-medium">{formatOkWon(c.total_amount)} · {c.contract_end || '-'}</p></CardContent></Card>; })}</div>
+
+        <Card className="hidden md:block">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
@@ -132,9 +168,9 @@ export default function ProcurementContracts() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {contracts?.map(c => {
+                  {filtered.map((c: any) => {
                     const now = new Date();
-                    const endSoon = c.status === 'active' && c.contract_end && new Date(c.contract_end) <= new Date(now.getTime() + 30 * 86400000) && new Date(c.contract_end) >= now;
+                    const endSoon = ACTIVE_STATUSES.includes(c.status) && c.contract_end && new Date(c.contract_end) <= new Date(now.getTime() + 30 * 86400000) && new Date(c.contract_end) >= now;
                     return (
                       <TableRow key={c.id} className={`cursor-pointer ${endSoon ? 'bg-yellow-50' : ''}`}
                         onClick={() => navigate(`/procurement/projects/${c.bid_project_id}?tab=contract`)}>
@@ -151,11 +187,11 @@ export default function ProcurementContracts() {
                         <TableCell onClick={(event) => event.stopPropagation()}>
                           {c.service_project_id ? (
                             <Button size="sm" variant="outline" onClick={() => navigate(`/service/projects/${c.service_project_id}`)}>용역 보기</Button>
-                          ) : ['admin', 'manager'].includes(profile?.role || '') && c.status === 'active' ? (
+                          ) : ['admin', 'manager'].includes(profile?.role || '') && ACTIVE_STATUSES.includes(c.status) ? (
                             c.signed_at ? (
-                              <Button size="sm" onClick={() => handoffContract(c.id)} disabled={processingId === c.id}>용역 인계</Button>
+                              (c.bid_projects as any)?.contract_type === 'service' || (c.bid_projects as any)?.contract_type === 'outsourcing' ? <Button size="sm" onClick={() => handoffContract(c.id)} disabled={processingId === c.id}>용역 인계</Button> : <span className="text-xs text-muted-foreground">{(c.bid_projects as any)?.contract_type === 'construction' ? '시설공사 연계' : '장비·운영 연계'}</span>
                             ) : (
-                              <Button size="sm" variant="outline" onClick={() => signContract(c.id)} disabled={processingId === c.id}>서명 완료</Button>
+                              <Button size="sm" variant="outline" onClick={() => signContract(c.id, c.document_number)} disabled={processingId === c.id}>서명 확정</Button>
                             )
                           ) : <span className="text-xs text-muted-foreground">-</span>}
                         </TableCell>

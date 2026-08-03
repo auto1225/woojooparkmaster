@@ -17,6 +17,8 @@ import { CHART_COLORS, ChartTooltipContent } from "@/lib/chart-config";
 import { useTheme } from "@/hooks/useTheme";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { createExcelWorkbook } from "@/lib/excel-engine";
+import { localDateIso } from "@/lib/revenue-controls";
+import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
 
 const PAYMENT_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#6b7280'];
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
@@ -26,9 +28,10 @@ export default function RevenueAnalysis() {
   const { data: config } = useSystemConfig();
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const [dateStart, setDateStart] = useState(monthStart.toISOString().split('T')[0]);
-  const [dateEnd, setDateEnd] = useState(now.toISOString().split('T')[0]);
+  const [dateStart, setDateStart] = useState(localDateIso(monthStart));
+  const [dateEnd, setDateEnd] = useState(localDateIso(now));
   const [lotFilter, setLotFilter] = useState('all');
+  const [lotTypeFilter, setLotTypeFilter] = useState('all');
   const [compareMode, setCompareMode] = useState(false);
   const [compareStart, setCompareStart] = useState<Date | null>(null);
   const [compareEnd, setCompareEnd] = useState<Date | null>(null);
@@ -36,7 +39,8 @@ export default function RevenueAnalysis() {
   const { data: lots = [] } = useQuery({
     queryKey: ['lots-analysis'],
     queryFn: async () => {
-      const { data } = await supabase.from('parking_lots').select('id, code, name, total_spaces').order('code');
+      const { data, error } = await supabase.from('parking_lots').select('id, code, name, lot_type, total_spaces').order('code');
+      if (error) throw error;
       return data || [];
     },
   });
@@ -44,10 +48,11 @@ export default function RevenueAnalysis() {
   const { data: rawData = [] } = useQuery({
     queryKey: ['rev-analysis', dateStart, dateEnd],
     queryFn: async () => {
-      const { data } = await supabase.from('revenue_daily')
-        .select('*, parking_lots(code, name)')
+      const { data, error } = await supabase.from('revenue_daily')
+        .select('*, parking_lots(code, name, lot_type)')
         .gte('revenue_date', dateStart).lte('revenue_date', dateEnd)
         .order('revenue_date', { ascending: false });
+      if (error) throw error;
       return data || [];
     },
   });
@@ -58,10 +63,11 @@ export default function RevenueAnalysis() {
   const { data: prevData = [] } = useQuery({
     queryKey: ['rev-prev', prevMonthStart.toISOString(), prevMonthEnd.toISOString()],
     queryFn: async () => {
-      const { data } = await supabase.from('revenue_daily')
+      const { data, error } = await supabase.from('revenue_daily')
         .select('revenue_date, total_amount, total_vehicles, exemption_amount, verified')
-        .gte('revenue_date', prevMonthStart.toISOString().split('T')[0])
-        .lte('revenue_date', prevMonthEnd.toISOString().split('T')[0]);
+        .gte('revenue_date', localDateIso(prevMonthStart))
+        .lte('revenue_date', localDateIso(prevMonthEnd));
+      if (error) throw error;
       return data || [];
     },
   });
@@ -71,17 +77,18 @@ export default function RevenueAnalysis() {
   const { data: trendData = [] } = useQuery({
     queryKey: ['rev-trend-12m'],
     queryFn: async () => {
-      const { data } = await supabase.from('revenue_daily')
+      const { data, error } = await supabase.from('revenue_daily')
         .select('revenue_date, total_amount, cash_amount, card_amount, mobile_amount, monthly_pass_amount, other_amount, total_vehicles, lot_id')
-        .gte('revenue_date', yearAgo.toISOString().split('T')[0]);
+        .gte('revenue_date', localDateIso(yearAgo));
+      if (error) throw error;
       return data || [];
     },
   });
 
   const filtered = useMemo(() => {
-    if (lotFilter === 'all') return rawData;
-    return rawData.filter((r: any) => r.lot_id === lotFilter);
-  }, [rawData, lotFilter]);
+    return rawData.filter((r: any) => (lotFilter === 'all' || r.lot_id === lotFilter)
+      && (lotTypeFilter === 'all' || r.parking_lots?.lot_type === lotTypeFilter));
+  }, [rawData, lotFilter, lotTypeFilter]);
 
   // ── KPI 계산 ──
   const totalRevenue = filtered.reduce((s: number, r: any) => s + (r.total_amount || 0), 0);
@@ -89,6 +96,7 @@ export default function RevenueAnalysis() {
   const dailyAvg = totalRevenue / days;
   const totalVehicles = filtered.reduce((s: number, r: any) => s + (r.total_vehicles || 0), 0);
   const unverified = filtered.filter((r: any) => !r.verified).length;
+  const verificationRate = filtered.length > 0 ? Math.round((filtered.length - unverified) / filtered.length * 100) : 0;
   const totalExemption = filtered.reduce((s: number, r: any) => s + (r.exemption_amount || 0), 0);
   const exemptionRate = totalRevenue > 0 ? (totalExemption / (totalRevenue + totalExemption)) * 100 : 0;
 
@@ -234,6 +242,13 @@ export default function RevenueAnalysis() {
                 {lots.map((l: any) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Select value={lotTypeFilter} onValueChange={setLotTypeFilter}>
+              <SelectTrigger className="h-7 w-36 text-xs" aria-label="주차장 형태"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 형태</SelectItem>
+                {(['offstreet', 'multilevel', 'onstreet'] as LotType[]).map(type => <SelectItem key={type} value={type}>{LOT_TYPE_LABELS[type]}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <PeriodCompare
               currentStart={new Date(dateStart)} currentEnd={new Date(dateEnd)}
               onCompareChange={(s, e, t) => { setCompareMode(true); setCompareStart(s); setCompareEnd(e); }}
@@ -250,7 +265,7 @@ export default function RevenueAnalysis() {
           <CompareKPI title="당월 총수입" value={Math.round(totalRevenue / 10000)} suffix="만원" icon={Banknote} color="bg-primary/10 text-primary" prevValue={Math.round(prevTotal / 10000)} prevLabel="전월비" />
           <CompareKPI title="일평균 수입" value={Math.round(dailyAvg / 10000)} suffix="만원" icon={TrendingUp} color="bg-emerald-100 text-emerald-700" prevValue={Math.round(prevDailyAvg / 10000)} prevLabel="전월비" />
           <CompareKPI title="이용차량" value={totalVehicles} suffix="대" icon={Car} color="bg-blue-100 text-blue-700" prevValue={prevVehicles} prevLabel="전월비" />
-          <CompareKPI title="징수율" value={100} suffix="%" icon={ShieldCheck} color="bg-amber-100 text-amber-700" />
+          <CompareKPI title="자료 검증률" value={verificationRate} suffix="%" icon={ShieldCheck} color="bg-amber-100 text-amber-700" />
           <CompareKPI title="감면율" value={Number(exemptionRate.toFixed(1))} suffix="%" icon={Percent} color="bg-violet-100 text-violet-700" />
           <CompareKPI title="미검증 수입" value={unverified} suffix="건" icon={AlertTriangle} color="bg-red-100 text-red-600" />
         </div>

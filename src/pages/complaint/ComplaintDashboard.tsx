@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertOctagon,
@@ -133,10 +133,11 @@ function groupValue(complaint: Complaint, key: GroupKey) {
 
 export default function ComplaintDashboard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [statusTab, setStatusTab] = useState("all");
+  const [statusTab, setStatusTab] = useState(() => searchParams.get("status") === "open" ? "open" : "all");
   const [lotFilter, setLotFilter] = useState("all");
-  const [lotTypeFilter, setLotTypeFilter] = useState("all");
+  const [lotTypeFilter, setLotTypeFilter] = useState(() => searchParams.get("lotType") || "all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [channelFilter, setChannelFilter] = useState("all");
@@ -204,7 +205,8 @@ export default function ComplaintDashboard() {
       if (statusTab === "responded" && item.status !== "responded") return false;
       if (statusTab === "closed" && item.status !== "closed") return false;
       if (lotFilter !== "all" && item.lot_id !== lotFilter) return false;
-      if (lotTypeFilter !== "all" && item.parking_lots?.lot_type !== lotTypeFilter) return false;
+      if (lotTypeFilter === "other" && ["offstreet", "multilevel", "onstreet"].includes(item.parking_lots?.lot_type || "")) return false;
+      if (lotTypeFilter !== "all" && lotTypeFilter !== "other" && item.parking_lots?.lot_type !== lotTypeFilter) return false;
       if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
       if (priorityFilter !== "all" && item.priority !== priorityFilter) return false;
       if (channelFilter !== "all" && item.channel !== channelFilter) return false;
@@ -324,7 +326,7 @@ export default function ComplaintDashboard() {
               </Select>
               <Select value={lotTypeFilter} onValueChange={setLotTypeFilter}>
                 <SelectTrigger aria-label="주차장 형태 필터" className="w-36 h-9 text-sm"><SelectValue placeholder="주차장 형태" /></SelectTrigger>
-                <SelectContent><SelectItem value="all">전체 주차장 형태</SelectItem>{Object.entries(LOT_TYPE_LABELS).map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}</SelectContent>
+                <SelectContent><SelectItem value="all">전체 주차장 형태</SelectItem>{Object.entries(LOT_TYPE_LABELS).map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}<SelectItem value="other">기타·미지정</SelectItem></SelectContent>
               </Select>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger aria-label="민원유형 필터" className="w-32 h-9 text-sm"><SelectValue placeholder="유형" /></SelectTrigger>
