@@ -32,6 +32,7 @@ import ProcurementReportBuilder from "@/pages/report/ProcurementReportBuilder";
 import ComplaintReportBuilder from "@/pages/report/ComplaintReportBuilder";
 import SurveyReportBuilder from "@/pages/report/SurveyReportBuilder";
 import PlanningReportBuilder from "@/pages/report/PlanningReportBuilder";
+import RealtimeReportBuilder from "@/pages/report/RealtimeReportBuilder";
 import { getReportBuilderKind, reportGeneratePath } from "@/lib/report-catalog";
 
 function GenericReportGenerate() {
@@ -495,5 +496,6 @@ export default function ReportGenerate() {
   if (builder === "complaint") return <ComplaintReportBuilder />;
   if (builder === "survey") return <SurveyReportBuilder />;
   if (builder === "planning") return <PlanningReportBuilder />;
+  if (builder === "realtime") return <RealtimeReportBuilder />;
   return <GenericReportGenerate />;
 }

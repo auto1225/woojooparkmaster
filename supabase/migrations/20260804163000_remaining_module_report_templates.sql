@@ -23,6 +23,13 @@ INSERT INTO public.report_templates (
   '신설 후보지·타당성·부지매입·공유재산·사전절차·사업계획·예산·공정·위험과 공식 문서번호를 HWPX와 PDF로 생성',
   '[{"name":"period","label":"보고기간","type":"daterange","required":true}]'::jsonb,
   '[{"title":"기획 핵심지표","type":"summary"},{"title":"후보지·타당성","type":"table"},{"title":"부지·공유재산·절차","type":"table"},{"title":"예산·공정·위험·문서","type":"table"}]'::jsonb
+),
+(
+  'RPT-REALTIME', '실시간 운영·장비상태 보고서', 'daily', 'realtime', 'internal',
+  '["CORE", "REALTIME", "REPORT"]'::jsonb, true, true, false, 100,
+  '주차장별 점유상태·센서·통신·게이트 불일치·경보·조치와 공식 문서번호를 HWPX와 PDF로 생성',
+  '[{"name":"period","label":"보고기간","type":"daterange","required":true}]'::jsonb,
+  '[{"title":"실시간 핵심지표","type":"summary"},{"title":"점유·장비상태","type":"table"},{"title":"통신·불일치·경보","type":"table"},{"title":"조치·문서근거","type":"table"}]'::jsonb
 )
 ON CONFLICT (template_code) DO UPDATE SET
   name = EXCLUDED.name,

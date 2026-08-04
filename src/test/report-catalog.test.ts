@@ -49,6 +49,11 @@ describe("report catalog routing", () => {
     expect(reportGeneratePath("RPT-PLANNING")).toBe("/reports/generate?template=RPT-PLANNING&scope=planning");
   });
 
+  it("routes realtime reports through the device-health builder", () => {
+    expect(getReportBuilderKind("RPT-REALTIME")).toBe("realtime");
+    expect(reportGeneratePath("RPT-REALTIME")).toBe("/reports/generate?template=RPT-REALTIME&scope=realtime");
+  });
+
   it("restores an operations report through its saved scope during template migration", () => {
     expect(reportGeneratePath("RPT-MONTHLY", "report-1", "operations")).toBe(
       "/reports/generate?template=RPT-OPS-STATUS&scope=operations&source=report-1",

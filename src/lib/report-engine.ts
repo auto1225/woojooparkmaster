@@ -93,6 +93,7 @@ import {
   planningReportSummaryRows,
   toOperationsCompatiblePlanningModel,
 } from "@/lib/planning-report";
+import { buildRealtimeReportModel, collectRealtimeReportData, parseRealtimeReportOptions, realtimeReportBriefRows, realtimeReportSummaryRows, toOperationsCompatibleRealtimeModel } from "@/lib/realtime-report";
 
 type ReportParameters = Record<string, string>;
 
@@ -1067,6 +1068,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     const isComplaintReport = input.parameters.report_scope === "complaint" || input.template.template_code === "RPT-COMPLAINT";
     const isSurveyReport = input.parameters.report_scope === "survey" || input.template.template_code === "RPT-SURVEY";
     const isPlanningReport = input.parameters.report_scope === "planning" || input.template.template_code === "RPT-PLANNING";
+    const isRealtimeReport = input.parameters.report_scope === "realtime" || input.template.template_code === "RPT-REALTIME";
     const isAnnualParkingReport = input.parameters.report_scope === "annual_parking"
       || input.template.template_code === ANNUAL_PARKING_TEMPLATE_CODE;
     let dataset: ReportDataset | null = null;
@@ -1427,6 +1429,16 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
         canonicalDocument: "HWPX",
         pdfEngine: "Hancom Office",
       };
+    } else if (isRealtimeReport) {
+      const options = parseRealtimeReportOptions(input.parameters);
+      const realtimeDataset = await collectRealtimeReportData(options);
+      const realtimeModel = buildRealtimeReportModel(realtimeDataset, options);
+      const canonicalHwpx = await createOperationsHwpx({ model: toOperationsCompatibleRealtimeModel(realtimeModel), title: input.title, reportNumber: number, orientation: options.orientation, officialDocumentNumber: input.parameters.official_document_number, authorName: input.authorName, organizationName: orgName, disclosureStatus: input.parameters.disclosure_status, disclosureBasis: input.parameters.disclosure_basis, documentSummary: input.parameters.document_summary, keywords: input.parameters.keywords, documentOverrides: { briefRows: realtimeReportBriefRows(realtimeModel, input.parameters.document_summary), summaryRows: realtimeReportSummaryRows(realtimeModel), footerLabel: "실시간정보", flowDetailTablesAcrossPages: true } });
+      await validateOperationsHwpx(canonicalHwpx, "실시간정보");
+      pdf = await convertHwpxToPdfWithHancom(canonicalHwpx);
+      hwpBlob = input.outputFormat === "pdf+hwpx" ? canonicalHwpx : undefined;
+      dataSnapshot = { reportModel: realtimeModel, sourceCounts: realtimeModel.sourceCounts, selection: options };
+      summaryData = { ...realtimeModel.summary, sourceCounts: realtimeModel.sourceCounts, selectedFieldCount: realtimeModel.selectedFieldCount, protectedFieldCount: realtimeModel.protectedFieldCount, riskNarrative: realtimeModel.riskNarrative, canonicalDocument: "HWPX", pdfEngine: "Hancom Office" };
     } else {
       dataset = await collectReportData(period.start, period.end);
       pdf = await createPdf(input.template, orgName, number, input.parameters.official_document_number || "", input.title, input.description || "", input.authorName || "", period, dataset, input.aiSummary);

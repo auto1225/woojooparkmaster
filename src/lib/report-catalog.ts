@@ -8,8 +8,9 @@ export const PROCUREMENT_REPORT_TEMPLATE_CODE = "RPT-PROCUREMENT";
 export const COMPLAINT_REPORT_TEMPLATE_CODE = "RPT-COMPLAINT";
 export const SURVEY_REPORT_TEMPLATE_CODE = "RPT-SURVEY";
 export const PLANNING_REPORT_TEMPLATE_CODE = "RPT-PLANNING";
+export const REALTIME_REPORT_TEMPLATE_CODE = "RPT-REALTIME";
 
-export type ReportBuilderKind = "operations" | "facility" | "annual_parking" | "revenue" | "budget" | "service" | "procurement" | "complaint" | "survey" | "planning" | "generic";
+export type ReportBuilderKind = "operations" | "facility" | "annual_parking" | "revenue" | "budget" | "service" | "procurement" | "complaint" | "survey" | "planning" | "realtime" | "generic";
 
 export function getReportBuilderKind(templateCode?: string | null, scope?: string | null): ReportBuilderKind {
   if (scope === "operations" || templateCode === OPERATIONS_REPORT_TEMPLATE_CODE) return "operations";
@@ -22,6 +23,7 @@ export function getReportBuilderKind(templateCode?: string | null, scope?: strin
   if (scope === "complaint" || templateCode === COMPLAINT_REPORT_TEMPLATE_CODE) return "complaint";
   if (scope === "survey" || templateCode === SURVEY_REPORT_TEMPLATE_CODE) return "survey";
   if (scope === "planning" || templateCode === PLANNING_REPORT_TEMPLATE_CODE) return "planning";
+  if (scope === "realtime" || templateCode === REALTIME_REPORT_TEMPLATE_CODE) return "realtime";
   return "generic";
 }
 
@@ -48,6 +50,8 @@ export function reportGeneratePath(templateCode?: string | null, sourceId?: stri
       ? SURVEY_REPORT_TEMPLATE_CODE
     : builderKind === "planning"
       ? PLANNING_REPORT_TEMPLATE_CODE
+    : builderKind === "realtime"
+      ? REALTIME_REPORT_TEMPLATE_CODE
       : templateCode;
   if (routedTemplateCode) search.set("template", routedTemplateCode);
   if (builderKind === "operations") search.set("scope", "operations");
@@ -60,6 +64,7 @@ export function reportGeneratePath(templateCode?: string | null, sourceId?: stri
   if (builderKind === "complaint") search.set("scope", "complaint");
   if (builderKind === "survey") search.set("scope", "survey");
   if (builderKind === "planning") search.set("scope", "planning");
+  if (builderKind === "realtime") search.set("scope", "realtime");
   if (sourceId) search.set("source", sourceId);
   const query = search.toString();
   return query ? `/reports/generate?${query}` : "/reports/generate";
