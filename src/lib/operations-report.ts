@@ -61,6 +61,9 @@ export interface OperationsReportDataset {
 export interface OperationsReportTable {
   id: OperationsReportSectionId;
   title: string;
+  subtitle?: string;
+  subtitleNumber?: number;
+  continuation?: boolean;
   columns: Array<{ key: string; label: string }>;
   rows: Array<Record<string, string>>;
 }
@@ -79,6 +82,14 @@ export interface OperationsReportBriefInput {
   model: OperationsReportModel;
   authorName?: string;
   documentSummary?: string;
+}
+
+export interface OperationsDocumentOverrides {
+  briefRows?: string[][];
+  summaryRows?: string[][];
+  footerLabel?: string;
+  startDetailSectionsOnNewPage?: boolean;
+  flowDetailTablesAcrossPages?: boolean;
 }
 
 const LOT_TYPE_ALIASES: Record<string, string[]> = {
@@ -350,13 +361,13 @@ export function operationsReportColumnWeights(
   columns: Array<{ key: string; label: string }>,
   rows: Array<Record<string, string>> = [],
 ) {
-  const compactKeys = new Set(["status", "is_active", "total_spaces", "floors", "position", "staff_type", "auto_renew"]);
-  const typeKeys = new Set(["lot_type", "operator_type", "violation_type", "payment_status", "appeal_status"]);
-  const amountKeys = new Set(["contract_amount", "base_fee", "add_fee", "daily_max", "monthly_pass_fee", "fine_amount", "fee_amount", "fee_paid"]);
-  const identifierKeys = new Set(["contract_number", "pass_number", "receipt_number", "enforcement_number", "record_number"]);
-  const wideKeys = new Set(["name", "lot", "parking_lot", "title", "company_name", "policy_name", "exemption_name"]);
-  const dateKeys = new Set(["updated_at", "contract_start", "contract_end", "hire_date", "violation_date", "fine_due_date", "inspection_date", "reported_at", "due_date"]);
-  const narrativeKeys = new Set(["document_number", "legal_basis", "required_documents", "finding", "corrective_action", "evidence"]);
+  const compactKeys = new Set(["status", "is_active", "total_spaces", "floors", "position", "staff_type", "auto_renew", "priority", "overall_grade", "condition", "quantity", "follow_up_required"]);
+  const typeKeys = new Set(["lot_type", "operator_type", "violation_type", "payment_status", "appeal_status", "equipment_type", "maintenance_type", "inspection_type", "marking_type"]);
+  const amountKeys = new Set(["contract_amount", "base_fee", "add_fee", "daily_max", "monthly_pass_fee", "fine_amount", "fee_amount", "fee_paid", "maintenance_count", "total_maintenance_cost", "total_cost", "downtime_hours", "estimated_cost", "estimated_hours", "delay_days", "fail_items"]);
+  const identifierKeys = new Set(["contract_number", "pass_number", "receipt_number", "enforcement_number", "record_number", "equipment_code", "log_number", "inspection_number"]);
+  const wideKeys = new Set(["name", "lot", "parking_lot", "title", "company_name", "policy_name", "exemption_name", "equipment_name", "location"]);
+  const dateKeys = new Set(["updated_at", "contract_start", "contract_end", "hire_date", "violation_date", "fine_due_date", "inspection_date", "reported_at", "due_date", "installed_at", "warranty_end", "replacement_due", "started_at", "completed_at", "next_due_date", "last_completed_at", "correction_due_date", "corrected_at", "last_repainted_at", "next_repaint_due"]);
+  const narrativeKeys = new Set(["document_number", "document_numbers", "legal_basis", "required_documents", "finding", "corrective_action", "evidence", "issue_summary", "action_summary", "cause", "resolution", "completion_summary", "regulation_note"]);
   const weights = columns.map(column => {
     const measured = rows
       .map(row => visualTextLength(row[column.key] || "-"))
@@ -399,11 +410,18 @@ const CENTERED_COLUMN_KEYS = new Set([
   "effective", "pass_number", "period", "receipt_number", "auto_renew", "enforcement_number",
   "violation_date", "fine_due_date", "payment_status", "appeal_status", "record_number",
   "reported_at", "due_date", "inspection_type", "inspection_date", "document_number",
+  "document_numbers", "equipment_code", "equipment_type", "maintenance_type", "priority",
+  "installed_at", "warranty_end", "replacement_due", "started_at", "completed_at",
+  "next_due_date", "last_completed_at", "delay_days", "inspection_number", "overall_grade",
+  "correction_due_date", "corrected_at", "follow_up_required", "marking_type", "condition",
+  "last_repainted_at", "next_repaint_due", "floor", "quantity",
 ]);
 
 const RIGHT_ALIGNED_COLUMN_KEYS = new Set([
   "total_spaces", "floors", "contract_amount", "base_fee", "add_fee", "daily_max",
   "monthly_pass_fee", "discount", "max_hours", "fee_amount", "fee_paid", "fine_amount",
+  "maintenance_count", "total_maintenance_cost", "total_cost", "downtime_hours",
+  "estimated_cost", "estimated_hours", "fail_items",
 ]);
 
 const SINGLE_LINE_COLUMN_KEYS = new Set([
@@ -413,6 +431,12 @@ const SINGLE_LINE_COLUMN_KEYS = new Set([
   "fine_due_date", "payment_status", "appeal_status", "record_number", "reported_at",
   "due_date", "inspection_type", "inspection_date", "contract_amount", "base_fee", "add_fee",
   "daily_max", "monthly_pass_fee", "fee_amount", "fee_paid", "fine_amount",
+  "equipment_code", "equipment_type", "maintenance_type", "priority", "installed_at",
+  "warranty_end", "replacement_due", "started_at", "completed_at", "next_due_date",
+  "last_completed_at", "delay_days", "inspection_number", "overall_grade", "fail_items",
+  "correction_due_date", "corrected_at", "follow_up_required", "marking_type", "condition",
+  "last_repainted_at", "next_repaint_due", "floor", "quantity", "maintenance_count",
+  "total_maintenance_cost", "total_cost", "downtime_hours", "estimated_cost", "estimated_hours",
 ]);
 
 export function operationsReportColumnAlignment(key: string): TableAlignment {
@@ -456,6 +480,7 @@ export const OPERATIONS_REPORT_LAYOUT = {
 } as const;
 
 const HWPX_PAGE_BREAK_MARKER = "__PARKMASTER_PAGE_BREAK__";
+const HWPX_TABLE_PAGE_BREAK_MARKER = "__PARKMASTER_TABLE_PAGE_BREAK__";
 
 export function operationsReportKeyValueWidths(orientation: OperationsReportOrientation) {
   const pageWidthMm = orientation === "portrait" ? 210 : 297;
@@ -504,19 +529,60 @@ export function operationsReportHwpxRowHeight(columnCount: number, orientation: 
   return 4000;
 }
 
-function balancedTableChunks<T>(rows: T[], maximumChunkSize: number): T[][] {
+export function operationsReportHwpxEstimatedRowHeight(
+  columns: Array<{ key: string; label: string }>,
+  row: string[],
+  columnWeights: number[],
+  orientation: OperationsReportOrientation,
+) {
+  const pageWidthMm = orientation === "portrait" ? 210 : 297;
+  const contentWidthMm = pageWidthMm - OPERATIONS_REPORT_LAYOUT.pageMarginMm * 2;
+  const typography = operationsReportHwpxTableTypography(columns.length, orientation);
+  const maximumLines = row.reduce((lines, value, index) => {
+    const columnWidthMm = contentWidthMm * (columnWeights[index] || (1 / Math.max(1, columns.length)));
+    const visualUnitsPerLine = Math.max(4, Math.floor((columnWidthMm - 3.5) / 1.25));
+    return Math.max(lines, Math.ceil(visualTextLength(value || "-") / visualUnitsPerLine));
+  }, 1);
+  const lineHeightMm = typography.body * 0.3528 * 1.3;
+  const estimatedHeight = Math.round((maximumLines * lineHeightMm + 3.2) * 283.465);
+  const compactDenseRow = columns.length >= 9 && maximumLines <= 3;
+  const columnLayoutFactor = compactDenseRow ? 0.85 : 1;
+  return Math.max(compactDenseRow ? 1700 : 1900, Math.min(7600, Math.round(estimatedHeight * columnLayoutFactor)));
+}
+
+export function paginateOperationsReportHwpxRows(
+  columns: Array<{ key: string; label: string }>,
+  rows: string[][],
+  columnWeights: number[],
+  orientation: OperationsReportOrientation,
+) {
   if (!rows.length) return [];
-  const chunkCount = Math.ceil(rows.length / maximumChunkSize);
-  const baseSize = Math.floor(rows.length / chunkCount);
-  const largerChunkCount = rows.length % chunkCount;
-  const chunks: T[][] = [];
-  let offset = 0;
-  for (let index = 0; index < chunkCount; index += 1) {
-    const size = baseSize + (index < largerChunkCount ? 1 : 0);
-    chunks.push(rows.slice(offset, offset + size));
-    offset += size;
+  const pageCapacity = orientation === "portrait" ? 68000 : 46000;
+  const heights = rows.map(row => operationsReportHwpxEstimatedRowHeight(columns, row, columnWeights, orientation));
+  const pages: Array<{ rows: string[][]; rowHeights: number[] }> = [];
+  let currentRows: string[][] = [];
+  let currentHeights: number[] = [];
+  let usedHeight = 0;
+  rows.forEach((row, index) => {
+    const rowHeight = heights[index];
+    if (currentRows.length && usedHeight + rowHeight > pageCapacity) {
+      pages.push({ rows: currentRows, rowHeights: currentHeights });
+      currentRows = [];
+      currentHeights = [];
+      usedHeight = 0;
+    }
+    currentRows.push(row);
+    currentHeights.push(rowHeight);
+    usedHeight += rowHeight;
+  });
+  if (currentRows.length) pages.push({ rows: currentRows, rowHeights: currentHeights });
+  if (pages.length > 1 && pages[pages.length - 1].rows.length === 1 && pages[pages.length - 2].rows.length > 2) {
+    const previous = pages[pages.length - 2];
+    const last = pages[pages.length - 1];
+    last.rows.unshift(previous.rows.pop()!);
+    last.rowHeights.unshift(previous.rowHeights.pop()!);
   }
-  return chunks;
+  return pages;
 }
 
 export function selectOfficeDocumentFont(malgunGothicAvailable: boolean): "맑은 고딕" | "휴먼고딕" {
@@ -527,7 +593,7 @@ export async function applyOfficeFontToHwpx(
   bytes: Uint8Array,
   fontFamily: "맑은 고딕" | "휴먼고딕" = "맑은 고딕",
   tableLayouts: number[][] = [],
-  tableRowHeights: number[] = [],
+  tableRowHeights: Array<number | number[]> = [],
   tableTopMargins: number[] = [],
 ): Promise<Uint8Array> {
   const zip = await JSZip.loadAsync(bytes);
@@ -549,13 +615,15 @@ export async function applyOfficeFontToHwpx(
     if (!sectionFile) continue;
     const sectionXml = (await sectionFile.async("string"))
       .replace(/hideFirstEmptyLine="0"/, 'hideFirstEmptyLine="1"');
-    const compactedSectionXml = sectionXml.replace(/<hp:p\b(?=[^>]*\bpageBreak="0")[\s\S]*?<hp:secPr\b[\s\S]*?<\/hp:p>/, paragraphXml => paragraphXml
-      .replace(/<hp:lineseg\b[^>]*\/>/g, lineSegment => lineSegment
-        .replace(/vertsize="\d+"/, 'vertsize="0"')
-        .replace(/textheight="\d+"/, 'textheight="0"')
-        .replace(/baseline="\d+"/, 'baseline="0"')
-        .replace(/spacing="\d+"/, 'spacing="0"')));
-    const paginatedSectionXml = compactedSectionXml.replace(new RegExp(`<hp:p\\b(?=[^>]*\\bpageBreak="0")(?:(?!<\\/hp:p>)[\\s\\S])*?${HWPX_PAGE_BREAK_MARKER}(?:(?!<\\/hp:p>)[\\s\\S])*?<\\/hp:p>`, "g"), paragraphXml => paragraphXml
+    const sectionLeadParagraph = sectionXml.match(/<hp:p\b[^>]*>[\s\S]*?<hp:secPr\b[\s\S]*?<\/hp:p>/)?.[0];
+    const sectionControlRun = sectionLeadParagraph?.match(/<hp:run\b[^>]*>[\s\S]*?<hp:secPr\b[\s\S]*?<\/hp:run>/)?.[0];
+    const compactedSectionXml = sectionLeadParagraph && sectionControlRun
+      ? sectionXml
+        .replace(sectionLeadParagraph, "")
+        .replace(/<hp:p\b[^>]*>/, paragraphStart => `${paragraphStart}${sectionControlRun}`)
+      : sectionXml;
+    const tablePaginatedSectionXml = compactedSectionXml.replace(new RegExp(`<hp:p\\b[^>]*>(?:(?!<\\/hp:p>)[\\s\\S])*?${HWPX_TABLE_PAGE_BREAK_MARKER}(?:(?!<\\/hp:p>)[\\s\\S])*?<\\/hp:p>(\\s*)(<hp:p\\b[^>]*>(?=(?:(?!<\\/hp:p>)[\\s\\S])*?<hp:tbl\\b))`, "g"), (_match, whitespace: string, tableParagraphStart: string) => `${whitespace}${tableParagraphStart.replace('pageBreak="0"', 'pageBreak="1"')}`);
+    const paginatedSectionXml = tablePaginatedSectionXml.replace(new RegExp(`<hp:p\\b(?=[^>]*\\bpageBreak="0")(?:(?!<\\/hp:p>)[\\s\\S])*?${HWPX_PAGE_BREAK_MARKER}(?:(?!<\\/hp:p>)[\\s\\S])*?<\\/hp:p>`, "g"), paragraphXml => paragraphXml
       .replace('pageBreak="0"', 'pageBreak="1"')
       .replace(HWPX_PAGE_BREAK_MARKER, ""));
     const patchedSection = paginatedSectionXml.replace(/<hp:tbl\b[\s\S]*?<\/hp:tbl>/g, tableXml => {
@@ -582,14 +650,18 @@ export async function applyOfficeFontToHwpx(
         return cellXml.replace(/(<hp:cellSz\b[^>]*width=")\d+("[^>]*>)/, `$1${cellWidth}$2`);
       });
       const detailRowHeight = tableRowHeights[currentTableIndex] || 0;
-      if (!detailRowHeight) return resizedTable;
+      if (!detailRowHeight || (Array.isArray(detailRowHeight) && !detailRowHeight.length)) return resizedTable;
 
       const rows = resizedTable.match(/<hp:tr\b[\s\S]*?<\/hp:tr>/g) || [];
       const headerHeight = 2200;
-      const rowHeights = rows.map((_, rowIndex) => rowIndex === 0 ? headerHeight : detailRowHeight);
+      const rowHeights = rows.map((_, rowIndex) => rowIndex === 0
+        ? headerHeight
+        : Array.isArray(detailRowHeight)
+          ? (detailRowHeight[rowIndex - 1] || detailRowHeight[detailRowHeight.length - 1] || 1900)
+          : detailRowHeight);
       let rowIndex = 0;
       const withRowHeights = resizedTable.replace(/<hp:tr\b[\s\S]*?<\/hp:tr>/g, rowXml => {
-        const height = rowHeights[rowIndex++] || detailRowHeight;
+        const height = rowHeights[rowIndex++] || (Array.isArray(detailRowHeight) ? 1900 : detailRowHeight);
         return rowXml.replace(/(<hp:cellSz\b[^>]*height=")\d+("[^>]*>)/g, `$1${height}$2`);
       });
       const totalHeight = rowHeights.reduce((sum, height) => sum + height, 0);
@@ -615,7 +687,7 @@ function summaryRows(model: OperationsReportModel) {
   ];
 }
 
-export async function createOperationsHwpx(input: { model: OperationsReportModel; title: string; reportNumber: string; orientation?: OperationsReportOrientation; officialDocumentNumber?: string; authorName?: string; organizationName?: string; disclosureStatus?: string; disclosureBasis?: string; documentSummary?: string; keywords?: string }): Promise<Blob> {
+export async function createOperationsHwpx(input: { model: OperationsReportModel; title: string; reportNumber: string; orientation?: OperationsReportOrientation; officialDocumentNumber?: string; authorName?: string; organizationName?: string; disclosureStatus?: string; disclosureBasis?: string; documentSummary?: string; keywords?: string; documentOverrides?: OperationsDocumentOverrides }): Promise<Blob> {
   const documentFont = preferredOfficeDocumentFont();
   const escape = (value: unknown) => text(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const multiline = (value: unknown) => escape(value).replace(/\n/g, "<br>");
@@ -623,12 +695,12 @@ export async function createOperationsHwpx(input: { model: OperationsReportModel
     headers: string[],
     rows: string[][],
     widths?: string[],
-    density: { bodyFont?: number; headerFont?: number; padding?: number; alignments?: TableAlignment[]; nowrapColumns?: number[] } = {},
+    density: { bodyFont?: number; headerFont?: number; padding?: number; alignments?: TableAlignment[]; nowrapColumns?: number[]; allowPageBreak?: boolean } = {},
   ) => {
     const bodyFont = density.bodyFont ?? 9.5;
     const headerFont = density.headerFont ?? bodyFont;
     const padding = density.padding ?? 5;
-    return `<table style="width:100%;border-collapse:collapse;margin:0 0 14px 0;table-layout:fixed;page-break-inside:avoid"><thead><tr>${headers.map((header, index) => `<th style="${widths?.[index] ? `width:${widths[index]};` : ""}border:1px solid #64748b;background-color:#e7edf4;padding:${padding}px ${Math.max(3, padding)}px;text-align:center;vertical-align:middle;font-weight:bold;color:#172033;font-size:${headerFont}pt;line-height:1.25;word-break:keep-all">${escape(header)}</th>`).join("")}</tr></thead><tbody>${rows.map((row, rowIndex) => `<tr style="page-break-inside:avoid;background-color:${rowIndex % 2 ? "#f8fafc" : "#ffffff"}">${headers.map((_, index) => `<td style="border:1px solid #94a3b8;padding:${padding}px ${Math.max(3, padding)}px;vertical-align:middle;text-align:${density.alignments?.[index] || "left"};line-height:1.3;font-size:${bodyFont}pt;${density.nowrapColumns?.includes(index) ? "white-space:nowrap;" : ""}word-break:keep-all">${multiline(row[index] || "-")}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    return `<table style="width:100%;border-collapse:collapse;margin:0 0 14px 0;table-layout:fixed;page-break-inside:${density.allowPageBreak ? "auto" : "avoid"}"><thead><tr>${headers.map((header, index) => `<th style="${widths?.[index] ? `width:${widths[index]};` : ""}border:1px solid #64748b;background-color:#e7edf4;padding:${padding}px ${Math.max(3, padding)}px;text-align:center;vertical-align:middle;font-weight:bold;color:#172033;font-size:${headerFont}pt;line-height:1.25;word-break:keep-all">${escape(header)}</th>`).join("")}</tr></thead><tbody>${rows.map((row, rowIndex) => `<tr style="page-break-inside:avoid;background-color:${rowIndex % 2 ? "#f8fafc" : "#ffffff"}">${headers.map((_, index) => `<td style="border:1px solid #94a3b8;padding:${padding}px ${Math.max(3, padding)}px;vertical-align:middle;text-align:${density.alignments?.[index] || "left"};line-height:1.3;font-size:${bodyFont}pt;${density.nowrapColumns?.includes(index) ? "white-space:nowrap;" : ""}word-break:keep-all">${multiline(row[index] || "-")}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
   };
   const keyValueTableHtml = (rows: string[][], widths: string[]) => `<table style="width:100%;border-collapse:collapse;margin:0 0 12px 0;table-layout:fixed;page-break-inside:avoid"><tbody>${rows.map(row => `<tr>${row.map((value, index) => {
     const label = index % 2 === 0;
@@ -643,32 +715,121 @@ export async function createOperationsHwpx(input: { model: OperationsReportModel
   ];
   let sectionNo = 2;
   const detailTableLayouts: number[][] = [];
-  const detailTableRowHeights: number[] = [];
-  const sectionTitle = (value: string, pageBreakBefore = false) => `<p style="font-size:${OPERATIONS_REPORT_LAYOUT.sectionFontPt}pt;line-height:1.4;margin:0;padding:0;text-align:left;page-break-after:avoid">${pageBreakBefore ? HWPX_PAGE_BREAK_MARKER : ""}<br><span style="font-size:4pt">&#160;</span><strong>${escape(value)}</strong></p>`;
+  const detailTableRowHeights: number[][] = [];
+  const sectionTitle = (value: string, pageBreakBefore = false, spaceBefore = false) => `<p style="font-size:${OPERATIONS_REPORT_LAYOUT.sectionFontPt}pt;line-height:1.4;margin:0 0 4px 0;padding:0;text-align:left;page-break-after:avoid">${pageBreakBefore ? HWPX_PAGE_BREAK_MARKER : spaceBefore ? '<span style="font-size:8pt">&#160;</span><br>' : ""}<strong>${escape(value)}</strong></p>`;
+  const subsectionTitle = (value: string, pageBreakBefore = false, spaceBefore = false) => `<p style="font-size:10.5pt;line-height:1.35;margin:0 0 3px 0;padding:0;text-align:left;page-break-after:avoid">${pageBreakBefore ? HWPX_PAGE_BREAK_MARKER : spaceBefore ? '<span style="font-size:8pt">&#160;</span><br>' : ""}<strong>${escape(value)}</strong></p>`;
+  const fullPageHeight = orientation === "portrait" ? 68000 : 47000;
+  const flowDetailTablesAcrossPages = input.documentOverrides?.flowDetailTablesAcrossPages === true;
+  const firstPageDetailHeight = input.documentOverrides?.startDetailSectionsOnNewPage
+    ? 0
+    : flowDetailTablesAcrossPages
+      ? orientation === "portrait" ? 18000 : 10000
+      : orientation === "portrait" ? 22000 : 0;
+  const tableBlockOverhead = orientation === "portrait" ? 5400 : 5000;
+  const continuationTableOverhead = orientation === "portrait" ? 3400 : 3200;
+  let remainingPageHeight = firstPageDetailHeight;
+  let forceNextPage = false;
+  let currentPageIsFirst = true;
+  let currentPageRowGroups: number[][] = [];
+  const fillCurrentPageRemainder = () => {
+    if (currentPageIsFirst) return;
+    const pageRows = currentPageRowGroups.flat();
+    const fillableHeight = Math.max(0, remainingPageHeight - 1000);
+    if (!pageRows.length || fillableHeight <= 0) return;
+    const averageRowHeight = pageRows.reduce((sum, height) => sum + height, 0) / pageRows.length;
+    const maximumExpansion = Math.max(300, Math.round(averageRowHeight * 0.75));
+    const expansionHeight = Math.min(fillableHeight, maximumExpansion * pageRows.length);
+    const expansionPerRow = Math.floor(expansionHeight / pageRows.length);
+    let remainder = expansionHeight - expansionPerRow * pageRows.length;
+    currentPageRowGroups.forEach(group => group.forEach((height, index) => {
+      group[index] = height + expansionPerRow + (remainder > 0 ? 1 : 0);
+      if (remainder > 0) remainder -= 1;
+    }));
+    remainingPageHeight = Math.max(0, remainingPageHeight - expansionHeight);
+  };
   const sections = input.model.tables.map(source => {
+    const logicalSectionNo = source.continuation ? sectionNo - 1 : sectionNo;
+    const numberedSubtitle = source.subtitle
+      ? `${logicalSectionNo}-${source.subtitleNumber || 1}. ${source.subtitle}`
+      : "";
     const table = fitOperationsReportTable(source, orientation);
     const rows = table.rows.length ? table.rows.map(row => table.columns.map(column => row[column.key] || "-")) : [["해당 조건의 자료가 없습니다.", ...table.columns.slice(1).map(() => "")]];
     const columnWeights = operationsReportColumnWeights(table.columns, table.rows);
     const widths = columnWeights.map(weight => `${(weight * 100).toFixed(1)}%`);
     const typography = operationsReportHwpxTableTypography(table.columns.length, orientation);
-    const chunkSize = operationsReportHwpxChunkSize(table.columns.length, orientation);
-    const firstPageChunkSize = sectionNo === 2 ? operationsReportHwpxFirstPageChunkSize(table.columns.length, orientation) : 0;
-    const firstChunk = firstPageChunkSize > 0 ? rows.slice(0, firstPageChunkSize) : [];
-    const remainingRows = firstPageChunkSize > 0 ? rows.slice(firstPageChunkSize) : rows;
-    const chunks = [
-      ...(firstChunk.length ? [firstChunk] : []),
-      ...balancedTableChunks(remainingRows, chunkSize),
-    ];
-    const html = chunks.map((chunk, chunkIndex) => {
+    const rowHeights = rows.map(row => operationsReportHwpxEstimatedRowHeight(table.columns, row, columnWeights, orientation));
+    const maximumRowsPerPart = table.columns.length <= 7
+      ? (orientation === "portrait" ? 27 : 22)
+      : Number.POSITIVE_INFINITY;
+    const sourceBlockOverhead = source.continuation
+      ? continuationTableOverhead + (source.subtitle ? 1800 : 0)
+      : tableBlockOverhead + (source.subtitle ? 1600 : 0);
+    const parts: Array<{ rows: string[][]; rowHeights: number[]; pageBreakBefore: boolean }> = [];
+    let rowOffset = 0;
+    if (!source.continuation && !currentPageIsFirst && remainingPageHeight < fullPageHeight) {
+      const availableRowHeight = Math.max(0, remainingPageHeight - sourceBlockOverhead);
+      let rowsThatFit = 0;
+      let fittedHeight = 0;
+      while (rowsThatFit < rowHeights.length && fittedHeight + rowHeights[rowsThatFit] <= availableRowHeight) {
+        fittedHeight += rowHeights[rowsThatFit];
+        rowsThatFit += 1;
+      }
+      const minimumUsefulRows = Math.min(12, rows.length);
+      if (rowsThatFit < rows.length && rowsThatFit < minimumUsefulRows) forceNextPage = true;
+    }
+    while (rowOffset < rows.length) {
+      let pageBreakBefore = false;
+      const nextRowHeight = rowHeights[rowOffset];
+      const blockOverhead = rowOffset === 0 ? sourceBlockOverhead : continuationTableOverhead;
+      if (forceNextPage || remainingPageHeight < blockOverhead + nextRowHeight) {
+        fillCurrentPageRemainder();
+        currentPageRowGroups = [];
+        currentPageIsFirst = false;
+        remainingPageHeight = fullPageHeight;
+        forceNextPage = false;
+        pageBreakBefore = true;
+      }
+      const rowBudget = Math.max(nextRowHeight, remainingPageHeight - blockOverhead);
+      let usedRowHeight = 0;
+      let endOffset = rowOffset;
+      while (endOffset < rows.length) {
+        const candidateHeight = rowHeights[endOffset];
+        if (endOffset - rowOffset >= maximumRowsPerPart) break;
+        if (endOffset > rowOffset && usedRowHeight + candidateHeight > rowBudget) break;
+        usedRowHeight += candidateHeight;
+        endOffset += 1;
+      }
+      const partRowHeights = rowHeights.slice(rowOffset, endOffset);
+      parts.push({
+        rows: rows.slice(rowOffset, endOffset),
+        rowHeights: partRowHeights,
+        pageBreakBefore,
+      });
+      currentPageRowGroups.push(partRowHeights);
+      remainingPageHeight = Math.max(0, remainingPageHeight - blockOverhead - usedRowHeight);
+      rowOffset = endOffset;
+      if (rowOffset < rows.length) forceNextPage = true;
+    }
+    const html = parts.map((part, partIndex) => {
       detailTableLayouts.push(columnWeights);
-      detailTableRowHeights.push(operationsReportHwpxRowHeight(table.columns.length, orientation));
-      const continuation = chunks.length > 1 && chunkIndex > 0 ? ` (계속 ${chunkIndex + 1}/${chunks.length})` : "";
-      return `${sectionTitle(`${sectionNo}. ${table.title}${continuation}`, chunkIndex > 0)}${tableHtml(table.columns.map(column => column.label), chunk, widths, { bodyFont: typography.body, headerFont: typography.header, padding: typography.padding, alignments: table.columns.map(column => operationsReportColumnAlignment(column.key)) })}`;
+      detailTableRowHeights.push(part.rowHeights);
+      const continuation = !flowDetailTablesAcrossPages && parts.length > 1 && partIndex > 0 ? ` (계속 ${partIndex + 1}/${parts.length})` : "";
+      const tableMarkup = tableHtml(table.columns.map(column => column.label), part.rows, widths, { bodyFont: typography.body, headerFont: typography.header, padding: typography.padding, alignments: table.columns.map(column => operationsReportColumnAlignment(column.key)) });
+      if (flowDetailTablesAcrossPages && partIndex > 0) return `<p style="font-size:1pt;line-height:1;margin:0;padding:0">${HWPX_TABLE_PAGE_BREAK_MARKER}</p>${tableMarkup}`;
+      if (source.continuation) return numberedSubtitle
+        ? `${subsectionTitle(numberedSubtitle, part.pageBreakBefore, !part.pageBreakBefore)}${tableMarkup}`
+        : part.pageBreakBefore
+          ? `<p style="font-size:1pt;line-height:1;margin:0;padding:0">${HWPX_TABLE_PAGE_BREAK_MARKER}</p>${tableMarkup}`
+          : tableMarkup;
+      const spaceBefore = partIndex === 0 && !part.pageBreakBefore;
+      const subtitle = numberedSubtitle ? subsectionTitle(numberedSubtitle) : "";
+      return `${sectionTitle(`${sectionNo}. ${table.title}${continuation}`, part.pageBreakBefore, spaceBefore)}${subtitle}${tableMarkup}`;
     }).join("");
-    sectionNo += 1;
+    if (!source.continuation) sectionNo += 1;
     return html;
   }).join("");
-  const brief = buildOperationsReportBrief({ model: input.model, authorName: input.authorName, documentSummary: input.documentSummary });
+  fillCurrentPageRemainder();
+  const brief = input.documentOverrides?.briefRows || buildOperationsReportBrief({ model: input.model, authorName: input.authorName, documentSummary: input.documentSummary });
   const briefRows = [0, 2, 4].map(index => [brief[index][0], brief[index][1], brief[index + 1][0], brief[index + 1][1]]);
   const privacyLine = input.disclosureStatus && input.disclosureStatus !== "공개" ? `<p style="color:#9f1239"><strong>비공개 근거:</strong> ${escape(input.disclosureBasis || "근거 미입력")}</p>` : "";
   const titleWidth = orientation === "portrait" ? 72 : 76;
@@ -686,13 +847,13 @@ export async function createOperationsHwpx(input: { model: OperationsReportModel
       <tr>${["", "", ""].map(() => `<td style="height:14mm;border:1px solid #646c74;padding:2px;text-align:center;vertical-align:middle"></td>`).join("")}</tr>
     </tbody></table>
     ${keyValueTableHtml(metadata, keyValueWidths)}
-    ${sectionTitle("보고 개요")}
+    ${sectionTitle("보고 개요", false, true)}
     ${keyValueTableHtml(briefRows, keyValueWidths)}
     <p style="font-size:9.5pt;line-height:1.35;margin:5px 0 11px 0;color:#475569"><strong>키워드:</strong> ${escape(input.keywords || "공영주차장, 운영관리, 제주시")}</p>${privacyLine}
-    ${sectionTitle("1. 핵심 지표")}
-    ${tableHtml(["항목", "현황", "항목", "현황"], summaryRows(input.model), ["25%", "25%", "25%", "25%"], { bodyFont: 9.5, headerFont: 9.5, padding: 5, alignments: ["center", "right", "center", "right"] })}
+    ${sectionTitle("1. 핵심 지표", false, true)}
+    ${tableHtml(["항목", "현황", "항목", "현황"], input.documentOverrides?.summaryRows || summaryRows(input.model), ["25%", "25%", "25%", "25%"], { bodyFont: 9.5, headerFont: 9.5, padding: 5, alignments: ["center", "right", "center", "right"] })}
     ${sections}
-    <p style="font-size:8.5pt;line-height:1.3;color:#64748b;border-top:1px solid #94a3b8;padding-top:6px">자료기준: ParkMaster 등록자료 | 선택항목 ${input.model.selectedFieldCount}개 | 민감항목 ${input.model.sensitiveFieldCount}개 | ${escape(input.reportNumber)}</p>
+    <p style="font-size:8.5pt;line-height:1.3;color:#64748b;border-top:1px solid #94a3b8;padding-top:6px">자료기준: ParkMaster ${escape(input.documentOverrides?.footerLabel || "운영관리")} 등록자료 | 선택항목 ${input.model.selectedFieldCount}개 | 보호항목 ${input.model.sensitiveFieldCount}개 | ${escape(input.reportNumber)}</p>
   </div></body></html>`;
   const bytes = await htmlToHwpx(html, {
     title: input.title,
@@ -711,13 +872,13 @@ export async function createOperationsHwpx(input: { model: OperationsReportModel
   return new Blob([arrayBuffer], { type: "application/hwp+zip" });
 }
 
-export async function validateOperationsHwpx(blob: Blob): Promise<{ valid: true; textLength: number }> {
+export async function validateOperationsHwpx(blob: Blob, expectedText = "운영관리"): Promise<{ valid: true; textLength: number }> {
   const reader = new HwpxReader();
   await reader.loadFromArrayBuffer(await blob.arrayBuffer());
   const [info, extracted] = await Promise.all([reader.getDocumentInfo(), reader.extractText()]);
   const textLength = extracted.length;
   if (!info.summary.contentsFiles.length) throw new Error("HWPX 본문 구역이 없습니다.");
-  if (!extracted.includes("운영관리")) throw new Error("HWPX 운영관리 본문을 확인하지 못했습니다.");
+  if (!extracted.includes(expectedText)) throw new Error(`HWPX ${expectedText} 본문을 확인하지 못했습니다.`);
   return { valid: true, textLength };
 }
 
@@ -755,7 +916,7 @@ async function loadPreferredPdfFont() {
   throw new Error("PDF 한글 글꼴을 불러오지 못했습니다.");
 }
 
-export async function createOperationsPdf(input: { model: OperationsReportModel; title: string; reportNumber: string; orientation?: OperationsReportOrientation; officialDocumentNumber?: string; authorName?: string; organizationName?: string; disclosureStatus?: string; disclosureBasis?: string; documentSummary?: string; keywords?: string }): Promise<{ blob: Blob; pageCount: number }> {
+export async function createOperationsPdf(input: { model: OperationsReportModel; title: string; reportNumber: string; orientation?: OperationsReportOrientation; officialDocumentNumber?: string; authorName?: string; organizationName?: string; disclosureStatus?: string; disclosureBasis?: string; documentSummary?: string; keywords?: string; documentOverrides?: OperationsDocumentOverrides }): Promise<{ blob: Blob; pageCount: number }> {
   const [{ jsPDF }, font] = await Promise.all([import("jspdf"), loadPreferredPdfFont()]);
   const orientation = input.orientation || "portrait";
   const doc = new jsPDF({ orientation, unit: "mm", format: "a4", compress: true });
@@ -885,21 +1046,23 @@ export async function createOperationsPdf(input: { model: OperationsReportModel;
     ["보고기간", `${input.model.period.start} ~ ${input.model.period.end}`, "공개구분", input.disclosureStatus || "공개"],
   ];
   drawKeyValueRows(meta, orientation === "portrait" ? 23 : 25);
-  const brief = buildOperationsReportBrief({ model: input.model, authorName: input.authorName, documentSummary: input.documentSummary });
+  const brief = input.documentOverrides?.briefRows || buildOperationsReportBrief({ model: input.model, authorName: input.authorName, documentSummary: input.documentSummary });
   const briefRows = [0, 2, 4].map(index => [brief[index][0], brief[index][1], brief[index + 1][0], brief[index + 1][1]]);
   sectionTitle("보고 개요");
   drawKeyValueRows(briefRows, orientation === "portrait" ? 23 : 25);
   doc.setFontSize(7.5); doc.setTextColor(70, 82, 96); doc.text(`키워드: ${input.keywords || "공영주차장, 운영관리, 제주시"}`, margin, y + 3); y += 5;
   if (input.disclosureStatus && input.disclosureStatus !== "공개") { doc.setTextColor(150, 30, 55); doc.text(`비공개 근거: ${input.disclosureBasis || "근거 미입력"}`, margin, y + 3); y += 5; }
   sectionTitle("1. 핵심 지표");
-  const summaries = summaryRows(input.model).map(row => ({ a: row[0], b: row[1], c: row[2], d: row[3] }));
+  const summaries = (input.documentOverrides?.summaryRows || summaryRows(input.model)).map(row => ({ a: row[0], b: row[1], c: row[2], d: row[3] }));
   drawTable([{ key: "a", label: "항목" }, { key: "b", label: "현황" }, { key: "c", label: "항목" }, { key: "d", label: "현황" }], summaries);
   let sectionNo = 2;
   input.model.tables.forEach(source => {
+    const logicalSectionNo = source.continuation ? sectionNo - 1 : sectionNo;
     const table = fitOperationsReportTable(source, orientation);
-    sectionTitle(`${sectionNo}. ${table.title}`);
+    if (!source.continuation) sectionTitle(`${sectionNo}. ${table.title}`);
+    if (source.subtitle) sectionTitle(`${logicalSectionNo}-${source.subtitleNumber || 1}. ${source.subtitle}`);
     drawTable(table.columns, table.rows);
-    sectionNo += 1;
+    if (!source.continuation) sectionNo += 1;
   });
   const pageCount = doc.getNumberOfPages();
   for (let page = 1; page <= pageCount; page += 1) { doc.setPage(page); doc.setFontSize(7); doc.setTextColor(110, 120, 130); doc.text(`${input.reportNumber} | ${page}/${pageCount}`, pageWidth - margin, pageHeight - 8, { align: "right" }); }

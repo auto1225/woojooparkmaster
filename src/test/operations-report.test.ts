@@ -9,10 +9,12 @@ import {
   isSupportedPdfFont,
   operationsReportColumnAlignment,
   operationsReportColumnWeights,
+  operationsReportHwpxEstimatedRowHeight,
   operationsReportHwpxChunkSize,
   operationsReportHwpxFirstPageChunkSize,
   operationsReportHwpxRowHeight,
   operationsReportHwpxTableTypography,
+  paginateOperationsReportHwpxRows,
   operationsReportKeyValueWidths,
   operationsReportTableTypography,
   parseOperationsReportOptions,
@@ -75,12 +77,32 @@ describe("operations report rules", () => {
     expect(operationsReportKeyValueWidths("portrait")[0]).toBe(operationsReportKeyValueWidths("portrait")[2]);
   });
 
-  it("splits editable tables before they can enter the page footer area", () => {
+  it("fills editable table pages while reserving the footer area", () => {
     expect(operationsReportHwpxChunkSize(10, "portrait")).toBe(19);
     expect(operationsReportHwpxChunkSize(10, "landscape")).toBe(14);
     expect(operationsReportHwpxFirstPageChunkSize(10, "portrait")).toBe(5);
     expect(operationsReportHwpxFirstPageChunkSize(10, "landscape")).toBe(0);
     expect(operationsReportHwpxRowHeight(10, "portrait")).toBe(3200);
+  });
+
+  it("paginates editable tables from measured row content instead of a fixed row count", () => {
+    const columns = Array.from({ length: 10 }, (_, index) => ({ key: `field_${index}`, label: `항목 ${index}` }));
+    const weights = Array.from({ length: 10 }, () => 0.1);
+    const shortRows = Array.from({ length: 40 }, (_, rowIndex) => columns.map((_, columnIndex) => `${rowIndex}-${columnIndex}`));
+    const longRows = shortRows.map((row, index) => index % 3 === 0
+      ? row.map(value => `${value} 제주시 공영주차장 시설물 점검 및 조치 결과`)
+      : row);
+    const shortPages = paginateOperationsReportHwpxRows(columns, shortRows, weights, "portrait");
+    const longPages = paginateOperationsReportHwpxRows(columns, longRows, weights, "portrait");
+
+    expect(shortPages.flatMap(page => page.rows)).toEqual(shortRows);
+    expect(longPages.flatMap(page => page.rows)).toEqual(longRows);
+    expect(shortPages[0].rows.length).toBeGreaterThan(10);
+    expect(longPages.length).toBeGreaterThan(shortPages.length);
+    expect(operationsReportHwpxEstimatedRowHeight(columns, longRows[0], weights, "portrait"))
+      .toBeGreaterThan(operationsReportHwpxEstimatedRowHeight(columns, shortRows[0], weights, "portrait"));
+    expect(shortPages.every(page => page.rowHeights.reduce((sum, height) => sum + height, 0) <= 68000)).toBe(true);
+    expect(longPages.every(page => page.rowHeights.reduce((sum, height) => sum + height, 0) <= 68000)).toBe(true);
   });
 
   it("uses a non-sensitive default preset", () => {
@@ -210,7 +232,74 @@ describe("operations report rules", () => {
     expect(sectionText).not.toContain(">언제<");
   });
 
-  it("repeats a balanced heading and header for each long HWPX table page", async () => {
+  it("keeps the first detail title with its table on a fresh page when requested", async () => {
+    const options = parseOperationsReportOptions({
+      period_start: "2026-08-01",
+      period_end: "2026-08-31",
+      ops_sections: "overview,lots",
+    });
+    const model = buildOperationsReportModel(dataset, options);
+    const blob = await createOperationsHwpx({
+      model,
+      title: "시설관리 상세 표 페이지 검증 보고서",
+      reportNumber: "RPT-FAC-PAGE-001",
+      documentOverrides: { startDetailSectionsOnNewPage: true },
+    });
+    const archive = await JSZip.loadAsync(await blob.arrayBuffer());
+    const sectionText = (await Promise.all(
+      Object.keys(archive.files)
+        .filter(path => /^Contents\/section\d+\.xml$/.test(path))
+        .map(path => archive.file(path)!.async("string")),
+    )).join("\n");
+    const detailTitle = sectionText.match(/<hp:p\b(?=[^>]*pageBreak="1")(?:(?!<\/hp:p>)[\s\S])*?<hp:t>2\.\s[^<]*<\/hp:t>(?:(?!<\/hp:p>)[\s\S])*?<\/hp:p>/)?.[0] || "";
+    const followingContent = sectionText.slice(sectionText.indexOf(detailTitle) + detailTitle.length);
+
+    expect(detailTitle).not.toBe("");
+    expect(detailTitle).not.toMatch(/<hp:t>\r?\n<\/hp:t>/);
+    expect(followingContent).toMatch(/^<hp:p\b[\s\S]*?<hp:tbl\b/);
+  });
+
+  it("keeps a long detail dataset as one flowing table across pages", async () => {
+    const parkingLots = Array.from({ length: 40 }, (_, index) => ({
+      code: `JJP-${String(index + 1).padStart(3, "0")}`,
+      name: `연속표 검증 공영주차장 ${index + 1}`,
+      lot_type: ["offstreet", "building", "onstreet"][index % 3],
+      operator_type: "direct",
+      total_spaces: 30 + index,
+      status: "active",
+      updated_at: "2026-08-04T09:00:00",
+    }));
+    const options = parseOperationsReportOptions({
+      period_start: "2026-08-01",
+      period_end: "2026-08-31",
+      ops_sections: "overview,lots",
+    });
+    const model = buildOperationsReportModel({ ...dataset, parkingLots }, options);
+    const blob = await createOperationsHwpx({
+      model,
+      title: "연속 표 페이지 분할 검증 보고서",
+      reportNumber: "RPT-FLOW-001",
+      documentOverrides: { flowDetailTablesAcrossPages: true },
+    });
+    const archive = await JSZip.loadAsync(await blob.arrayBuffer());
+    const sectionText = (await Promise.all(
+      Object.keys(archive.files)
+        .filter(path => /^Contents\/section\d+\.xml$/.test(path))
+        .map(path => archive.file(path)!.async("string")),
+    )).join("\n");
+    const detailTables = sectionText.match(/<hp:tbl\b[^>]*colCnt="6"[\s\S]*?<\/hp:tbl>/g) || [];
+
+    expect(detailTables.length).toBeGreaterThan(1);
+    expect(detailTables.reduce((sum, table) => sum + Number(table.match(/\browCnt="(\d+)"/)?.[1] || 0) - 1, 0)).toBe(40);
+    expect(detailTables.every(table => table.includes('pageBreak="CELL"'))).toBe(true);
+    expect(detailTables.every(table => table.includes('repeatHeader="1"'))).toBe(true);
+    expect(sectionText).not.toContain("(계속 2/");
+    expect(sectionText).not.toContain("__PARKMASTER_TABLE_PAGE_BREAK__");
+    expect((sectionText.match(/<hp:p\b(?=[^>]*pageBreak="1")(?:(?!<\/hp:p>)[\s\S])*?<hp:tbl\b/g) || []).length)
+      .toBeGreaterThanOrEqual(detailTables.length - 1);
+  });
+
+  it("uses the first page remainder and full following pages for long HWPX tables", async () => {
     const parkingLots = Array.from({ length: 40 }, (_, index) => ({
       code: `JJP-${String(index + 1).padStart(3, "0")}`,
       name: `검증 공영주차장 ${String(index + 1).padStart(3, "0")}`,
@@ -246,16 +335,25 @@ describe("operations report rules", () => {
     )).join("\n");
     const detailTables = sectionText.match(/<hp:tbl\b[^>]*colCnt="10"[\s\S]*?<\/hp:tbl>/g) || [];
     const rowCounts = detailTables.map(table => Number(table.match(/\browCnt="(\d+)"/)?.[1] || 0));
+    const firstParagraph = sectionText.match(/<hp:p\b[\s\S]*?<\/hp:p>/)?.[0] || "";
 
-    expect(detailTables).toHaveLength(3);
-    expect(rowCounts.every(count => count <= 19)).toBe(true);
-    expect(sectionText).toContain("(계속 2/3)");
-    expect(sectionText).toContain("(계속 3/3)");
+    expect(firstParagraph).toContain("<hp:secPr");
+    expect(firstParagraph).toContain("<hp:tbl");
+    expect(detailTables.length).toBeGreaterThan(1);
+    expect(rowCounts[0]).toBeLessThan(rowCounts[1]);
+    expect(detailTables.every(table => table.includes('pageBreak="CELL"'))).toBe(true);
+    expect(detailTables.every(table => table.includes('repeatHeader="1"'))).toBe(true);
+    expect(sectionText).toContain(`(계속 ${detailTables.length}/${detailTables.length})`);
     expect(sectionText).not.toContain("__PARKMASTER_PAGE_BREAK__");
-    expect((sectionText.match(/pageBreak="1"/g) || [])).toHaveLength(2);
-    expect(rowCounts).toEqual([6, 19, 18]);
+    expect((sectionText.match(/pageBreak="1"/g) || []).length).toBeGreaterThanOrEqual(detailTables.length - 1);
+    const inlineSpacedTitleParagraphs = (sectionText.match(/<hp:p\b(?=[^>]*pageBreak="0")(?:(?!<\/hp:p>)[\s\S])*?<hp:run charPrIDRef="15"><hp:t>\r?\n<\/hp:t><\/hp:run>(?:(?!<\/hp:p>)[\s\S])*?<\/hp:p>/g) || []);
+    expect(inlineSpacedTitleParagraphs.length).toBeGreaterThanOrEqual(3);
+    const pageStartParagraphs = (sectionText.match(/<hp:p\b(?=[^>]*pageBreak="1")[\s\S]*?<\/hp:p>/g) || []);
+    expect(pageStartParagraphs.every(paragraph => !/<hp:t>\r?\n<\/hp:t>/.test(paragraph))).toBe(true);
+    expect(rowCounts.reduce((sum, count) => sum + count - 1, 0)).toBe(40);
     expect(detailTables.every(table => !table.includes("주차장 운영"))).toBe(true);
-    expect(detailTables.every(table => table.includes('height="3200"'))).toBe(true);
+    expect(detailTables.every(table => table.includes('height="2200"'))).toBe(true);
+    expect(detailTables.every(table => (table.match(/<hp:tr\b[\s\S]*?<hp:cellSz\b[^>]*height="(\d+)"/g) || []).length > 1)).toBe(true);
     expect(detailTables.every(table => /<hp:outMargin\b[^>]*top="450"/.test(table))).toBe(true);
   });
 });

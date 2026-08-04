@@ -11,6 +11,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { formatFacilityRelativeDay } from "@/lib/facility-format";
 import { getMissingRequiredEquipment, getParkingLotWorkProfile } from "@/lib/parking-lot-work-profile";
 import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
+import { FacilityReportShortcut } from "@/components/facility/FacilityReportShortcut";
 
 const STATUS_CHART_COLORS = { normal: '#22c55e', warning: '#eab308', broken: '#ef4444', maintenance: '#3b82f6', decommissioned: '#9ca3af' };
 
@@ -87,7 +88,7 @@ export default function FacilityDashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-foreground">시설 현황</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold text-foreground">시설 현황</h1><FacilityReportShortcut focus="overview" /></div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
           <KpiCard label="총 장비 수" value={String(active.length)} icon={Building2} />

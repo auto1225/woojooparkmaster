@@ -9,8 +9,8 @@ describe("report catalog routing", () => {
   });
 
   it("keeps generic templates in the shared builder and preserves copy source", () => {
-    expect(getReportBuilderKind("RPT-FACILITY")).toBe("generic");
-    expect(reportGeneratePath("RPT-FACILITY", "report-1")).toBe("/reports/generate?template=RPT-FACILITY&source=report-1");
+    expect(getReportBuilderKind("RPT-FACILITY")).toBe("facility");
+    expect(reportGeneratePath("RPT-FACILITY", "report-1")).toBe("/reports/generate?template=RPT-FACILITY&scope=facility&source=report-1");
   });
 
   it("routes the Jeju annual integrated report through its dedicated builder", () => {

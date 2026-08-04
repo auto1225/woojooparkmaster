@@ -29,6 +29,14 @@ import {
   parseAnnualParkingReportOptions,
   validateAnnualParkingHwpx,
 } from "@/lib/annual-parking-report";
+import {
+  buildFacilityReportModel,
+  collectFacilityReportData,
+  facilityReportBriefRows,
+  facilityReportSummaryRows,
+  parseFacilityReportOptions,
+  toOperationsCompatibleFacilityModel,
+} from "@/lib/facility-report";
 
 type ReportParameters = Record<string, string>;
 
@@ -995,6 +1003,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     const { data: configRows } = await supabase.from("system_config").select("config_key, config_value").in("config_key", ["org_name"]);
     const orgName = configRows?.find((row) => row.config_key === "org_name")?.config_value || "ParkMaster";
     const isOperationsReport = input.parameters.report_scope === "operations";
+    const isFacilityReport = input.parameters.report_scope === "facility" || input.template.template_code === "RPT-FACILITY";
     const isAnnualParkingReport = input.parameters.report_scope === "annual_parking"
       || input.template.template_code === ANNUAL_PARKING_TEMPLATE_CODE;
     let dataset: ReportDataset | null = null;
@@ -1057,6 +1066,47 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
         canonicalDocument: "HWPX",
         pdfEngine: "Hancom Office",
       };
+    } else if (isFacilityReport) {
+      const options = parseFacilityReportOptions(input.parameters);
+      const facilityDataset = await collectFacilityReportData(options);
+      const facilityModel = buildFacilityReportModel(facilityDataset, options);
+      const compatibleModel = toOperationsCompatibleFacilityModel(facilityModel);
+      const canonicalHwpx = await createOperationsHwpx({
+        model: compatibleModel,
+        title: input.title,
+        reportNumber: number,
+        orientation: options.orientation,
+        officialDocumentNumber: input.parameters.official_document_number,
+        authorName: input.authorName,
+        organizationName: orgName,
+        disclosureStatus: input.parameters.disclosure_status,
+        disclosureBasis: input.parameters.disclosure_basis,
+        documentSummary: input.parameters.document_summary,
+        keywords: input.parameters.keywords,
+        documentOverrides: {
+          briefRows: facilityReportBriefRows(facilityModel, input.parameters.document_summary),
+          summaryRows: facilityReportSummaryRows(facilityModel),
+          footerLabel: "시설관리",
+          flowDetailTablesAcrossPages: true,
+        },
+      });
+      await validateOperationsHwpx(canonicalHwpx, "시설관리");
+      pdf = await convertHwpxToPdfWithHancom(canonicalHwpx);
+      hwpBlob = input.outputFormat === "pdf+hwpx" ? canonicalHwpx : undefined;
+      dataSnapshot = {
+        reportModel: facilityModel,
+        sourceCounts: facilityModel.sourceCounts,
+        selection: options,
+      };
+      summaryData = {
+        ...facilityModel.summary,
+        sourceCounts: facilityModel.sourceCounts,
+        selectedFieldCount: facilityModel.selectedFieldCount,
+        protectedFieldCount: facilityModel.protectedFieldCount,
+        attentionNarrative: facilityModel.attentionNarrative,
+        canonicalDocument: "HWPX",
+        pdfEngine: "Hancom Office",
+      };
     } else {
       dataset = await collectReportData(period.start, period.end);
       pdf = await createPdf(input.template, orgName, number, input.parameters.official_document_number || "", input.title, input.description || "", input.authorName || "", period, dataset, input.aiSummary);
@@ -1076,7 +1126,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     let excelPath: string | undefined;
     let excelSize = 0;
     if (input.outputFormat === "pdf+xlsx") {
-      if (!dataset) throw new Error("운영관리 선택형 보고서는 PDF와 HWPX 형식으로 생성해 주세요.");
+      if (!dataset) throw new Error("선택형 통합보고서는 PDF와 HWPX 형식으로 생성해 주세요.");
       const excel = await createProfessionalExcelBlob({
         fileName: fileBase,
         orgName,

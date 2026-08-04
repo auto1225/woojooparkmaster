@@ -28,6 +28,7 @@ import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
 import { getMissingRequiredEquipment, getParkingLotWorkProfile } from "@/lib/parking-lot-work-profile";
 import { FacilityPhotoPicker } from "@/components/facility/FacilityPhotoPicker";
 import { saveFacilityRecordPhotosLocally } from "@/lib/facility-local-photos";
+import { FacilityReportShortcut } from "@/components/facility/FacilityReportShortcut";
 
 type EquipmentSortKey = "equipment_code" | "name" | "lot" | "type" | "status" | "install_date" | "warranty_end" | "next_maintenance_date" | "maintenance_cost" | "updated_at";
 
@@ -329,6 +330,7 @@ export default function FacilityEquipment() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">장비 관리</h1>
           <div className="flex items-center gap-2">
+            <FacilityReportShortcut focus="equipment" label="보고서" />
             <Button variant={viewMode === "table" ? "default" : "outline"} size="icon" aria-label="목록 보기" title="목록 보기" onClick={() => setViewMode("table")}>
               <List className="h-4 w-4" />
             </Button>

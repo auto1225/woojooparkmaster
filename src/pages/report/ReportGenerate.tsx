@@ -24,6 +24,7 @@ import { isModuleEnabled } from "@/lib/authorization";
 import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import OpsReportBuilder from "@/pages/ops/OpsReportBuilder";
 import AnnualParkingReportBuilder from "@/pages/report/AnnualParkingReportBuilder";
+import FacilityReportBuilder from "@/pages/report/FacilityReportBuilder";
 import { getReportBuilderKind, reportGeneratePath } from "@/lib/report-catalog";
 
 function GenericReportGenerate() {
@@ -478,6 +479,7 @@ export default function ReportGenerate() {
 
   const builder = getReportBuilderKind(templateCode, scope);
   if (builder === "operations") return <OpsReportBuilder />;
+  if (builder === "facility") return <FacilityReportBuilder />;
   if (builder === "annual_parking") return <AnnualParkingReportBuilder />;
   return <GenericReportGenerate />;
 }

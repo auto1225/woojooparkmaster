@@ -27,6 +27,7 @@ import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
 import { getParkingLotWorkProfile } from "@/lib/parking-lot-work-profile";
 import { FacilityPhotoPicker } from "@/components/facility/FacilityPhotoPicker";
 import { saveFacilityRecordPhotosLocally } from "@/lib/facility-local-photos";
+import { FacilityReportShortcut } from "@/components/facility/FacilityReportShortcut";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -261,7 +262,7 @@ export default function FacilityMarkings() {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-foreground">노면표시/안내표지판</h1>
-            {canCreate && <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setPhotoFiles([]); }}>
+            <div className="flex items-center gap-2"><FacilityReportShortcut focus="markings" label="보고서" />{canCreate && <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setPhotoFiles([]); }}>
               <DialogTrigger asChild><Button onClick={() => { setEditingMarking(null); setPhotoFiles([]); setForm({ lot_id: selectedLot, marking_type: "", marking_name: "", location_detail: "", floor: "", quantity: "1", material: "", color: "", condition: "good", install_date: todayIso(), last_repainted: todayIso(), repaint_cycle_months: "", is_regulatory: false, regulation_ref: "" }); }}><Plus className="mr-1 h-4 w-4" />등록</Button></DialogTrigger>
               <DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto">
                 <DialogHeader><DialogTitle>노면표시 {editingMarking ? "수정" : "등록"}</DialogTitle></DialogHeader>
@@ -310,7 +311,7 @@ export default function FacilityMarkings() {
                   </Button>
                 </div>
               </DialogContent>
-            </Dialog>}
+            </Dialog>}</div>
         </div>
 
         <div className="flex justify-end"><Select value={lotTypeFilter} onValueChange={setLotTypeFilter}><SelectTrigger aria-label="주차장 형태 필터" className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">전체 주차장 형태</SelectItem>{Object.entries(LOT_TYPE_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div>

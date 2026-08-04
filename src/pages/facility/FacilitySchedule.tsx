@@ -29,6 +29,7 @@ import { FacilityLotCombobox } from "@/components/facility/FacilityLotCombobox";
 import { Badge } from "@/components/ui/badge";
 import { LOT_TYPE_LABELS } from "@/types/database";
 import { getParkingLotWorkProfile } from "@/lib/parking-lot-work-profile";
+import { FacilityReportShortcut } from "@/components/facility/FacilityReportShortcut";
 
 function defaultNextInspectionDate() {
   const date = new Date();
@@ -271,6 +272,7 @@ export default function FacilitySchedule() {
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-foreground">점검 스케줄</h1>
           <div className="flex items-center gap-2">
+            <FacilityReportShortcut focus="schedules" label="보고서" />
             {canCreate && <Button variant="outline" onClick={() => materializeMutation.mutate()} disabled={materializeMutation.isPending}>
               <ClipboardPlus className="mr-1 h-4 w-4" />작업지시 생성
             </Button>}

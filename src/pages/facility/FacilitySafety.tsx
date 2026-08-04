@@ -30,6 +30,7 @@ import { FacilityLotCombobox } from "@/components/facility/FacilityLotCombobox";
 import { FacilityPhotoPicker } from "@/components/facility/FacilityPhotoPicker";
 import { createChecklistForLotType, getParkingLotWorkProfile } from "@/lib/parking-lot-work-profile";
 import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
+import { FacilityReportShortcut } from "@/components/facility/FacilityReportShortcut";
 
 function calculateGrade(items: ChecklistItem[]): string {
   const fails = items.filter((item) => item.result === "fail");
@@ -269,7 +270,7 @@ export default function FacilitySafety() {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-foreground">안전점검</h1>
-          {canCreate && <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setChecklistConfirmed(false); setPhotoFiles([]); } }}>
+          <div className="flex items-center gap-2"><FacilityReportShortcut focus="safety" label="보고서" />{canCreate && <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setChecklistConfirmed(false); setPhotoFiles([]); } }}>
             <DialogTrigger asChild><Button><Plus className="mr-1 h-4 w-4" />점검 등록</Button></DialogTrigger>
             <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
               <DialogHeader><DialogTitle>안전점검 실시</DialogTitle><DialogDescription>전체 합격으로 시작한 뒤 이상이 있는 항목만 불합격 또는 해당없음으로 변경합니다.</DialogDescription></DialogHeader>
@@ -379,7 +380,7 @@ export default function FacilitySafety() {
                 </Button>
               </div>
             </DialogContent>
-          </Dialog>}
+          </Dialog>}</div>
         </div>
 
         <div className="flex justify-end">

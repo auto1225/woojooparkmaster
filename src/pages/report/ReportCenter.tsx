@@ -23,7 +23,7 @@ import {
 } from "@/types/report";
 import { isModuleEnabled } from "@/lib/authorization";
 import { openStoredReport, regenerateReportSamples } from "@/lib/report-engine";
-import { ANNUAL_PARKING_REPORT_TEMPLATE_CODE, OPERATIONS_REPORT_TEMPLATE_CODE, reportGeneratePath } from "@/lib/report-catalog";
+import { ANNUAL_PARKING_REPORT_TEMPLATE_CODE, FACILITY_REPORT_TEMPLATE_CODE, OPERATIONS_REPORT_TEMPLATE_CODE, reportGeneratePath } from "@/lib/report-catalog";
 
 const CATEGORY_ICON_MAP: Record<string, any> = {
   operation: Settings, facility: Wrench, revenue: Banknote, budget: Calculator,
@@ -142,6 +142,8 @@ export default function ReportCenter() {
   const operationsTemplate = templates?.find((template) => template.template_code === OPERATIONS_REPORT_TEMPLATE_CODE)
     ?? templates?.find((template) => template.template_code === "RPT-MONTHLY");
   const operationsAvailable = Boolean(operationsTemplate && isTemplateAvailable(operationsTemplate));
+  const facilityTemplate = templates?.find((template) => template.template_code === FACILITY_REPORT_TEMPLATE_CODE);
+  const facilityAvailable = Boolean(facilityTemplate && isTemplateAvailable(facilityTemplate));
   const annualTemplate = templates?.find((template) => template.template_code === ANNUAL_PARKING_REPORT_TEMPLATE_CODE)
     ?? templates?.find((template) => template.template_code === "RPT-YEARLY")
     ?? templates?.find((template) => template.template_code === "RPT-DEMO-ANNUAL");
@@ -218,6 +220,17 @@ export default function ReportCenter() {
               <div className="flex flex-wrap gap-1"><Badge variant="outline">PDF</Badge><Badge variant="outline">HWPX</Badge><Badge variant="outline">A4 세로·가로</Badge></div>
               <Button size="sm" disabled={!operationsAvailable} onClick={() => navigate(reportGeneratePath(OPERATIONS_REPORT_TEMPLATE_CODE))}>
                 {operationsAvailable ? "운영 보고서 작성" : "운영 템플릿 확인 필요"}
+              </Button>
+            </div>
+            <div className="grid gap-3 border-t p-4 md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.5fr)_160px_auto] md:items-center">
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-amber-50"><Wrench className="h-4 w-4 text-amber-800" /></span>
+                <div><p className="font-medium">시설관리</p><p className="text-xs text-muted-foreground">시설·장비·점검·안전</p></div>
+              </div>
+              <p className="text-sm text-muted-foreground">시설 현황, 장비, 유지보수, 점검 일정, 안전점검, 노면표시를 선택해 하나의 공공기관 보고서로 생성합니다.</p>
+              <div className="flex flex-wrap gap-1"><Badge variant="outline">PDF</Badge><Badge variant="outline">HWPX</Badge><Badge variant="outline">문서·사진 증빙</Badge></div>
+              <Button size="sm" disabled={!facilityAvailable} onClick={() => navigate(reportGeneratePath(FACILITY_REPORT_TEMPLATE_CODE))}>
+                {facilityAvailable ? "시설 보고서 작성" : "시설 템플릿 확인 필요"}
               </Button>
             </div>
             <div className="grid gap-3 border-t p-4 md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.5fr)_160px_auto] md:items-center">

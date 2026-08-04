@@ -29,6 +29,7 @@ import { FacilityLotCombobox } from "@/components/facility/FacilityLotCombobox";
 import { FacilityPhotoPicker } from "@/components/facility/FacilityPhotoPicker";
 import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
 import { OPEN_MAINTENANCE_STATUS_SET } from "@/lib/work-status";
+import { FacilityReportShortcut } from "@/components/facility/FacilityReportShortcut";
 
 const KANBAN_COLS: MaintenanceLogStatus[] = ["reported", "assigned", "in_progress", "pending_parts", "completed", "verified"];
 const PAGE_SIZE = 50;
@@ -380,6 +381,7 @@ export default function FacilityMaintenance() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">유지보수 관리</h1>
           <div className="flex items-center gap-2">
+            <FacilityReportShortcut focus="maintenance" label="보고서" />
             <Button variant={viewMode === "table" ? "default" : "outline"} size="icon" aria-label="표 보기" title="표 보기" onClick={() => setViewMode("table")}>
               <List className="h-4 w-4" />
             </Button>
