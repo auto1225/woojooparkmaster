@@ -37,6 +37,62 @@ import {
   parseFacilityReportOptions,
   toOperationsCompatibleFacilityModel,
 } from "@/lib/facility-report";
+import {
+  buildRevenueReportModel,
+  collectRevenueReportData,
+  parseRevenueReportOptions,
+  revenueReportBriefRows,
+  revenueReportSummaryRows,
+  toOperationsCompatibleRevenueModel,
+} from "@/lib/revenue-report";
+import {
+  budgetReportBriefRows,
+  budgetReportSummaryRows,
+  buildBudgetReportModel,
+  collectBudgetReportData,
+  parseBudgetReportOptions,
+  toOperationsCompatibleBudgetModel,
+} from "@/lib/budget-report";
+import {
+  buildServiceReportModel,
+  collectServiceReportData,
+  parseServiceReportOptions,
+  serviceReportBriefRows,
+  serviceReportSummaryRows,
+  toOperationsCompatibleServiceModel,
+} from "@/lib/service-report";
+import {
+  buildProcurementReportModel,
+  collectProcurementReportData,
+  parseProcurementReportOptions,
+  procurementReportBriefRows,
+  procurementReportSummaryRows,
+  toOperationsCompatibleProcurementModel,
+} from "@/lib/procurement-report";
+import {
+  buildComplaintReportModel,
+  collectComplaintReportData,
+  complaintReportBriefRows,
+  complaintReportSummaryRows,
+  parseComplaintReportOptions,
+  toOperationsCompatibleComplaintModel,
+} from "@/lib/complaint-report";
+import {
+  buildSurveyReportModel,
+  collectSurveyReportData,
+  parseSurveyReportOptions,
+  surveyReportBriefRows,
+  surveyReportSummaryRows,
+  toOperationsCompatibleSurveyModel,
+} from "@/lib/survey-report";
+import {
+  buildPlanningReportModel,
+  collectPlanningReportData,
+  parsePlanningReportOptions,
+  planningReportBriefRows,
+  planningReportSummaryRows,
+  toOperationsCompatiblePlanningModel,
+} from "@/lib/planning-report";
 
 type ReportParameters = Record<string, string>;
 
@@ -483,7 +539,7 @@ async function createPdf(
       y += 8;
       return;
     }
-    rows.slice(0, 200).forEach((row, index) => {
+    rows.forEach((row, index) => {
       if (y + 7 > 282) {
         newPage();
         drawHeader();
@@ -1004,6 +1060,13 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     const orgName = configRows?.find((row) => row.config_key === "org_name")?.config_value || "ParkMaster";
     const isOperationsReport = input.parameters.report_scope === "operations";
     const isFacilityReport = input.parameters.report_scope === "facility" || input.template.template_code === "RPT-FACILITY";
+    const isRevenueReport = input.parameters.report_scope === "revenue" || input.template.template_code === "RPT-REVENUE";
+    const isBudgetReport = input.parameters.report_scope === "budget" || input.template.template_code === "RPT-BUDGET";
+    const isServiceReport = input.parameters.report_scope === "service" || input.template.template_code === "RPT-SERVICE";
+    const isProcurementReport = input.parameters.report_scope === "procurement" || input.template.template_code === "RPT-PROCUREMENT";
+    const isComplaintReport = input.parameters.report_scope === "complaint" || input.template.template_code === "RPT-COMPLAINT";
+    const isSurveyReport = input.parameters.report_scope === "survey" || input.template.template_code === "RPT-SURVEY";
+    const isPlanningReport = input.parameters.report_scope === "planning" || input.template.template_code === "RPT-PLANNING";
     const isAnnualParkingReport = input.parameters.report_scope === "annual_parking"
       || input.template.template_code === ANNUAL_PARKING_TEMPLATE_CODE;
     let dataset: ReportDataset | null = null;
@@ -1104,6 +1167,263 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
         selectedFieldCount: facilityModel.selectedFieldCount,
         protectedFieldCount: facilityModel.protectedFieldCount,
         attentionNarrative: facilityModel.attentionNarrative,
+        canonicalDocument: "HWPX",
+        pdfEngine: "Hancom Office",
+      };
+    } else if (isRevenueReport) {
+      const options = parseRevenueReportOptions(input.parameters);
+      const revenueDataset = await collectRevenueReportData(options);
+      const revenueModel = buildRevenueReportModel(revenueDataset, options);
+      const compatibleModel = toOperationsCompatibleRevenueModel(revenueModel);
+      const canonicalHwpx = await createOperationsHwpx({
+        model: compatibleModel,
+        title: input.title,
+        reportNumber: number,
+        orientation: options.orientation,
+        officialDocumentNumber: input.parameters.official_document_number,
+        authorName: input.authorName,
+        organizationName: orgName,
+        disclosureStatus: input.parameters.disclosure_status,
+        disclosureBasis: input.parameters.disclosure_basis,
+        documentSummary: input.parameters.document_summary,
+        keywords: input.parameters.keywords,
+        documentOverrides: {
+          briefRows: revenueReportBriefRows(revenueModel, input.parameters.document_summary),
+          summaryRows: revenueReportSummaryRows(revenueModel),
+          footerLabel: "수입관리",
+          flowDetailTablesAcrossPages: true,
+        },
+      });
+      await validateOperationsHwpx(canonicalHwpx, "수입관리");
+      pdf = await convertHwpxToPdfWithHancom(canonicalHwpx);
+      hwpBlob = input.outputFormat === "pdf+hwpx" ? canonicalHwpx : undefined;
+      dataSnapshot = { reportModel: revenueModel, sourceCounts: revenueModel.sourceCounts, selection: options };
+      summaryData = {
+        ...revenueModel.summary,
+        sourceCounts: revenueModel.sourceCounts,
+        selectedFieldCount: revenueModel.selectedFieldCount,
+        protectedFieldCount: revenueModel.protectedFieldCount,
+        attentionNarrative: revenueModel.attentionNarrative,
+        canonicalDocument: "HWPX",
+        pdfEngine: "Hancom Office",
+      };
+    } else if (isBudgetReport) {
+      const options = parseBudgetReportOptions(input.parameters);
+      const budgetDataset = await collectBudgetReportData(options);
+      const budgetModel = buildBudgetReportModel(budgetDataset, options);
+      const compatibleModel = toOperationsCompatibleBudgetModel(budgetModel);
+      const canonicalHwpx = await createOperationsHwpx({
+        model: compatibleModel,
+        title: input.title,
+        reportNumber: number,
+        orientation: options.orientation,
+        officialDocumentNumber: input.parameters.official_document_number,
+        authorName: input.authorName,
+        organizationName: orgName,
+        disclosureStatus: input.parameters.disclosure_status,
+        disclosureBasis: input.parameters.disclosure_basis,
+        documentSummary: input.parameters.document_summary,
+        keywords: input.parameters.keywords,
+        documentOverrides: {
+          briefRows: budgetReportBriefRows(budgetModel, input.parameters.document_summary),
+          summaryRows: budgetReportSummaryRows(budgetModel),
+          footerLabel: "예산관리",
+          flowDetailTablesAcrossPages: true,
+        },
+      });
+      await validateOperationsHwpx(canonicalHwpx, "예산관리");
+      pdf = await convertHwpxToPdfWithHancom(canonicalHwpx);
+      hwpBlob = input.outputFormat === "pdf+hwpx" ? canonicalHwpx : undefined;
+      dataSnapshot = { reportModel: budgetModel, sourceCounts: budgetModel.sourceCounts, selection: options };
+      summaryData = {
+        ...budgetModel.summary,
+        sourceCounts: budgetModel.sourceCounts,
+        selectedFieldCount: budgetModel.selectedFieldCount,
+        protectedFieldCount: budgetModel.protectedFieldCount,
+        riskNarrative: budgetModel.riskNarrative,
+        canonicalDocument: "HWPX",
+        pdfEngine: "Hancom Office",
+      };
+    } else if (isServiceReport) {
+      const options = parseServiceReportOptions(input.parameters);
+      const serviceDataset = await collectServiceReportData(options);
+      const serviceModel = buildServiceReportModel(serviceDataset, options);
+      const compatibleModel = toOperationsCompatibleServiceModel(serviceModel);
+      const canonicalHwpx = await createOperationsHwpx({
+        model: compatibleModel,
+        title: input.title,
+        reportNumber: number,
+        orientation: options.orientation,
+        officialDocumentNumber: input.parameters.official_document_number,
+        authorName: input.authorName,
+        organizationName: orgName,
+        disclosureStatus: input.parameters.disclosure_status,
+        disclosureBasis: input.parameters.disclosure_basis,
+        documentSummary: input.parameters.document_summary,
+        keywords: input.parameters.keywords,
+        documentOverrides: {
+          briefRows: serviceReportBriefRows(serviceModel, input.parameters.document_summary),
+          summaryRows: serviceReportSummaryRows(serviceModel),
+          footerLabel: "용역사업관리",
+          flowDetailTablesAcrossPages: true,
+        },
+      });
+      await validateOperationsHwpx(canonicalHwpx, "용역사업관리");
+      pdf = await convertHwpxToPdfWithHancom(canonicalHwpx);
+      hwpBlob = input.outputFormat === "pdf+hwpx" ? canonicalHwpx : undefined;
+      dataSnapshot = { reportModel: serviceModel, sourceCounts: serviceModel.sourceCounts, selection: options };
+      summaryData = {
+        ...serviceModel.summary,
+        sourceCounts: serviceModel.sourceCounts,
+        selectedFieldCount: serviceModel.selectedFieldCount,
+        protectedFieldCount: serviceModel.protectedFieldCount,
+        riskNarrative: serviceModel.riskNarrative,
+        canonicalDocument: "HWPX",
+        pdfEngine: "Hancom Office",
+      };
+    } else if (isProcurementReport) {
+      const options = parseProcurementReportOptions(input.parameters);
+      const procurementDataset = await collectProcurementReportData(options);
+      const procurementModel = buildProcurementReportModel(procurementDataset, options);
+      const compatibleModel = toOperationsCompatibleProcurementModel(procurementModel);
+      const canonicalHwpx = await createOperationsHwpx({
+        model: compatibleModel,
+        title: input.title,
+        reportNumber: number,
+        orientation: options.orientation,
+        officialDocumentNumber: input.parameters.official_document_number,
+        authorName: input.authorName,
+        organizationName: orgName,
+        disclosureStatus: input.parameters.disclosure_status,
+        disclosureBasis: input.parameters.disclosure_basis,
+        documentSummary: input.parameters.document_summary,
+        keywords: input.parameters.keywords,
+        documentOverrides: {
+          briefRows: procurementReportBriefRows(procurementModel, input.parameters.document_summary),
+          summaryRows: procurementReportSummaryRows(procurementModel),
+          footerLabel: "입찰관리",
+          flowDetailTablesAcrossPages: true,
+        },
+      });
+      await validateOperationsHwpx(canonicalHwpx, "입찰관리");
+      pdf = await convertHwpxToPdfWithHancom(canonicalHwpx);
+      hwpBlob = input.outputFormat === "pdf+hwpx" ? canonicalHwpx : undefined;
+      dataSnapshot = { reportModel: procurementModel, sourceCounts: procurementModel.sourceCounts, selection: options };
+      summaryData = {
+        ...procurementModel.summary,
+        sourceCounts: procurementModel.sourceCounts,
+        selectedFieldCount: procurementModel.selectedFieldCount,
+        protectedFieldCount: procurementModel.protectedFieldCount,
+        riskNarrative: procurementModel.riskNarrative,
+        canonicalDocument: "HWPX",
+        pdfEngine: "Hancom Office",
+      };
+    } else if (isComplaintReport) {
+      const options = parseComplaintReportOptions(input.parameters);
+      const complaintDataset = await collectComplaintReportData(options);
+      const complaintModel = buildComplaintReportModel(complaintDataset, options);
+      const compatibleModel = toOperationsCompatibleComplaintModel(complaintModel);
+      const canonicalHwpx = await createOperationsHwpx({
+        model: compatibleModel,
+        title: input.title,
+        reportNumber: number,
+        orientation: options.orientation,
+        officialDocumentNumber: input.parameters.official_document_number,
+        authorName: input.authorName,
+        organizationName: orgName,
+        disclosureStatus: input.parameters.disclosure_status,
+        disclosureBasis: input.parameters.disclosure_basis,
+        documentSummary: input.parameters.document_summary,
+        keywords: input.parameters.keywords,
+        documentOverrides: {
+          briefRows: complaintReportBriefRows(complaintModel, input.parameters.document_summary),
+          summaryRows: complaintReportSummaryRows(complaintModel),
+          footerLabel: "민원관리",
+          flowDetailTablesAcrossPages: true,
+        },
+      });
+      await validateOperationsHwpx(canonicalHwpx, "민원관리");
+      pdf = await convertHwpxToPdfWithHancom(canonicalHwpx);
+      hwpBlob = input.outputFormat === "pdf+hwpx" ? canonicalHwpx : undefined;
+      dataSnapshot = { reportModel: complaintModel, sourceCounts: complaintModel.sourceCounts, selection: options };
+      summaryData = {
+        ...complaintModel.summary,
+        sourceCounts: complaintModel.sourceCounts,
+        selectedFieldCount: complaintModel.selectedFieldCount,
+        protectedFieldCount: complaintModel.protectedFieldCount,
+        riskNarrative: complaintModel.riskNarrative,
+        canonicalDocument: "HWPX",
+        pdfEngine: "Hancom Office",
+      };
+    } else if (isSurveyReport) {
+      const options = parseSurveyReportOptions(input.parameters);
+      const surveyDataset = await collectSurveyReportData(options);
+      const surveyModel = buildSurveyReportModel(surveyDataset, options);
+      const canonicalHwpx = await createOperationsHwpx({
+        model: toOperationsCompatibleSurveyModel(surveyModel),
+        title: input.title,
+        reportNumber: number,
+        orientation: options.orientation,
+        officialDocumentNumber: input.parameters.official_document_number,
+        authorName: input.authorName,
+        organizationName: orgName,
+        disclosureStatus: input.parameters.disclosure_status,
+        disclosureBasis: input.parameters.disclosure_basis,
+        documentSummary: input.parameters.document_summary,
+        keywords: input.parameters.keywords,
+        documentOverrides: {
+          briefRows: surveyReportBriefRows(surveyModel, input.parameters.document_summary),
+          summaryRows: surveyReportSummaryRows(surveyModel),
+          footerLabel: "현황조사",
+          flowDetailTablesAcrossPages: true,
+        },
+      });
+      await validateOperationsHwpx(canonicalHwpx, "현황조사");
+      pdf = await convertHwpxToPdfWithHancom(canonicalHwpx);
+      hwpBlob = input.outputFormat === "pdf+hwpx" ? canonicalHwpx : undefined;
+      dataSnapshot = { reportModel: surveyModel, sourceCounts: surveyModel.sourceCounts, selection: options };
+      summaryData = {
+        ...surveyModel.summary,
+        sourceCounts: surveyModel.sourceCounts,
+        selectedFieldCount: surveyModel.selectedFieldCount,
+        protectedFieldCount: surveyModel.protectedFieldCount,
+        riskNarrative: surveyModel.riskNarrative,
+        canonicalDocument: "HWPX",
+        pdfEngine: "Hancom Office",
+      };
+    } else if (isPlanningReport) {
+      const options = parsePlanningReportOptions(input.parameters);
+      const planningDataset = await collectPlanningReportData(options);
+      const planningModel = buildPlanningReportModel(planningDataset, options);
+      const canonicalHwpx = await createOperationsHwpx({
+        model: toOperationsCompatiblePlanningModel(planningModel),
+        title: input.title,
+        reportNumber: number,
+        orientation: options.orientation,
+        officialDocumentNumber: input.parameters.official_document_number,
+        authorName: input.authorName,
+        organizationName: orgName,
+        disclosureStatus: input.parameters.disclosure_status,
+        disclosureBasis: input.parameters.disclosure_basis,
+        documentSummary: input.parameters.document_summary,
+        keywords: input.parameters.keywords,
+        documentOverrides: {
+          briefRows: planningReportBriefRows(planningModel, input.parameters.document_summary),
+          summaryRows: planningReportSummaryRows(planningModel),
+          footerLabel: "신설기획",
+          flowDetailTablesAcrossPages: true,
+        },
+      });
+      await validateOperationsHwpx(canonicalHwpx, "신설기획");
+      pdf = await convertHwpxToPdfWithHancom(canonicalHwpx);
+      hwpBlob = input.outputFormat === "pdf+hwpx" ? canonicalHwpx : undefined;
+      dataSnapshot = { reportModel: planningModel, sourceCounts: planningModel.sourceCounts, selection: options };
+      summaryData = {
+        ...planningModel.summary,
+        sourceCounts: planningModel.sourceCounts,
+        selectedFieldCount: planningModel.selectedFieldCount,
+        protectedFieldCount: planningModel.protectedFieldCount,
+        riskNarrative: planningModel.riskNarrative,
         canonicalDocument: "HWPX",
         pdfEngine: "Hancom Office",
       };

@@ -20,6 +20,35 @@ describe("report catalog routing", () => {
     );
   });
 
+  it("routes finance reports through dedicated builders", () => {
+    expect(getReportBuilderKind("RPT-REVENUE")).toBe("revenue");
+    expect(reportGeneratePath("RPT-REVENUE")).toBe("/reports/generate?template=RPT-REVENUE&scope=revenue");
+    expect(getReportBuilderKind("RPT-BUDGET")).toBe("budget");
+    expect(reportGeneratePath("RPT-BUDGET")).toBe("/reports/generate?template=RPT-BUDGET&scope=budget");
+  });
+
+  it("routes service reports through the dedicated builder", () => {
+    expect(getReportBuilderKind("RPT-SERVICE")).toBe("service");
+    expect(reportGeneratePath("RPT-SERVICE")).toBe("/reports/generate?template=RPT-SERVICE&scope=service");
+    expect(getReportBuilderKind("RPT-PROCUREMENT")).toBe("procurement");
+    expect(reportGeneratePath("RPT-PROCUREMENT")).toBe("/reports/generate?template=RPT-PROCUREMENT&scope=procurement");
+  });
+
+  it("routes complaint reports through the privacy-aware builder", () => {
+    expect(getReportBuilderKind("RPT-COMPLAINT")).toBe("complaint");
+    expect(reportGeneratePath("RPT-COMPLAINT")).toBe("/reports/generate?template=RPT-COMPLAINT&scope=complaint");
+  });
+
+  it("routes survey reports through the evidence-aware builder", () => {
+    expect(getReportBuilderKind("RPT-SURVEY")).toBe("survey");
+    expect(reportGeneratePath("RPT-SURVEY")).toBe("/reports/generate?template=RPT-SURVEY&scope=survey");
+  });
+
+  it("routes planning reports through the decision-support builder", () => {
+    expect(getReportBuilderKind("RPT-PLANNING")).toBe("planning");
+    expect(reportGeneratePath("RPT-PLANNING")).toBe("/reports/generate?template=RPT-PLANNING&scope=planning");
+  });
+
   it("restores an operations report through its saved scope during template migration", () => {
     expect(reportGeneratePath("RPT-MONTHLY", "report-1", "operations")).toBe(
       "/reports/generate?template=RPT-OPS-STATUS&scope=operations&source=report-1",

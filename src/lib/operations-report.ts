@@ -59,7 +59,7 @@ export interface OperationsReportDataset {
 }
 
 export interface OperationsReportTable {
-  id: OperationsReportSectionId;
+  id: string;
   title: string;
   subtitle?: string;
   subtitleNumber?: number;
@@ -716,14 +716,14 @@ export async function createOperationsHwpx(input: { model: OperationsReportModel
   let sectionNo = 2;
   const detailTableLayouts: number[][] = [];
   const detailTableRowHeights: number[][] = [];
-  const sectionTitle = (value: string, pageBreakBefore = false, spaceBefore = false) => `<p style="font-size:${OPERATIONS_REPORT_LAYOUT.sectionFontPt}pt;line-height:1.4;margin:0 0 4px 0;padding:0;text-align:left;page-break-after:avoid">${pageBreakBefore ? HWPX_PAGE_BREAK_MARKER : spaceBefore ? '<span style="font-size:8pt">&#160;</span><br>' : ""}<strong>${escape(value)}</strong></p>`;
-  const subsectionTitle = (value: string, pageBreakBefore = false, spaceBefore = false) => `<p style="font-size:10.5pt;line-height:1.35;margin:0 0 3px 0;padding:0;text-align:left;page-break-after:avoid">${pageBreakBefore ? HWPX_PAGE_BREAK_MARKER : spaceBefore ? '<span style="font-size:8pt">&#160;</span><br>' : ""}<strong>${escape(value)}</strong></p>`;
+  const sectionTitle = (value: string, pageBreakBefore = false, spaceBefore = false) => `<p style="font-size:${OPERATIONS_REPORT_LAYOUT.sectionFontPt}pt;line-height:1.4;margin:0 0 4px 0;padding:0;text-align:left;page-break-after:avoid">${pageBreakBefore ? HWPX_PAGE_BREAK_MARKER : ""}${!pageBreakBefore && spaceBefore ? '<span style="font-size:8pt">&#160;</span><br>' : ""}<strong>${escape(value)}</strong></p>`;
+  const subsectionTitle = (value: string, pageBreakBefore = false, spaceBefore = false) => `<p style="font-size:10.5pt;line-height:1.35;margin:0 0 3px 0;padding:0;text-align:left;page-break-after:avoid">${pageBreakBefore ? HWPX_PAGE_BREAK_MARKER : ""}${!pageBreakBefore && spaceBefore ? '<span style="font-size:8pt">&#160;</span><br>' : ""}<strong>${escape(value)}</strong></p>`;
   const fullPageHeight = orientation === "portrait" ? 68000 : 47000;
   const flowDetailTablesAcrossPages = input.documentOverrides?.flowDetailTablesAcrossPages === true;
   const firstPageDetailHeight = input.documentOverrides?.startDetailSectionsOnNewPage
     ? 0
     : flowDetailTablesAcrossPages
-      ? orientation === "portrait" ? 18000 : 10000
+      ? orientation === "portrait" ? 8500 : 0
       : orientation === "portrait" ? 22000 : 0;
   const tableBlockOverhead = orientation === "portrait" ? 5400 : 5000;
   const continuationTableOverhead = orientation === "portrait" ? 3400 : 3200;
@@ -766,7 +766,7 @@ export async function createOperationsHwpx(input: { model: OperationsReportModel
       : tableBlockOverhead + (source.subtitle ? 1600 : 0);
     const parts: Array<{ rows: string[][]; rowHeights: number[]; pageBreakBefore: boolean }> = [];
     let rowOffset = 0;
-    if (!source.continuation && !currentPageIsFirst && remainingPageHeight < fullPageHeight) {
+    if (remainingPageHeight > 0 && remainingPageHeight < fullPageHeight) {
       const availableRowHeight = Math.max(0, remainingPageHeight - sourceBlockOverhead);
       let rowsThatFit = 0;
       let fittedHeight = 0;
@@ -774,8 +774,12 @@ export async function createOperationsHwpx(input: { model: OperationsReportModel
         fittedHeight += rowHeights[rowsThatFit];
         rowsThatFit += 1;
       }
-      const minimumUsefulRows = Math.min(12, rows.length);
-      if (rowsThatFit < rows.length && rowsThatFit < minimumUsefulRows) forceNextPage = true;
+      const minimumUsefulRows = Math.min(3, rows.length);
+      const wholeBlockHeight = sourceBlockOverhead + rowHeights.reduce((sum, height) => sum + height, 0);
+      const subtitleSafetyHeight = numberedSubtitle ? 5000 : 0;
+      if (rowsThatFit < minimumUsefulRows || (numberedSubtitle && remainingPageHeight < wholeBlockHeight + subtitleSafetyHeight)) {
+        forceNextPage = true;
+      }
     }
     while (rowOffset < rows.length) {
       let pageBreakBefore = false;
@@ -814,7 +818,13 @@ export async function createOperationsHwpx(input: { model: OperationsReportModel
       detailTableLayouts.push(columnWeights);
       detailTableRowHeights.push(part.rowHeights);
       const continuation = !flowDetailTablesAcrossPages && parts.length > 1 && partIndex > 0 ? ` (계속 ${partIndex + 1}/${parts.length})` : "";
-      const tableMarkup = tableHtml(table.columns.map(column => column.label), part.rows, widths, { bodyFont: typography.body, headerFont: typography.header, padding: typography.padding, alignments: table.columns.map(column => operationsReportColumnAlignment(column.key)) });
+      const tableMarkup = tableHtml(table.columns.map(column => column.label), part.rows, widths, {
+        bodyFont: typography.body,
+        headerFont: typography.header,
+        padding: typography.padding,
+        alignments: table.columns.map(column => operationsReportColumnAlignment(column.key)),
+        allowPageBreak: flowDetailTablesAcrossPages,
+      });
       if (flowDetailTablesAcrossPages && partIndex > 0) return `<p style="font-size:1pt;line-height:1;margin:0;padding:0">${HWPX_TABLE_PAGE_BREAK_MARKER}</p>${tableMarkup}`;
       if (source.continuation) return numberedSubtitle
         ? `${subsectionTitle(numberedSubtitle, part.pageBreakBefore, !part.pageBreakBefore)}${tableMarkup}`
@@ -850,7 +860,7 @@ export async function createOperationsHwpx(input: { model: OperationsReportModel
     ${sectionTitle("보고 개요", false, true)}
     ${keyValueTableHtml(briefRows, keyValueWidths)}
     <p style="font-size:9.5pt;line-height:1.35;margin:5px 0 11px 0;color:#475569"><strong>키워드:</strong> ${escape(input.keywords || "공영주차장, 운영관리, 제주시")}</p>${privacyLine}
-    ${sectionTitle("1. 핵심 지표", false, true)}
+    ${sectionTitle("1. 핵심 지표", orientation === "landscape", orientation !== "landscape")}
     ${tableHtml(["항목", "현황", "항목", "현황"], input.documentOverrides?.summaryRows || summaryRows(input.model), ["25%", "25%", "25%", "25%"], { bodyFont: 9.5, headerFont: 9.5, padding: 5, alignments: ["center", "right", "center", "right"] })}
     ${sections}
     <p style="font-size:8.5pt;line-height:1.3;color:#64748b;border-top:1px solid #94a3b8;padding-top:6px">자료기준: ParkMaster ${escape(input.documentOverrides?.footerLabel || "운영관리")} 등록자료 | 선택항목 ${input.model.selectedFieldCount}개 | 보호항목 ${input.model.sensitiveFieldCount}개 | ${escape(input.reportNumber)}</p>
@@ -867,7 +877,7 @@ export async function createOperationsHwpx(input: { model: OperationsReportModel
     operationsReportKeyValueWidths(orientation),
     [25, 25, 25, 25],
     ...detailTableLayouts,
-  ], [0, 0, 0, 0, 0, ...detailTableRowHeights], [0, 0, 0, 450, 450, ...detailTableRowHeights.map(() => 450)]);
+  ], [0, 0, 0, 0, 0, ...detailTableRowHeights], [0, 0, 0, 450, orientation === "landscape" ? 850 : 450, ...detailTableRowHeights.map(() => 450)]);
   const arrayBuffer = patchedBytes.buffer.slice(patchedBytes.byteOffset, patchedBytes.byteOffset + patchedBytes.byteLength) as ArrayBuffer;
   return new Blob([arrayBuffer], { type: "application/hwp+zip" });
 }

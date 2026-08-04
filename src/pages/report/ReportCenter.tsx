@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import {
   FileText, Search, Star, Settings, Wrench, Banknote, Calculator,
   MessageSquare, MapPin, Zap, BarChart3, Download, RefreshCw, Loader2, Clock, Files,
-  ArrowDown, ArrowUp, CheckCircle2, CircleAlert, Plus, RotateCcw,
+  ArrowDown, ArrowUp, CheckCircle2, CircleAlert, Plus, RotateCcw, ClipboardCheck,
 } from "lucide-react";
 import {
   REPORT_TYPE_LABELS, REPORT_CATEGORY_LABELS, AUDIENCE_LABELS,
@@ -23,20 +23,31 @@ import {
 } from "@/types/report";
 import { isModuleEnabled } from "@/lib/authorization";
 import { openStoredReport, regenerateReportSamples } from "@/lib/report-engine";
-import { ANNUAL_PARKING_REPORT_TEMPLATE_CODE, FACILITY_REPORT_TEMPLATE_CODE, OPERATIONS_REPORT_TEMPLATE_CODE, reportGeneratePath } from "@/lib/report-catalog";
+import {
+  ANNUAL_PARKING_REPORT_TEMPLATE_CODE,
+  BUDGET_REPORT_TEMPLATE_CODE,
+  FACILITY_REPORT_TEMPLATE_CODE,
+  OPERATIONS_REPORT_TEMPLATE_CODE,
+  REVENUE_REPORT_TEMPLATE_CODE,
+  reportGeneratePath,
+} from "@/lib/report-catalog";
 
 const CATEGORY_ICON_MAP: Record<string, any> = {
   operation: Settings, facility: Wrench, revenue: Banknote, budget: Calculator,
   complaint: MessageSquare, planning: MapPin, realtime: Zap, comprehensive: BarChart3, safety: Wrench,
+  procurement: FileText, service: Files, survey: ClipboardCheck,
 };
 
 const CATEGORIES = [
   { key: "__all__", label: "전체" },
   { key: "operation", label: "운영" },
   { key: "facility", label: "시설" },
+  { key: "survey", label: "현황조사" },
   { key: "safety", label: "안전" },
   { key: "revenue", label: "수입" },
   { key: "budget", label: "예산" },
+  { key: "procurement", label: "입찰" },
+  { key: "service", label: "용역" },
   { key: "complaint", label: "민원" },
   { key: "planning", label: "기획" },
   { key: "realtime", label: "실시간" },
@@ -57,7 +68,7 @@ export default function ReportCenter() {
 
   const activeModules = new Set([
     "CORE",
-    ...["OPS", "FACILITY", "REVENUE", "BUDGET", "COMPLAINT", "PLANNING", "REALTIME", "REPORT", "SURVEY"]
+    ...["OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT", "PLANNING", "REALTIME", "REPORT", "SURVEY"]
       .filter((code) => isModuleEnabled(licenses, code)),
   ]);
 
@@ -144,6 +155,10 @@ export default function ReportCenter() {
   const operationsAvailable = Boolean(operationsTemplate && isTemplateAvailable(operationsTemplate));
   const facilityTemplate = templates?.find((template) => template.template_code === FACILITY_REPORT_TEMPLATE_CODE);
   const facilityAvailable = Boolean(facilityTemplate && isTemplateAvailable(facilityTemplate));
+  const revenueTemplate = templates?.find((template) => template.template_code === REVENUE_REPORT_TEMPLATE_CODE);
+  const revenueAvailable = Boolean(revenueTemplate && isTemplateAvailable(revenueTemplate));
+  const budgetTemplate = templates?.find((template) => template.template_code === BUDGET_REPORT_TEMPLATE_CODE);
+  const budgetAvailable = Boolean(budgetTemplate && isTemplateAvailable(budgetTemplate));
   const annualTemplate = templates?.find((template) => template.template_code === ANNUAL_PARKING_REPORT_TEMPLATE_CODE)
     ?? templates?.find((template) => template.template_code === "RPT-YEARLY")
     ?? templates?.find((template) => template.template_code === "RPT-DEMO-ANNUAL");
@@ -231,6 +246,28 @@ export default function ReportCenter() {
               <div className="flex flex-wrap gap-1"><Badge variant="outline">PDF</Badge><Badge variant="outline">HWPX</Badge><Badge variant="outline">문서·사진 증빙</Badge></div>
               <Button size="sm" disabled={!facilityAvailable} onClick={() => navigate(reportGeneratePath(FACILITY_REPORT_TEMPLATE_CODE))}>
                 {facilityAvailable ? "시설 보고서 작성" : "시설 템플릿 확인 필요"}
+              </Button>
+            </div>
+            <div className="grid gap-3 border-t p-4 md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.5fr)_160px_auto] md:items-center">
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-emerald-50"><Banknote className="h-4 w-4 text-emerald-700" /></span>
+                <div><p className="font-medium">수입관리</p><p className="text-xs text-muted-foreground">검증·마감·위탁대사</p></div>
+              </div>
+              <p className="text-sm text-muted-foreground">확정 수입과 미검증·누락 자료를 분리하고 월 마감, 결제수단, 위탁업체 대사 및 공식 문서 근거를 함께 출력합니다.</p>
+              <div className="flex flex-wrap gap-1"><Badge variant="outline">PDF</Badge><Badge variant="outline">HWPX</Badge><Badge variant="outline">검증 근거</Badge></div>
+              <Button size="sm" disabled={!revenueAvailable} onClick={() => navigate(reportGeneratePath(REVENUE_REPORT_TEMPLATE_CODE))}>
+                {revenueAvailable ? "수입 보고서 작성" : "수입 템플릿 확인 필요"}
+              </Button>
+            </div>
+            <div className="grid gap-3 border-t p-4 md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.5fr)_160px_auto] md:items-center">
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-sky-50"><Calculator className="h-4 w-4 text-sky-700" /></span>
+                <div><p className="font-medium">예산관리</p><p className="text-xs text-muted-foreground">계획·집행·이체·위험</p></div>
+              </div>
+              <p className="text-sm text-muted-foreground">회계연도별 예산계획과 세부항목, 집행률, 이체 내역, 집행 위험 및 연결 공문을 공공기관 보고 형식으로 정리합니다.</p>
+              <div className="flex flex-wrap gap-1"><Badge variant="outline">PDF</Badge><Badge variant="outline">HWPX</Badge><Badge variant="outline">회계연도</Badge></div>
+              <Button size="sm" disabled={!budgetAvailable} onClick={() => navigate(reportGeneratePath(BUDGET_REPORT_TEMPLATE_CODE))}>
+                {budgetAvailable ? "예산 보고서 작성" : "예산 템플릿 확인 필요"}
               </Button>
             </div>
             <div className="grid gap-3 border-t p-4 md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.5fr)_160px_auto] md:items-center">

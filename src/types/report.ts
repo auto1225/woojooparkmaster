@@ -117,6 +117,9 @@ export const REPORT_CATEGORY_LABELS: Record<string, string> = {
   realtime: "실시간",
   comprehensive: "종합",
   safety: "안전",
+  procurement: "입찰",
+  service: "용역",
+  survey: "현황조사",
 };
 
 export const AUDIENCE_LABELS: Record<string, string> = {

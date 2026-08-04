@@ -25,6 +25,13 @@ import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import OpsReportBuilder from "@/pages/ops/OpsReportBuilder";
 import AnnualParkingReportBuilder from "@/pages/report/AnnualParkingReportBuilder";
 import FacilityReportBuilder from "@/pages/report/FacilityReportBuilder";
+import RevenueReportBuilder from "@/pages/report/RevenueReportBuilder";
+import BudgetReportBuilder from "@/pages/report/BudgetReportBuilder";
+import ServiceReportBuilder from "@/pages/report/ServiceReportBuilder";
+import ProcurementReportBuilder from "@/pages/report/ProcurementReportBuilder";
+import ComplaintReportBuilder from "@/pages/report/ComplaintReportBuilder";
+import SurveyReportBuilder from "@/pages/report/SurveyReportBuilder";
+import PlanningReportBuilder from "@/pages/report/PlanningReportBuilder";
 import { getReportBuilderKind, reportGeneratePath } from "@/lib/report-catalog";
 
 function GenericReportGenerate() {
@@ -50,7 +57,7 @@ function GenericReportGenerate() {
 
   const activeModules = new Set([
     "CORE",
-    ...["OPS", "FACILITY", "REVENUE", "BUDGET", "COMPLAINT", "PLANNING", "REALTIME", "REPORT", "SURVEY"]
+    ...["OPS", "FACILITY", "REVENUE", "BUDGET", "PROCUREMENT", "SERVICE", "COMPLAINT", "PLANNING", "REALTIME", "REPORT", "SURVEY"]
       .filter((code) => isModuleEnabled(licenses, code)),
   ]);
 
@@ -481,5 +488,12 @@ export default function ReportGenerate() {
   if (builder === "operations") return <OpsReportBuilder />;
   if (builder === "facility") return <FacilityReportBuilder />;
   if (builder === "annual_parking") return <AnnualParkingReportBuilder />;
+  if (builder === "revenue") return <RevenueReportBuilder />;
+  if (builder === "budget") return <BudgetReportBuilder />;
+  if (builder === "service") return <ServiceReportBuilder />;
+  if (builder === "procurement") return <ProcurementReportBuilder />;
+  if (builder === "complaint") return <ComplaintReportBuilder />;
+  if (builder === "survey") return <SurveyReportBuilder />;
+  if (builder === "planning") return <PlanningReportBuilder />;
   return <GenericReportGenerate />;
 }
