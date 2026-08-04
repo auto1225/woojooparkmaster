@@ -31,10 +31,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
+import { reportGeneratePath } from "@/lib/report-catalog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { stableMultiSort, type NullPlacement, type SortDirection } from "@/lib/list-sorting";
-import { generateReport, openStoredReport } from "@/lib/report-engine";
+import { downloadStoredReport, generateReport } from "@/lib/report-engine";
 import { REPORT_CATEGORY_LABELS, REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportTemplate } from "@/types/report";
 import { toast } from "sonner";
 
@@ -109,7 +110,7 @@ export default function ReportHistory() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("report_generated")
-        .select("*, template:report_templates(*)")
+        .select("id, report_number, title, description, period_start, period_end, file_path, excel_path, hwp_path, file_format, file_size, page_count, parameters_used, summary_data, status, error_message, generation_time_ms, created_at, template:report_templates(*)")
         .order("created_at", { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -151,7 +152,7 @@ export default function ReportHistory() {
     mutationFn: async (report: any) => {
       if (profile?.role !== "admin") throw new Error("보고서 영구 삭제는 관리자만 수행할 수 있습니다.");
       if (report.status !== "archived") throw new Error("보고서를 먼저 보관 처리한 뒤 삭제해 주세요.");
-      const paths = [report.file_path, report.excel_path].filter(Boolean) as string[];
+      const paths = [report.file_path, report.excel_path, report.hwp_path].filter(Boolean) as string[];
       const { error } = await supabase.from("report_generated").delete().eq("id", report.id);
       if (error) throw error;
       if (paths.length) {
@@ -177,7 +178,7 @@ export default function ReportHistory() {
         title: report.title,
         description: report.description || "",
         parameters: (report.parameters_used || {}) as Record<string, string>,
-        outputFormat: report.file_format === "pdf+xlsx" ? "pdf+xlsx" : "pdf",
+        outputFormat: report.file_format === "pdf+xlsx" ? "pdf+xlsx" : report.file_format === "pdf+hwpx" ? "pdf+hwpx" : "pdf",
         userId: user.id,
         authorName: profile?.name || user.email || "",
         aiSummary: report.summary_data?.aiSummary || "",
@@ -192,14 +193,19 @@ export default function ReportHistory() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const handleDownload = async (path?: string | null) => {
+  const handleDownload = async (path?: string | null, fileName?: string) => {
     if (!path) return toast.error("저장된 파일이 없습니다.");
     try {
-      await openStoredReport(path, "_self");
+      const saveResult = await downloadStoredReport(path, fileName);
+      if (saveResult === "cancelled") return;
+      toast.success(saveResult === "saved" ? "파일을 선택한 위치에 저장했습니다." : "컴퓨터로 파일 다운로드를 시작했습니다.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "파일을 열지 못했습니다.");
+      toast.error(error instanceof Error ? error.message : "파일을 저장하지 못했습니다.");
     }
   };
+
+  const reportFileName = (report: any, extension: "pdf" | "xlsx" | "hwpx") =>
+    `${report.report_number || "보고서"}_${report.title || "ParkMaster"}.${extension}`;
 
   const handleArchive = async (report: any) => {
     const nextStatus = report.status === "archived" ? "completed" : "archived";
@@ -301,7 +307,7 @@ export default function ReportHistory() {
             <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">전체 상태</SelectItem>{Object.entries(REPORT_STATUS_LABELS).map(([value, item]) => <SelectItem key={value} value={value}>{item.label}</SelectItem>)}</SelectContent></Select>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">전체 업무분류</SelectItem>{categoryOptions.map((value) => <SelectItem key={value} value={value}>{REPORT_CATEGORY_LABELS[value] || value}</SelectItem>)}</SelectContent></Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">전체 보고주기</SelectItem>{typeOptions.map((value) => <SelectItem key={value} value={value}>{REPORT_TYPE_LABELS[value] || value}</SelectItem>)}</SelectContent></Select>
-            <Select value={formatFilter} onValueChange={setFormatFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">전체 파일형식</SelectItem><SelectItem value="pdf">PDF</SelectItem><SelectItem value="pdf+xlsx">PDF + 엑셀</SelectItem></SelectContent></Select>
+            <Select value={formatFilter} onValueChange={setFormatFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">전체 파일형식</SelectItem><SelectItem value="pdf">PDF</SelectItem><SelectItem value="pdf+xlsx">PDF + 엑셀</SelectItem><SelectItem value="pdf+hwpx">PDF + 한글</SelectItem></SelectContent></Select>
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -344,9 +350,10 @@ export default function ReportHistory() {
                       <dt className="text-muted-foreground">파일</dt><dd>{(report.file_format || "pdf").toUpperCase()} · {formatSize(report.file_size)} · {report.page_count ? `${report.page_count}쪽` : "쪽수 미확인"}</dd>
                     </dl>
                     <div className="flex flex-wrap justify-end gap-1 border-t pt-2">
-                      {report.status === "completed" && <Button variant="outline" size="icon" className="h-9 w-9" title="PDF 열기" onClick={() => handleDownload(report.file_path)}><Download className="h-4 w-4" /></Button>}
-                      {report.status === "completed" && report.excel_path && <Button variant="outline" size="icon" className="h-9 w-9" title="엑셀 열기" onClick={() => handleDownload(report.excel_path)}><FileSpreadsheet className="h-4 w-4" /></Button>}
-                      {report.template && <Button variant="outline" size="icon" className="h-9 w-9" title="조건 복사 작성" onClick={() => navigate(`/reports/generate?template=${encodeURIComponent(report.template.template_code)}&source=${report.id}`)}><Copy className="h-4 w-4" /></Button>}
+                      {report.status === "completed" && <Button variant="outline" size="icon" className="h-9 w-9" title="PDF 저장 위치 선택" onClick={() => handleDownload(report.file_path, reportFileName(report, "pdf"))}><Download className="h-4 w-4" /></Button>}
+                      {report.status === "completed" && report.excel_path && <Button variant="outline" size="icon" className="h-9 w-9" title="엑셀 저장 위치 선택" onClick={() => handleDownload(report.excel_path, reportFileName(report, "xlsx"))}><FileSpreadsheet className="h-4 w-4" /></Button>}
+                      {report.status === "completed" && report.hwp_path && <Button variant="outline" size="icon" className="h-9 w-9" title="한글 HWPX 저장 위치 선택" onClick={() => handleDownload(report.hwp_path, reportFileName(report, "hwpx"))}><FileText className="h-4 w-4" /></Button>}
+                      {report.template && <Button variant="outline" size="icon" className="h-9 w-9" title="조건 복사 작성" onClick={() => navigate(reportGeneratePath(report.template.template_code, report.id, report.parameters_used?.report_scope))}><Copy className="h-4 w-4" /></Button>}
                       <Button variant="outline" size="icon" className="h-9 w-9" title="공식 문서 연결" onClick={() => setDocumentReport(report)}><Link2 className="h-4 w-4" /></Button>
                       {(report.status === "completed" || report.status === "archived") && <Button variant="outline" size="icon" className="h-9 w-9" title={report.status === "archived" ? "복원" : "보관"} onClick={() => handleArchive(report)}><ArchiveRestore className="h-4 w-4" /></Button>}
                     </div>
@@ -380,9 +387,10 @@ export default function ReportHistory() {
                         <TableCell><Badge className={`text-[10px] ${status.color}`} title={report.error_message || undefined}>{status.label}</Badge></TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-1">
-                            {report.status === "completed" && <Button variant="ghost" size="icon" className="h-8 w-8" title="PDF 열기" onClick={() => handleDownload(report.file_path)}><Download className="h-3.5 w-3.5" /></Button>}
-                            {report.status === "completed" && report.excel_path && <Button variant="ghost" size="icon" className="h-8 w-8" title="엑셀 열기" onClick={() => handleDownload(report.excel_path)}><FileSpreadsheet className="h-3.5 w-3.5" /></Button>}
-                            {report.template && <Button variant="ghost" size="icon" className="h-8 w-8" title="조건 복사 작성" onClick={() => navigate(`/reports/generate?template=${encodeURIComponent(report.template.template_code)}&source=${report.id}`)}><Copy className="h-3.5 w-3.5" /></Button>}
+                            {report.status === "completed" && <Button variant="ghost" size="icon" className="h-8 w-8" title="PDF 저장 위치 선택" onClick={() => handleDownload(report.file_path, reportFileName(report, "pdf"))}><Download className="h-3.5 w-3.5" /></Button>}
+                            {report.status === "completed" && report.excel_path && <Button variant="ghost" size="icon" className="h-8 w-8" title="엑셀 저장 위치 선택" onClick={() => handleDownload(report.excel_path, reportFileName(report, "xlsx"))}><FileSpreadsheet className="h-3.5 w-3.5" /></Button>}
+                            {report.status === "completed" && report.hwp_path && <Button variant="ghost" size="icon" className="h-8 w-8" title="한글 HWPX 저장 위치 선택" onClick={() => handleDownload(report.hwp_path, reportFileName(report, "hwpx"))}><FileText className="h-3.5 w-3.5" /></Button>}
+                            {report.template && <Button variant="ghost" size="icon" className="h-8 w-8" title="조건 복사 작성" onClick={() => navigate(reportGeneratePath(report.template.template_code, report.id, report.parameters_used?.report_scope))}><Copy className="h-3.5 w-3.5" /></Button>}
                             <Button variant="ghost" size="icon" className="h-8 w-8" title="공식 문서 연결" onClick={() => setDocumentReport(report)}><Link2 className="h-3.5 w-3.5" /></Button>
                             {report.status === "failed" && <Button variant="ghost" size="icon" className="h-8 w-8" title="같은 보고서 재생성" disabled={retryMutation.isPending} onClick={() => retryMutation.mutate(report)}><RefreshCw className={`h-3.5 w-3.5 ${retryMutation.isPending && retryMutation.variables?.id === report.id ? "animate-spin" : ""}`} /></Button>}
                             {(report.status === "completed" || report.status === "archived") && <Button variant="ghost" size="icon" className="h-8 w-8" title={report.status === "archived" ? "복원" : "보관"} onClick={() => handleArchive(report)}><ArchiveRestore className="h-3.5 w-3.5" /></Button>}

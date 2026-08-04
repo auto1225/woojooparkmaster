@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, List, Columns3, Camera, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock3, MapPin, UserRound } from "lucide-react";
+import { Plus, List, Columns3, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock3, MapPin, UserRound } from "lucide-react";
 import { AuthorField } from "@/components/common/AuthorField";
 import { toast } from "sonner";
 import { PRIORITY_LABELS, PRIORITY_COLORS, MAINT_STATUS_LABELS, MAINT_TYPE_LABELS } from "@/types/facility";
@@ -23,9 +23,10 @@ import { advanceMaintenanceWork } from "@/lib/workflow-commands";
 import { OperationalListControls } from "@/components/common/OperationalListControls";
 import { stableMultiSort, type NullPlacement } from "@/lib/list-sorting";
 import { indexRelatedCompanyContacts, listRelatedCompanyContacts, saveRelatedCompanyContact } from "@/lib/related-company-registry";
-import { uploadMaintenanceEvidence } from "@/lib/facility-field-work";
+import { saveFacilityRecordPhotosLocally } from "@/lib/facility-local-photos";
 import { useAuthorization } from "@/hooks/useAuthorization";
 import { FacilityLotCombobox } from "@/components/facility/FacilityLotCombobox";
+import { FacilityPhotoPicker } from "@/components/facility/FacilityPhotoPicker";
 import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
 import { OPEN_MAINTENANCE_STATUS_SET } from "@/lib/work-status";
 
@@ -90,6 +91,7 @@ export default function FacilityMaintenance() {
   const [groupByLot, setGroupByLot] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [showIntakeDetails, setShowIntakeDetails] = useState(false);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [detailOpen, setDetailOpen] = useState(() => Boolean(searchParams.get("work")));
   const [selectedLogId, setSelectedLogId] = useState<string | null>(() => searchParams.get("work"));
   const [page, setPage] = useState(1);
@@ -210,12 +212,18 @@ export default function FacilityMaintenance() {
         phone: form.vendor_phone,
         email: form.vendor_email,
       });
+      return photoFiles.length
+        ? saveFacilityRecordPhotosLocally("maintenance_log", saved.id, photoFiles)
+        : { savedPaths: [], saveErrors: [] };
     },
-    onSuccess: () => {
+    onSuccess: (photoResult) => {
       toast.success("유지보수가 접수되었습니다");
+      if (photoResult.saveErrors.length) toast.error(`접수는 완료됐지만 사진 ${photoResult.saveErrors.length}장을 PC 폴더에 저장하지 못했습니다.`, { description: photoResult.saveErrors.join("\n") });
       queryClient.invalidateQueries({ queryKey: ["facility-maint-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["facility-record-photos", "maintenance_log"] });
       setDialogOpen(false);
       setShowIntakeDetails(false);
+      setPhotoFiles([]);
       setForm({ lot_id: "", equipment_id: "", maintenance_type: "repair", priority: "medium", title: "", symptom: "", assigned_to: "", due_date: defaultMaintenanceDueDate(), vendor_name: "", vendor_manager: "", vendor_phone: "", vendor_email: "" });
     },
     onError: (error: Error) => toast.error(error.message),
@@ -256,10 +264,12 @@ export default function FacilityMaintenance() {
       });
       return;
     }
-    if (!completionFile || !user?.id) return;
+    if (!completionFile) return;
     setEvidenceUploading(true);
     try {
-      const evidencePath = await uploadMaintenanceEvidence(actionDialog.log.id, completionFile, user.id);
+      const photoResult = await saveFacilityRecordPhotosLocally("maintenance_log", actionDialog.log.id, [completionFile], "completion_photo");
+      if (photoResult.saveErrors.length || !photoResult.savedPaths[0]) throw new Error(photoResult.saveErrors[0] || "완료 사진을 PC에 저장하지 못했습니다.");
+      const evidencePath = `local://${photoResult.savedPaths[0]}`;
       updateStatusMutation.mutate({
         log: actionDialog.log,
         action: "complete",
@@ -275,7 +285,7 @@ export default function FacilityMaintenance() {
       });
     } catch (error) {
       setEvidenceUploading(false);
-      toast.error(error instanceof Error ? error.message : "완료 사진을 업로드하지 못했습니다");
+      toast.error(error instanceof Error ? error.message : "완료 사진을 PC에 저장하지 못했습니다");
     }
   };
 
@@ -376,7 +386,7 @@ export default function FacilityMaintenance() {
             <Button variant={viewMode === "kanban" ? "default" : "outline"} size="icon" aria-label="칸반 보기" title="칸반 보기" onClick={() => setViewMode("kanban")}>
               <Columns3 className="h-4 w-4" />
             </Button>
-            {canCreate && <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setShowIntakeDetails(false); }}>
+            {canCreate && <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setShowIntakeDetails(false); setPhotoFiles([]); } }}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-1 h-4 w-4" />유지보수 접수
@@ -413,6 +423,7 @@ export default function FacilityMaintenance() {
                   </div>
                   <div><Label>제목 *</Label><Input value={form.title} onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))} /></div>
                   <div><Label>증상/설명</Label><Textarea value={form.symptom} onChange={(event) => setForm((prev) => ({ ...prev, symptom: event.target.value }))} rows={3} /></div>
+                  <FacilityPhotoPicker files={photoFiles} onFilesChange={setPhotoFiles} label="고장 현장 사진 (선택)" description="전체 위치와 고장 부위를 함께 촬영하면 담당자가 현장을 다시 확인하는 시간을 줄일 수 있습니다." />
                   <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setShowIntakeDetails((value) => !value)} aria-expanded={showIntakeDetails}>
                     담당자·기한·업체 추가
                     {showIntakeDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -453,6 +464,7 @@ export default function FacilityMaintenance() {
                     </div>
                     <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
                   </div>}
+                  {(!form.lot_id || !form.title) && <p role="status" className="text-xs text-amber-700">접수하려면 주차장과 제목을 입력해 주세요.</p>}
                   <Button className="w-full" disabled={!form.lot_id || !form.title || createMutation.isPending} onClick={() => createMutation.mutate()}>
                     {createMutation.isPending ? "접수 중..." : "접수"}
                   </Button>
@@ -611,20 +623,12 @@ export default function FacilityMaintenance() {
             <div className="space-y-3">
               <div><Label>조치 내용 *</Label><Textarea value={completionResolution} onChange={(event) => setCompletionResolution(event.target.value)} rows={4} /></div>
               <div className="space-y-2">
-                <Label htmlFor="maintenance-completion-photo">완료 사진 *</Label>
-                <Input
-                  id="maintenance-completion-photo"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  capture="environment"
-                  onChange={(event) => setCompletionFile(event.target.files?.[0] || null)}
-                  className="sr-only"
+                <FacilityPhotoPicker
+                  files={completionFile ? [completionFile] : []}
+                  onFilesChange={(files) => setCompletionFile(files[0] || null)}
+                  label="완료 사진 *"
+                  description="완료 상태가 보이는 사진 1장을 지정한 PC 폴더에 저장합니다."
                 />
-                <Label htmlFor="maintenance-completion-photo" className="flex min-h-20 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed bg-muted/20 px-4 text-center hover:bg-muted/40">
-                  <Camera className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm font-medium">{completionFile ? completionFile.name : "현장에서 촬영하거나 사진 선택"}</span>
-                  <span className="text-xs text-muted-foreground">JPG, PNG, WEBP · 최대 10MB · 위치정보는 허용 시 함께 기록</span>
-                </Label>
                 {import.meta.env.DEV && (
                   <Button
                     type="button"
@@ -638,11 +642,13 @@ export default function FacilityMaintenance() {
               </div>
             </div>
           )}
+          {actionDialog?.mode === "assign" && !actionAssignee && <p role="status" className="text-xs text-amber-700">배정할 담당자를 선택해 주세요.</p>}
+          {actionDialog?.mode === "complete" && (!completionResolution.trim() || !completionFile) && <p role="status" className="text-xs text-amber-700">완료 제출에는 조치 내용과 완료 사진 1장이 필요합니다.</p>}
           <Button
             onClick={submitActionDialog}
             disabled={updateStatusMutation.isPending || evidenceUploading || (actionDialog?.mode === "assign" ? !actionAssignee : !completionResolution.trim() || !completionFile)}
           >
-            {evidenceUploading ? "사진 업로드 중..." : updateStatusMutation.isPending ? "처리 중..." : actionDialog?.mode === "assign" ? "배정" : "완료 제출"}
+            {evidenceUploading ? "사진 PC 저장 중..." : updateStatusMutation.isPending ? "처리 중..." : actionDialog?.mode === "assign" ? "배정" : "완료 제출"}
           </Button>
         </DialogContent>
       </Dialog>

@@ -382,6 +382,7 @@ export default function FacilitySchedule() {
                     <Label>활성</Label>
                   </div>
                   <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
+                  {(!form.schedule_name || !form.lot_id || !form.next_due_date) && <p role="status" className="text-xs text-amber-700">등록하려면 일정명, 주차장, 다음 점검일을 입력해 주세요.</p>}
                   <Button
                     className="w-full"
                     disabled={!form.schedule_name || !form.lot_id || !form.next_due_date || saveMutation.isPending}

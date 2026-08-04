@@ -5,9 +5,10 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Building2, Users, CreditCard, AlertTriangle, Shield } from "lucide-react";
-import { VIOLATION_TYPE_LABELS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, CONTRACT_STATUS_LABELS } from "@/types/operations";
+import { Button } from "@/components/ui/button";
+import { Building2, Users, CreditCard, AlertTriangle, Shield, FileText } from "lucide-react";
+import { VIOLATION_TYPE_LABELS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS } from "@/types/operations";
+import { OPERATIONS_REPORT_TEMPLATE_CODE, reportGeneratePath } from "@/lib/report-catalog";
 
 export default function OpsDashboardPage() {
   const navigate = useNavigate();
@@ -65,7 +66,10 @@ export default function OpsDashboardPage() {
   return (
     <DashboardLayout>
       <div className="space-y-4">
-        <h2 className="text-xl font-bold">운영 현황</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl font-bold">운영 현황</h2>
+          <Button onClick={() => navigate(reportGeneratePath(OPERATIONS_REPORT_TEMPLATE_CODE))}><FileText className="mr-2 h-4 w-4" />운영 보고서</Button>
+        </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {kpis.map(k => (

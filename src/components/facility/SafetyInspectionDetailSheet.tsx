@@ -7,6 +7,7 @@ import { GRADE_COLORS, INSPECTION_TYPE_LABELS } from "@/types/facility";
 import { Button } from "@/components/ui/button";
 import { Loader2, Wrench } from "lucide-react";
 import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
+import { FacilityPhotoGallery } from "@/components/facility/FacilityPhotoGallery";
 
 interface SafetyInspectionDetailSheetProps {
   inspection: SafetyInspection | null;
@@ -103,6 +104,7 @@ export function SafetyInspectionDetailSheet({ inspection, onOpenChange, open, cr
               ))}
             </div>
           </section>
+          <FacilityPhotoGallery refType="safety_inspection" refId={inspection.id} title="점검 현장 사진" />
           <DocumentLinksPanel
             module="FACILITY_SAFETY"
             recordId={inspection.id}

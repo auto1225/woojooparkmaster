@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import type { Profile } from "@/types/database";
+import { getSessionIdentity } from "@/lib/session-identity";
 
 interface AuthContextType {
   user: User | null;
@@ -19,7 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
       .select("*")
@@ -28,12 +29,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data) {
       setProfile(data as unknown as Profile);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
-      setSessionToken(session?.access_token?.substring(0, 200) ?? null);
+      setSessionToken(session?.access_token ? getSessionIdentity(session.access_token) : null);
       if (session?.user) {
         setTimeout(() => fetchProfile(session.user.id), 0);
       } else {
@@ -44,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      setSessionToken(session?.access_token?.substring(0, 200) ?? null);
+      setSessionToken(session?.access_token ? getSessionIdentity(session.access_token) : null);
       if (session?.user) {
         fetchProfile(session.user.id);
       }
@@ -52,11 +53,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchProfile]);
 
   useEffect(() => {
     if (!user || !sessionToken) return;
     let cancelled = false;
+    const endManagedSession = async (reason: "session_expired" | "session_revoked") => {
+      await supabase.auth.signOut();
+      if (!cancelled) window.location.replace(`/login?reason=${reason}`);
+    };
     const enforceSessionState = async () => {
       const { data, error } = await (supabase.from("active_sessions") as any)
         .select("is_active, expires_at")
@@ -64,8 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("session_token", sessionToken)
         .maybeSingle();
       if (cancelled || error || !data) return;
-      if (!data.is_active || (data.expires_at && new Date(data.expires_at) <= new Date())) {
-        await supabase.auth.signOut();
+      if (!data.is_active) await endManagedSession("session_revoked");
+      else if (data.expires_at && new Date(data.expires_at) <= new Date()) {
+        await endManagedSession("session_expired");
       }
     };
 
@@ -77,7 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "active_sessions", filter: `user_id=eq.${user.id}` },
         (payload: any) => {
-          if (payload.new?.session_token === sessionToken && payload.new?.is_active === false) void supabase.auth.signOut();
+          if (payload.new?.session_token === sessionToken && payload.new?.is_active === false) {
+            void endManagedSession("session_revoked");
+          }
         },
       )
       .subscribe();
@@ -89,17 +97,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [sessionToken, user]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error as Error | null };
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
     setSessionToken(null);
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signIn, signOut }}>

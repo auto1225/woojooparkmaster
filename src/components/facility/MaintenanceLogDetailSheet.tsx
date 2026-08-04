@@ -7,12 +7,11 @@ import { MAINT_STATUS_LABELS, MAINT_TYPE_LABELS, PRIORITY_COLORS, PRIORITY_LABEL
 import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { BriefcaseBusiness, ExternalLink, ImageIcon } from "lucide-react";
-import { getMaintenanceEvidenceUrl, listMaintenanceEvidence } from "@/lib/facility-field-work";
-import { toast } from "sonner";
+import { BriefcaseBusiness, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { LinkedBusinessContacts } from "@/components/business-cards/LinkedBusinessContacts";
+import { FacilityPhotoGallery } from "@/components/facility/FacilityPhotoGallery";
 
 interface MaintenanceLogDetailSheetProps {
   log: MaintenanceLog | null;
@@ -26,11 +25,6 @@ export function MaintenanceLogDetailSheet({ log, onOpenChange, open }: Maintenan
   const legacyComplaintNumber = log?.source_module === "COMPLAINT"
     ? null
     : log?.description?.match(/\bCM-\d{8}-\d+\b/)?.[0] || null;
-  const { data: evidence = [], isLoading: evidenceLoading } = useQuery({
-    queryKey: ["maintenance-evidence", log?.id],
-    queryFn: () => listMaintenanceEvidence(log!.id),
-    enabled: Boolean(open && log?.id),
-  });
   const { data: legacyComplaint } = useQuery({
     queryKey: ["maintenance-source-complaint", legacyComplaintNumber],
     queryFn: async () => {
@@ -58,15 +52,6 @@ export function MaintenanceLogDetailSheet({ log, onOpenChange, open }: Maintenan
   })();
 
   const parts = Array.isArray(log.parts_used) ? log.parts_used : [];
-  const openEvidence = async (filePath: string) => {
-    try {
-      const url = await getMaintenanceEvidenceUrl(filePath);
-      window.location.assign(url);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "증빙 사진을 열지 못했습니다");
-    }
-  };
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side={isMobile ? "bottom" : "right"} className="w-full overflow-y-auto sm:max-w-xl">
@@ -110,6 +95,7 @@ export function MaintenanceLogDetailSheet({ log, onOpenChange, open }: Maintenan
             <InfoCard label="처리 기한" value={log.due_date || "-"} />
             <InfoCard label="완료일" value={formatFacilityDateTime(log.completed_at)} />
           </section>
+          <FacilityPhotoGallery refType="maintenance_log" refId={log.id} title="접수·고장 현장 사진" />
 
           <section className="rounded-2xl border bg-card p-4">
             <h3 className="text-sm font-semibold text-foreground">작업 내용</h3>
@@ -156,36 +142,7 @@ export function MaintenanceLogDetailSheet({ log, onOpenChange, open }: Maintenan
             )}
           </section>
 
-          <section className="rounded-2xl border bg-card p-4">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-foreground">현장 완료 증빙</h3>
-              <span className="text-xs text-muted-foreground">{evidence.length}건</span>
-            </div>
-            {evidenceLoading ? (
-              <p className="mt-4 text-sm text-muted-foreground">사진을 불러오는 중...</p>
-            ) : evidence.length > 0 ? (
-              <div className="mt-4 space-y-2">
-                {evidence.map((file) => (
-                  <div key={file.id} className="flex items-center gap-3 rounded-md bg-muted/30 px-3 py-2">
-                    <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{file.file_name}</p>
-                      <p className="text-xs text-muted-foreground">{file.created_at ? formatFacilityDateTime(file.created_at) : "촬영시각 미기록"}</p>
-                    </div>
-                    <Button size="icon" variant="ghost" title="증빙 사진 열기" onClick={() => openEvidence(file.file_path)}>
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : log.after_photo ? (
-              <Button className="mt-4" variant="outline" size="sm" onClick={() => openEvidence(log.after_photo!)}>
-                <ImageIcon className="mr-2 h-4 w-4" />기존 완료 사진 열기
-              </Button>
-            ) : (
-              <p className="mt-4 text-sm text-muted-foreground">등록된 완료 사진이 없습니다.</p>
-            )}
-          </section>
+          <FacilityPhotoGallery refType="maintenance_log" refId={log.id} title="현장 완료 증빙" category="completion_photo" />
 
           <section className="rounded-2xl border bg-card p-4">
             <h3 className="text-sm font-semibold text-foreground">관련 업체 연락망</h3>

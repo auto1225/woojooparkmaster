@@ -7,6 +7,7 @@ import type { SurfaceMarking } from "@/types/facility";
 import { CONDITION_COLORS, CONDITION_LABELS, MARKING_TYPE_LABELS } from "@/types/facility";
 import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import { Archive, Pencil } from "lucide-react";
+import { FacilityPhotoGallery } from "@/components/facility/FacilityPhotoGallery";
 
 interface SurfaceMarkingDetailSheetProps {
   marking: SurfaceMarking | null;
@@ -68,6 +69,7 @@ export function SurfaceMarkingDetailSheet({ marking, onOpenChange, open, onEdit,
               <DetailBlock label="비고" value={marking.notes || "-"} />
             </div>
           </section>
+          <FacilityPhotoGallery refType="surface_marking" refId={marking.id} title="노면표시 현장 사진" />
           <DocumentLinksPanel
             module="FACILITY_MARKING"
             recordId={marking.id}

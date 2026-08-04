@@ -7,6 +7,28 @@ import { CATEGORY_LABELS as COMPLAINT_CATEGORY_LABELS, COMPLAINT_STATUS_LABELS, 
 import { MAINT_STATUS_LABELS, MAINT_TYPE_LABELS, PRIORITY_LABELS as MAINT_PRIORITY_LABELS } from "@/types/facility";
 import { OPEN_COMPLAINT_STATUS_SET, OPEN_MAINTENANCE_STATUS_SET } from "@/lib/work-status";
 import { findOfficialDocumentByNumber, linkOfficialDocument } from "@/lib/official-document-registry";
+import {
+  buildOperationsReportModel,
+  collectOperationsReportData,
+  createOperationsHwpx,
+  parseOperationsReportOptions,
+  validateOperationsHwpx,
+} from "@/lib/operations-report";
+import { convertHwpxToPdfWithHancom } from "@/lib/hancom-pdf-converter";
+import {
+  chooseBrowserFileDestination,
+  writeBlobToBrowserDestination,
+  type BrowserFileSaveResult,
+} from "@/lib/browser-file-save";
+import { nextAnnualReportNumber } from "@/lib/report-number";
+import {
+  ANNUAL_PARKING_TEMPLATE_CODE,
+  buildAnnualParkingReportModel,
+  createAnnualParkingHwpx,
+  generateAnnualParkingTestDataset,
+  parseAnnualParkingReportOptions,
+  validateAnnualParkingHwpx,
+} from "@/lib/annual-parking-report";
 
 type ReportParameters = Record<string, string>;
 
@@ -29,13 +51,39 @@ const REPORT_COMPLAINT_STATUS_LABELS = { ...COMPLAINT_STATUS_LABELS, processing:
 const REPORT_COMPLAINT_PRIORITY_LABELS = { ...COMPLAINT_PRIORITY_LABELS, medium: "보통", critical: "긴급" };
 const REPORT_MAINT_STATUS_LABELS = { ...MAINT_STATUS_LABELS, waiting: "대기", pending: "대기", closed: "종결" };
 const REPORT_MAINT_PRIORITY_LABELS = { ...MAINT_PRIORITY_LABELS, normal: "보통", urgent: "긴급" };
+const HWPX_MIME_TYPE = "application/hwp+zip";
+const HWPX_STORAGE_COMPAT_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+function isUnsupportedStorageMime(error: unknown) {
+  if (!error || typeof error !== "object" || !("message" in error)) return false;
+  const message = String((error as { message?: unknown }).message || "").toLowerCase();
+  return message.includes("mime type") && message.includes("not supported");
+}
+
+async function uploadHwpx(path: string, blob: Blob) {
+  const reports = supabase.storage.from("reports");
+  const primary = await reports.upload(path, blob, {
+    contentType: HWPX_MIME_TYPE,
+    upsert: true,
+  });
+  if (!primary.error || !isUnsupportedStorageMime(primary.error)) return primary.error;
+
+  // Older report buckets only allow PDF/XLSX MIME values. The object remains
+  // a valid HWPX ZIP package and keeps its .hwpx path and download filename.
+  const compatibleBlob = new Blob([await blob.arrayBuffer()], { type: HWPX_STORAGE_COMPAT_MIME_TYPE });
+  const compatible = await reports.upload(path, compatibleBlob, {
+    contentType: HWPX_STORAGE_COMPAT_MIME_TYPE,
+    upsert: true,
+  });
+  return compatible.error;
+}
 
 export interface GenerateReportInput {
   template: ReportTemplate;
   title: string;
   description?: string;
   parameters: ReportParameters;
-  outputFormat: "pdf" | "pdf+xlsx";
+  outputFormat: "pdf" | "pdf+xlsx" | "pdf+hwpx";
   userId: string;
   authorName?: string;
   aiSummary?: string;
@@ -48,6 +96,7 @@ export interface GeneratedReportResult {
   reportNumber: string;
   filePath: string;
   excelPath?: string;
+  hwpPath?: string;
   documentLinked: boolean;
   documentNumber?: string;
 }
@@ -168,7 +217,7 @@ function defaultParameters(reportType: string, at = new Date()): ReportParameter
     const year = currentQuarter === 1 ? at.getFullYear() - 1 : at.getFullYear();
     return { quarter_year: String(year), quarter_q: String(quarter) };
   }
-  if (reportType === "yearly") return { year: String(at.getFullYear() - 1) };
+  if (reportType === "yearly" || reportType === "annual") return { year: String(at.getFullYear() - 1) };
 
   const previousMonth = new Date(at.getFullYear(), at.getMonth() - 1, 1);
   return { month: localDateString(previousMonth).slice(0, 7) };
@@ -864,17 +913,16 @@ function createExcelSheets(template: ReportTemplate, data: ReportDataset): Excel
   return sheets.filter((sheet) => allowed.has(sheet.name));
 }
 
-function reportNumber(): string {
-  const now = new Date();
-  const stamp = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-    String(now.getHours()).padStart(2, "0"),
-    String(now.getMinutes()).padStart(2, "0"),
-    String(now.getSeconds()).padStart(2, "0"),
-  ].join("");
-  return `RPT-${stamp}-${crypto.randomUUID().slice(0, 5).toUpperCase()}`;
+async function reportNumber(): Promise<string> {
+  const year = new Date().getFullYear();
+  const { data, error } = await supabase
+    .from("report_generated")
+    .select("report_number")
+    .like("report_number", `RPT-${year}-%`)
+    .limit(10000);
+  if (error) throw error;
+
+  return nextAnnualReportNumber(data?.map((row) => row.report_number) || [], year);
 }
 
 function safeFileName(value: string): string {
@@ -884,7 +932,7 @@ function safeFileName(value: string): string {
 export async function generateReport(input: GenerateReportInput): Promise<GeneratedReportResult> {
   const startedAt = Date.now();
   const period = getReportPeriod(input.parameters);
-  let number = input.reportNumber || reportNumber();
+  let number = input.reportNumber || "";
   let id = input.reportId;
   const uploadedPaths: string[] = [];
   let replacedPaths: string[] = [];
@@ -903,39 +951,119 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
           error_message: null,
         })
         .eq("id", id)
-        .select("report_number, file_path, excel_path")
+        .select("report_number, file_path, excel_path, hwp_path")
         .single();
       if (error) throw error;
       if (existing?.report_number) number = existing.report_number;
-      replacedPaths = [existing?.file_path, existing?.excel_path].filter(Boolean) as string[];
+      replacedPaths = [existing?.file_path, existing?.excel_path, existing?.hwp_path].filter(Boolean) as string[];
     } else {
-      const { data, error } = await supabase
-        .from("report_generated")
-        .insert({
-          report_number: number,
-          template_id: input.template.id,
-          title: input.title,
-          description: input.description || null,
-          parameters_used: input.parameters,
-          period_start: period.start,
-          period_end: period.end,
-          file_format: input.outputFormat,
-          status: "generating",
-          generated_by: input.userId,
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      id = data.id;
+      const maximumAttempts = input.reportNumber ? 1 : 5;
+      let insertError: unknown;
+
+      for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+        if (!input.reportNumber) number = await reportNumber();
+        const { data, error } = await supabase
+          .from("report_generated")
+          .insert({
+            report_number: number,
+            template_id: input.template.id,
+            title: input.title,
+            description: input.description || null,
+            parameters_used: input.parameters,
+            period_start: period.start,
+            period_end: period.end,
+            file_format: input.outputFormat,
+            status: "generating",
+            generated_by: input.userId,
+          })
+          .select("id")
+          .single();
+
+        if (!error) {
+          id = data.id;
+          insertError = undefined;
+          break;
+        }
+
+        insertError = error;
+        if (error.code !== "23505" || input.reportNumber) break;
+      }
+
+      if (!id) throw insertError || new Error("보고서 관리번호를 발급하지 못했습니다.");
     }
 
-    const [{ data: configRows }, dataset] = await Promise.all([
-      supabase.from("system_config").select("config_key, config_value").in("config_key", ["org_name"]),
-      collectReportData(period.start, period.end),
-    ]);
+    const { data: configRows } = await supabase.from("system_config").select("config_key, config_value").in("config_key", ["org_name"]);
     const orgName = configRows?.find((row) => row.config_key === "org_name")?.config_value || "ParkMaster";
-    const pdf = await createPdf(input.template, orgName, number, input.parameters.official_document_number || "", input.title, input.description || "", input.authorName || "", period, dataset, input.aiSummary);
-    const basePath = `${input.userId}/${id}`;
+    const isOperationsReport = input.parameters.report_scope === "operations";
+    const isAnnualParkingReport = input.parameters.report_scope === "annual_parking"
+      || input.template.template_code === ANNUAL_PARKING_TEMPLATE_CODE;
+    let dataset: ReportDataset | null = null;
+    let dataSnapshot: any;
+    let summaryData: Record<string, unknown>;
+    let hwpBlob: Blob | undefined;
+    let pdf: { blob: Blob; pageCount: number };
+
+    if (isAnnualParkingReport) {
+      const options = parseAnnualParkingReportOptions(input.parameters);
+      const annualDataset = generateAnnualParkingTestDataset(undefined, options.comparisonYear, options.year);
+      const model = buildAnnualParkingReportModel(annualDataset, options);
+      const canonicalHwpx = await createAnnualParkingHwpx({
+        model,
+        title: input.title,
+        reportNumber: number,
+        officialDocumentNumber: input.parameters.official_document_number,
+        authorName: input.authorName,
+        organizationName: orgName,
+        disclosureStatus: input.parameters.disclosure_status,
+        disclosureBasis: input.parameters.disclosure_basis,
+        documentSummary: input.parameters.document_summary,
+        keywords: input.parameters.keywords,
+      });
+      await validateAnnualParkingHwpx(canonicalHwpx);
+      pdf = await convertHwpxToPdfWithHancom(canonicalHwpx);
+      hwpBlob = input.outputFormat === "pdf+hwpx" ? canonicalHwpx : undefined;
+      dataSnapshot = { ...annualDataset, reportModel: model };
+      summaryData = {
+        ...model.current,
+        comparisonYear: model.previous,
+        sourceCounts: model.sourceCounts,
+        fixtureVersion: "JEJU-ANNUAL-2025-v1",
+        canonicalDocument: "HWPX",
+        pdfEngine: "Hancom Office",
+      };
+    } else if (isOperationsReport) {
+      const options = parseOperationsReportOptions(input.parameters);
+      const operationsDataset = await collectOperationsReportData(options);
+      const model = buildOperationsReportModel(operationsDataset, options);
+      const canonicalHwpx = await createOperationsHwpx({
+        model, title: input.title, reportNumber: number,
+        orientation: options.orientation,
+        officialDocumentNumber: input.parameters.official_document_number,
+        authorName: input.authorName, organizationName: orgName,
+        disclosureStatus: input.parameters.disclosure_status,
+        disclosureBasis: input.parameters.disclosure_basis,
+        documentSummary: input.parameters.document_summary,
+        keywords: input.parameters.keywords,
+      });
+      await validateOperationsHwpx(canonicalHwpx);
+      pdf = await convertHwpxToPdfWithHancom(canonicalHwpx);
+      hwpBlob = input.outputFormat === "pdf+hwpx" ? canonicalHwpx : undefined;
+      dataSnapshot = { ...operationsDataset, reportModel: model };
+      summaryData = {
+        ...model.summary,
+        sourceCounts: model.sourceCounts,
+        selectedFieldCount: model.selectedFieldCount,
+        sensitiveFieldCount: model.sensitiveFieldCount,
+        canonicalDocument: "HWPX",
+        pdfEngine: "Hancom Office",
+      };
+    } else {
+      dataset = await collectReportData(period.start, period.end);
+      pdf = await createPdf(input.template, orgName, number, input.parameters.official_document_number || "", input.title, input.description || "", input.authorName || "", period, dataset, input.aiSummary);
+      dataSnapshot = dataset;
+      summaryData = { ...dataset.summary, aiSummary: input.aiSummary || null };
+    }
+    const basePath = `${input.userId}/${id}/attempts/${crypto.randomUUID()}`;
     const fileBase = `${safeFileName(input.template.template_code || number)}_${period.start}_${period.end}`;
     const pdfPath = `${basePath}/${fileBase}.pdf`;
     const { error: pdfError } = await supabase.storage.from("reports").upload(pdfPath, pdf.blob, {
@@ -948,6 +1076,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
     let excelPath: string | undefined;
     let excelSize = 0;
     if (input.outputFormat === "pdf+xlsx") {
+      if (!dataset) throw new Error("운영관리 선택형 보고서는 PDF와 HWPX 형식으로 생성해 주세요.");
       const excel = await createProfessionalExcelBlob({
         fileName: fileBase,
         orgName,
@@ -966,16 +1095,27 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
       excelSize = excel.size;
     }
 
+    let hwpPath: string | undefined;
+    let hwpSize = 0;
+    if (hwpBlob) {
+      hwpPath = `${basePath}/${fileBase}.hwpx`;
+      const hwpError = await uploadHwpx(hwpPath, hwpBlob);
+      if (hwpError) throw hwpError;
+      uploadedPaths.push(hwpPath);
+      hwpSize = hwpBlob.size;
+    }
+
     const { error: updateError } = await supabase
       .from("report_generated")
       .update({
         file_path: pdfPath,
         excel_path: excelPath || null,
+        hwp_path: hwpPath || null,
         file_format: input.outputFormat,
-        file_size: pdf.blob.size + excelSize,
+        file_size: pdf.blob.size + excelSize + hwpSize,
         page_count: pdf.pageCount,
-        data_snapshot: dataset as any,
-        summary_data: { ...dataset.summary, aiSummary: input.aiSummary || null } as any,
+        data_snapshot: dataSnapshot as any,
+        summary_data: summaryData as any,
         status: "completed",
         generation_time_ms: Date.now() - startedAt,
         error_message: null,
@@ -1007,7 +1147,7 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
       }
     }
 
-    return { id, reportNumber: number, filePath: pdfPath, excelPath, documentLinked, documentNumber };
+    return { id, reportNumber: number, filePath: pdfPath, excelPath, hwpPath, documentLinked, documentNumber };
   } catch (error) {
     if (uploadedPaths.length) await supabase.storage.from("reports").remove(uploadedPaths);
     const message = error instanceof Error ? error.message : "보고서 생성 중 오류가 발생했습니다.";
@@ -1154,4 +1294,25 @@ export async function openStoredReport(path: string, target: "_blank" | "_self" 
   if (!popup) throw new Error("브라우저에서 새 창 열기가 차단되었습니다.");
   popup.opener = null;
   popup.location.replace(data.signedUrl);
+}
+
+function safeDownloadFileName(fileName: string): string {
+  return fileName
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160) || "ParkMaster-보고서";
+}
+
+export async function downloadStoredReport(path: string, fileName?: string): Promise<BrowserFileSaveResult> {
+  const normalizedPath = path.replace(/^\/+/, "");
+  const fallbackName = decodeURIComponent(normalizedPath.split("/").pop() || "ParkMaster-보고서");
+  const downloadName = safeDownloadFileName(fileName || fallbackName);
+  const destination = await chooseBrowserFileDestination(downloadName);
+  if (destination.kind === "cancelled") return "cancelled";
+
+  await verifyStoredReport(normalizedPath);
+  const { data, error } = await supabase.storage.from("reports").download(normalizedPath);
+  if (error) throw error;
+  return writeBlobToBrowserDestination(data, downloadName, destination);
 }

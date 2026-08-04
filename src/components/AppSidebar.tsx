@@ -26,12 +26,13 @@ const coreMenuItems = [
   { title: "문서대장", url: "/documents", icon: FileText },
   { title: "팀 업무관리", url: "/team-work", icon: ClipboardList, end: true },
   { title: "업무분장", url: "/team-work/duties", icon: Users },
-  { title: "명함관리", url: "/business-cards", icon: ContactRound },
   { title: "대시보드", url: "/", icon: LayoutDashboard, end: true },
   { title: "종합 현황", url: "/master", icon: PanelLeftOpen },
   { title: "결재함", url: "/approvals", icon: ClipboardCheck },
   { title: "주차장 관리", url: "/lots", icon: Car },
 ];
+
+const contactMenuItem = { title: "연락처/명함관리", url: "/business-cards", icon: ContactRound };
 
 const opsSubMenu = [
   { title: "운영 현황", url: "/ops", icon: BarChart3, end: true },
@@ -423,7 +424,7 @@ export function AppSidebar() {
           <Tooltip>
             <TooltipTrigger asChild>
               <a href={item.href} target="_blank" rel="noopener noreferrer"
-                className="flex items-center text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150">
+                className="flex items-center border-l-[3px] border-l-transparent text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150">
                 <item.icon className="h-[18px] w-[18px] shrink-0" />
               </a>
             </TooltipTrigger>
@@ -431,8 +432,8 @@ export function AppSidebar() {
           </Tooltip>
         ) : (
           <a href={item.href} target="_blank" rel="noopener noreferrer"
-            className="flex items-center text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-3 px-3">
-            <item.icon className="mr-2.5 h-[20px] w-[20px] shrink-0" />
+            className="flex items-center gap-2.5 border-l-[3px] border-l-transparent text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-3 px-3">
+            <item.icon className="h-[20px] w-[20px] shrink-0" />
             <span className="text-[17px]">{item.title}</span>
             <ExternalLink className="ml-auto h-3.5 w-3.5 opacity-50 shrink-0" />
           </a>
@@ -448,8 +449,8 @@ export function AppSidebar() {
           <Tooltip>
             <TooltipTrigger asChild>
               <NavLink to={item.url} end={item.end}
-                className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150"
-                activeClassName="bg-white/[0.14] !text-white border-l-[3px] border-l-white shadow-sm">
+                className="border-l-[3px] border-l-transparent text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150"
+                activeClassName="bg-white/[0.14] !text-white border-l-white shadow-sm">
                 <item.icon className="h-[18px] w-[18px] shrink-0" />
               </NavLink>
             </TooltipTrigger>
@@ -457,9 +458,9 @@ export function AppSidebar() {
           </Tooltip>
         ) : (
           <NavLink to={item.url} end={item.end}
-            className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-3 px-3"
-            activeClassName="bg-white/[0.14] !text-white border-l-[3px] border-l-white shadow-sm font-semibold">
-            <item.icon className="mr-2.5 h-[20px] w-[20px] shrink-0" />
+            className="gap-2.5 border-l-[3px] border-l-transparent text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-3 px-3"
+            activeClassName="bg-white/[0.14] !text-white border-l-white shadow-sm font-semibold">
+            <item.icon className="h-[20px] w-[20px] shrink-0" />
             <span className="text-[17px]">{item.title}</span>
           </NavLink>
         )}
@@ -478,9 +479,9 @@ export function AppSidebar() {
       <Collapsible open={isOpen} onOpenChange={() => toggleOpen(mod.id)}>
         <SidebarMenuItem>
           <CollapsibleTrigger asChild>
-            <SidebarMenuButton className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg w-full justify-between py-3 px-3 transition-all duration-150">
-              <div className="flex items-center">
-                <Icon className="mr-2.5 h-[20px] w-[20px] shrink-0" />
+            <SidebarMenuButton className="w-full justify-between rounded-lg border-l-[3px] border-l-transparent px-3 py-3 text-sidebar-foreground transition-all duration-150 hover:bg-white/[0.08] hover:text-white">
+              <div className="flex items-center gap-2.5">
+                <Icon className="h-[20px] w-[20px] shrink-0" />
                 <span className="text-[17px]">{mod.label}</span>
               </div>
               <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
@@ -534,7 +535,6 @@ export function AppSidebar() {
 
       {/* Scrollable menu area */}
       <SidebarContent ref={scrollRef} onScroll={handleScroll} className="px-2 pt-3">
-        {!collapsed && <div className="mb-2 flex items-center justify-end gap-1 px-2"><Button type="button" variant="ghost" size="sm" className="h-8 text-xs text-sidebar-foreground hover:bg-white/10 hover:text-white" onClick={() => setEditingMenuOrder((value) => !value)}>{editingMenuOrder ? <Check className="mr-1.5 h-4 w-4" /> : <GripVertical className="mr-1.5 h-4 w-4" />}{editingMenuOrder ? "순서 변경 완료" : "메뉴 순서 변경"}</Button>{editingMenuOrder && <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-sidebar-foreground hover:bg-white/10 hover:text-white" aria-label="메뉴 순서 기본값 복원" title="기본값 복원" onClick={resetMenuOrder}><RotateCcw className="h-4 w-4" /></Button>}</div>}
         <SidebarGroup>
           <SidebarGroupLabel className="text-[15px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground px-3 mb-1.5">메인</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -573,18 +573,44 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {canSeeConsole && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-[15px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground px-3 mb-1.5">센서 관제</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu className="space-y-0.5">{renderExternal({ title: "Sensor Monitoring", href: SENSOR_CONSOLE_URL, icon: Monitor })}</SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[15px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground px-3 mb-1.5">기타</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-0.5">
+              {renderLink(contactMenuItem)}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  type="button"
+                  tooltip={editingMenuOrder ? "순서 변경 완료" : "메뉴 순서 변경"}
+                  aria-pressed={editingMenuOrder}
+                  onClick={() => setEditingMenuOrder((value) => !value)}
+                  className={`gap-2.5 rounded-lg border-l-[3px] border-l-transparent px-3 py-3 text-sidebar-foreground transition-all duration-150 hover:bg-white/[0.08] hover:text-white ${editingMenuOrder ? "bg-white/[0.14] !text-white font-semibold" : ""}`}
+                >
+                  {editingMenuOrder ? <Check className="h-[20px] w-[20px] shrink-0" /> : <GripVertical className="h-[20px] w-[20px] shrink-0" />}
+                  {!collapsed && <span className="text-[17px]">{editingMenuOrder ? "순서 변경 완료" : "메뉴 순서 변경"}</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {editingMenuOrder && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    type="button"
+                    tooltip="기본 순서 복원"
+                    onClick={resetMenuOrder}
+                    className="gap-2.5 rounded-lg border-l-[3px] border-l-transparent px-3 py-3 text-sidebar-foreground transition-all duration-150 hover:bg-white/[0.08] hover:text-white"
+                  >
+                    <RotateCcw className="h-[20px] w-[20px] shrink-0" />
+                    {!collapsed && <span className="text-[17px]">기본 순서 복원</span>}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {canSeeConsole && renderExternal({ title: "Sensor Monitoring", href: SENSOR_CONSOLE_URL, icon: Monitor })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
         {isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[15px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground px-3 mb-1.5">시스템</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[15px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground px-3 mb-1.5">시스템 설정</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="space-y-0.5">{renderLink({ title: "시스템 설정", url: "/settings", icon: Settings })}</SidebarMenu>
             </SidebarGroupContent>

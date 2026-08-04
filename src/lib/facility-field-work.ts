@@ -5,6 +5,25 @@ import type { ChecklistItem, SafetyInspection } from "@/types/facility";
 const FIELD_EVIDENCE_BUCKET = "field-evidence";
 const DEV_FALLBACK_BUCKET = "survey-photos";
 
+export type FacilityPhotoRefType = "equipment" | "maintenance_log" | "safety_inspection" | "surface_marking";
+
+export type FacilityPhotoAttachment = {
+  id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number | null;
+  mime_type: string | null;
+  category: string | null;
+  created_at: string | null;
+};
+
+const EVIDENCE_FOLDER: Record<FacilityPhotoRefType, string> = {
+  equipment: "equipment",
+  maintenance_log: "maintenance",
+  safety_inspection: "safety",
+  surface_marking: "marking",
+};
+
 function storageLocation(path: string) {
   const match = path.match(/^([a-z0-9-]+):\/\/(.+)$/i);
   return match ? { bucket: match[1], path: match[2] } : { bucket: FIELD_EVIDENCE_BUCKET, path };
@@ -82,6 +101,111 @@ export async function uploadMaintenanceEvidence(logId: string, file: File, userI
   }
 
   return storedPath;
+}
+
+async function uploadFacilityRecordPhoto(
+  refType: FacilityPhotoRefType,
+  refId: string,
+  file: File,
+  userId: string,
+  category = "record_photo",
+) {
+  const validation = await validateUploadFile(file, "image");
+  if (!validation.isValid) throw new Error(validation.errors.join(" "));
+
+  const location = await currentPosition();
+  const clientMutationId = crypto.randomUUID();
+  const path = `${userId}/${EVIDENCE_FOLDER[refType]}/${refId}/${getSecureUploadPath(category, file.name)}`;
+  let bucket = FIELD_EVIDENCE_BUCKET;
+  let upload = await supabase.storage.from(bucket).upload(path, file, {
+    cacheControl: "3600",
+    contentType: file.type || undefined,
+    upsert: false,
+  });
+
+  if (upload.error && import.meta.env.DEV && /bucket not found/i.test(upload.error.message)) {
+    bucket = DEV_FALLBACK_BUCKET;
+    upload = await supabase.storage.from(bucket).upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type || undefined,
+      upsert: false,
+    });
+  }
+  if (upload.error) throw upload.error;
+
+  const storedPath = bucket === FIELD_EVIDENCE_BUCKET ? path : `${bucket}://${path}`;
+  const baseMetadata = {
+    module: "FACILITY",
+    ref_id: refId,
+    ref_type: refType,
+    category,
+    file_name: file.name,
+    file_path: storedPath,
+    file_size: file.size,
+    mime_type: file.type || null,
+    uploaded_by: userId,
+  };
+  const enrichedMetadata = {
+    ...baseMetadata,
+    captured_at: new Date().toISOString(),
+    latitude: location?.latitude ?? null,
+    longitude: location?.longitude ?? null,
+    location_accuracy_m: location?.accuracy ?? null,
+    client_mutation_id: clientMutationId,
+    device_platform: typeof navigator === "undefined" ? null : navigator.userAgent,
+    sync_status: "synced",
+  };
+
+  let metadataResult = await (supabase.from("attachments") as any).insert(enrichedMetadata);
+  if (metadataResult.error?.code === "PGRST204") {
+    metadataResult = await supabase.from("attachments").insert(baseMetadata);
+  }
+  if (metadataResult.error) {
+    await supabase.storage.from(bucket).remove([path]);
+    throw metadataResult.error;
+  }
+  return storedPath;
+}
+
+export async function uploadFacilityRecordPhotos(
+  refType: FacilityPhotoRefType,
+  refId: string,
+  files: File[],
+  userId: string,
+  category = "record_photo",
+) {
+  const results = await Promise.allSettled(
+    files.map((file) => uploadFacilityRecordPhoto(refType, refId, file, userId, category)),
+  );
+  return {
+    uploadedPaths: results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []),
+    uploadErrors: results.flatMap((result, index) => result.status === "rejected"
+      ? [`${files[index].name}: ${result.reason instanceof Error ? result.reason.message : "업로드 실패"}`]
+      : []),
+  };
+}
+
+export async function listFacilityRecordPhotos(
+  refType: FacilityPhotoRefType,
+  refId: string,
+  category = "record_photo",
+): Promise<FacilityPhotoAttachment[]> {
+  const { data, error } = await supabase.from("attachments")
+    .select("id, file_name, file_path, file_size, mime_type, category, created_at")
+    .eq("module", "FACILITY")
+    .eq("ref_type", refType)
+    .eq("ref_id", refId)
+    .eq("category", category)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as FacilityPhotoAttachment[];
+}
+
+export async function getFacilityPhotoUrl(filePath: string) {
+  const location = storageLocation(filePath);
+  const { data, error } = await supabase.storage.from(location.bucket).createSignedUrl(location.path, 300);
+  if (error) throw error;
+  return data.signedUrl;
 }
 
 export async function listMaintenanceEvidence(logId: string) {

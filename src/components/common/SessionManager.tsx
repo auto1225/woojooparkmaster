@@ -1,35 +1,51 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const IDLE_TIMEOUT = 30 * 60 * 1000;   // 30분
-const WARNING_BEFORE = 5 * 60 * 1000;  // 5분 전 경고
+const IDLE_TIMEOUT = 30 * 60 * 1000;
+const WARNING_BEFORE = 5 * 60 * 1000;
 const ACTIVITY_EVENTS = ["mousedown", "keydown", "scroll", "touchstart", "mousemove"];
 
 export function SessionManager() {
   const { user, signOut } = useAuth();
   const [showWarning, setShowWarning] = useState(false);
+  const showWarningRef = useRef(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout>>();
   const logoutTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const setWarning = useCallback((visible: boolean) => {
+    showWarningRef.current = visible;
+    setShowWarning(visible);
+  }, []);
+
+  const finishSignOut = useCallback(async (reason: "manual" | "expired") => {
+    await signOut();
+    window.location.assign(`/login?reason=${reason}`);
+  }, [signOut]);
 
   const resetTimers = useCallback(() => {
     clearTimeout(idleTimer.current);
     clearTimeout(logoutTimer.current);
-    setShowWarning(false);
+    setWarning(false);
 
     if (!user) return;
 
     idleTimer.current = setTimeout(() => {
-      setShowWarning(true);
+      setWarning(true);
       logoutTimer.current = setTimeout(() => {
-        signOut();
-        window.location.href = "/login?expired=1";
+        void finishSignOut("expired");
       }, WARNING_BEFORE);
     }, IDLE_TIMEOUT - WARNING_BEFORE);
-  }, [user, signOut]);
+  }, [finishSignOut, setWarning, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -37,38 +53,24 @@ export function SessionManager() {
     resetTimers();
 
     const onActivity = () => {
-      if (!showWarning) resetTimers();
+      if (!showWarningRef.current) resetTimers();
     };
 
-    ACTIVITY_EVENTS.forEach((e) => window.addEventListener(e, onActivity, { passive: true }));
-
-    // Cross-tab logout via storage event
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "parkmaster-logout") {
-        signOut();
-        window.location.href = "/login?expired=1";
-      }
-    };
-    window.addEventListener("storage", onStorage);
+    ACTIVITY_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, onActivity, { passive: true });
+    });
 
     return () => {
       clearTimeout(idleTimer.current);
       clearTimeout(logoutTimer.current);
-      ACTIVITY_EVENTS.forEach((e) => window.removeEventListener(e, onActivity));
-      window.removeEventListener("storage", onStorage);
+      ACTIVITY_EVENTS.forEach((eventName) => {
+        window.removeEventListener(eventName, onActivity);
+      });
     };
-  }, [user, resetTimers, showWarning, signOut]);
+  }, [resetTimers, user]);
 
-  const handleContinue = () => {
-    setShowWarning(false);
-    resetTimers();
-  };
-
-  const handleLogout = () => {
-    localStorage.setItem("parkmaster-logout", Date.now().toString());
-    signOut();
-    window.location.href = "/login?expired=1";
-  };
+  const handleContinue = () => resetTimers();
+  const handleLogout = () => void finishSignOut("manual");
 
   if (!user) return null;
 
@@ -78,7 +80,7 @@ export function SessionManager() {
         <AlertDialogHeader>
           <AlertDialogTitle>세션 만료 경고</AlertDialogTitle>
           <AlertDialogDescription>
-            5분 후 자동 로그아웃됩니다. 계속 사용하시겠습니까?
+            5분 후 자동으로 로그아웃됩니다. 계속 사용하시겠습니까?
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

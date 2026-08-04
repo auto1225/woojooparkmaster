@@ -349,7 +349,8 @@ export async function saveBusinessCard(input: BusinessCardInput, image?: File | 
     await supabase.storage.from(previous.bucket).remove([previous.path]);
   }
   const saved = mapCard(result.data, input.links);
-  await logActivity({ module: "BUSINESS_CARD", action: input.id ? "명함수정" : "명함등록", targetType: "business_card", targetId: id, targetName: saved.name || saved.company, details: { company: saved.company, category: saved.businessCategory, lot_types: saved.lotTypes, linked_records: saved.links.map(businessCardLinkKey), has_image: Boolean(imagePath) } });
+  const recordKind = imagePath || input.collectionSource === "business_card" ? "명함" : "연락처";
+  await logActivity({ module: "BUSINESS_CARD", action: `${recordKind}${input.id ? "수정" : "등록"}`, targetType: "business_card", targetId: id, targetName: saved.name || saved.company, details: { company: saved.company, category: saved.businessCategory, lot_types: saved.lotTypes, linked_records: saved.links.map(businessCardLinkKey), has_image: Boolean(imagePath) } });
   return saved;
 }
 
@@ -357,7 +358,7 @@ export async function archiveBusinessCard(card: BusinessCard, reason: string) {
   if (!reason.trim()) throw new Error("보관 사유를 입력해 주세요.");
   const { error } = await table().update({ archived_at: new Date().toISOString(), archive_reason: reason.trim() }).eq("id", card.id).eq("row_version", card.rowVersion).select("id").single();
   if (error) throw error;
-  await logActivity({ module: "BUSINESS_CARD", action: "명함보관", targetType: "business_card", targetId: card.id, targetName: card.name, details: { reason } });
+  await logActivity({ module: "BUSINESS_CARD", action: "연락처보관", targetType: "business_card", targetId: card.id, targetName: card.name, details: { reason } });
 }
 
 export async function restoreBusinessCard(card: BusinessCard) {
@@ -368,7 +369,7 @@ export async function restoreBusinessCard(card: BusinessCard) {
     if (error.code === "23505") throw new Error("같은 휴대전화 또는 이메일의 활성 연락처가 있어 복구할 수 없습니다.");
     throw error;
   }
-  await logActivity({ module: "BUSINESS_CARD", action: "명함복구", targetType: "business_card", targetId: card.id, targetName: card.name });
+  await logActivity({ module: "BUSINESS_CARD", action: "연락처복구", targetType: "business_card", targetId: card.id, targetName: card.name });
 }
 
 export async function listBusinessCardsForRecord(module: string, recordId: string) {

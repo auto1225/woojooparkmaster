@@ -25,6 +25,8 @@ import { useAuthorization } from "@/hooks/useAuthorization";
 import { FacilityLotCombobox } from "@/components/facility/FacilityLotCombobox";
 import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
 import { getParkingLotWorkProfile } from "@/lib/parking-lot-work-profile";
+import { FacilityPhotoPicker } from "@/components/facility/FacilityPhotoPicker";
+import { saveFacilityRecordPhotosLocally } from "@/lib/facility-local-photos";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -55,6 +57,7 @@ export default function FacilityMarkings() {
   const [secondarySortKey, setSecondarySortKey] = useState("condition");
   const [nullPlacement, setNullPlacement] = useState<NullPlacement>("last");
   const [groupByLot, setGroupByLot] = useState(false);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
 
   const { data: lots = [] } = useQuery({
     queryKey: ["parking-lots-select", "with-type"],
@@ -137,14 +140,20 @@ export default function FacilityMarkings() {
       const query = editingMarking
         ? supabase.from("surface_markings").update(values).eq("id", editingMarking.id)
         : supabase.from("surface_markings").insert(values);
-      const { error } = await query;
+      const { data: saved, error } = await query.select("id").single();
       if (error) throw error;
+      return photoFiles.length
+        ? saveFacilityRecordPhotosLocally("surface_marking", saved.id, photoFiles)
+        : { savedPaths: [], saveErrors: [] };
     },
-    onSuccess: () => {
+    onSuccess: (photoResult) => {
       toast.success(editingMarking ? "노면표시 정보를 수정했습니다" : "노면표시가 등록되었습니다");
+      if (photoResult.saveErrors.length) toast.error(`노면표시는 저장됐지만 사진 ${photoResult.saveErrors.length}장을 PC 폴더에 저장하지 못했습니다.`, { description: photoResult.saveErrors.join("\n") });
       queryClient.invalidateQueries({ queryKey: ["facility-markings"] });
+      queryClient.invalidateQueries({ queryKey: ["facility-record-photos", "surface_marking"] });
       setDialogOpen(false);
       setEditingMarking(null);
+      setPhotoFiles([]);
       setForm({
         lot_id: "",
         marking_type: "",
@@ -182,6 +191,7 @@ export default function FacilityMarkings() {
 
   const editMarking = (marking: SurfaceMarking) => {
     setEditingMarking(marking);
+    setPhotoFiles([]);
     setSelectedLot(marking.lot_id);
     setForm({
       lot_id: marking.lot_id,
@@ -251,8 +261,8 @@ export default function FacilityMarkings() {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-foreground">노면표시/안내표지판</h1>
-            {canCreate && <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild><Button onClick={() => { setEditingMarking(null); setForm({ lot_id: selectedLot, marking_type: "", marking_name: "", location_detail: "", floor: "", quantity: "1", material: "", color: "", condition: "good", install_date: todayIso(), last_repainted: todayIso(), repaint_cycle_months: "", is_regulatory: false, regulation_ref: "" }); }}><Plus className="mr-1 h-4 w-4" />등록</Button></DialogTrigger>
+            {canCreate && <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setPhotoFiles([]); }}>
+              <DialogTrigger asChild><Button onClick={() => { setEditingMarking(null); setPhotoFiles([]); setForm({ lot_id: selectedLot, marking_type: "", marking_name: "", location_detail: "", floor: "", quantity: "1", material: "", color: "", condition: "good", install_date: todayIso(), last_repainted: todayIso(), repaint_cycle_months: "", is_regulatory: false, regulation_ref: "" }); }}><Plus className="mr-1 h-4 w-4" />등록</Button></DialogTrigger>
               <DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto">
                 <DialogHeader><DialogTitle>노면표시 {editingMarking ? "수정" : "등록"}</DialogTitle></DialogHeader>
                 <div className="space-y-3">
@@ -292,7 +302,9 @@ export default function FacilityMarkings() {
                     <Label>법적 의무 표시</Label>
                   </div>
                   {form.is_regulatory && <div><Label>관련 규정 *</Label><Input value={form.regulation_ref} onChange={(event) => setForm((prev) => ({ ...prev, regulation_ref: event.target.value }))} /></div>}
+                  <FacilityPhotoPicker files={photoFiles} onFilesChange={setPhotoFiles} label="노면표시 현장 사진 (선택)" description="표시 전체와 훼손·퇴색 상태가 함께 보이도록 촬영해 두면 재시공 판단에 활용할 수 있습니다." />
                   <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
+                  {(!form.lot_id || !form.marking_type || !form.marking_name || (form.is_regulatory && !form.regulation_ref.trim())) && <p role="status" className="text-xs text-amber-700">주차장, 유형, 명칭{form.is_regulatory ? ", 관련 규정" : ""}을 입력해 주세요.</p>}
                   <Button className="w-full" disabled={!form.lot_id || !form.marking_type || !form.marking_name || (form.is_regulatory && !form.regulation_ref.trim()) || saveMutation.isPending} onClick={() => saveMutation.mutate()}>
                     {saveMutation.isPending ? "저장 중..." : editingMarking ? "수정 저장" : "등록"}
                   </Button>

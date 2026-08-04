@@ -39,13 +39,14 @@ const CHANNEL_LABELS = { mobile: "휴대전화", office: "사무실 전화", ema
 const SOURCE_LABELS = { business_card: "명함", manual: "직접 입력", email_signature: "이메일 서명", official_document: "공문", other: "기타" } as const;
 
 type CardForm = BusinessCardInput & { tagsText: string; linkKeys: string[] };
+type RegistrationMode = "manual" | "business_card";
 
-function emptyForm(): CardForm {
+function emptyForm(mode: RegistrationMode = "manual"): CardForm {
   return {
     id: "", rowVersion: 1, name: "", company: "", department: "", position: "", mobile: "", phone: "", fax: "",
     email: "", website: "", address: "", rawText: "", memo: "", tags: [], tagsText: "", imagePath: "", imageName: "",
     businessCategory: "other", lotTypes: ["offstreet", "multilevel", "onstreet"], preferredChannel: "mobile",
-    emergencyContact: false, collectionSource: "business_card", businessPurpose: "공영주차장 업무 연락",
+    emergencyContact: false, collectionSource: mode === "business_card" ? "business_card" : "manual", businessPurpose: "공영주차장 업무 연락",
     lastVerifiedAt: new Date().toISOString().slice(0, 10), retentionReviewDate: "", ocrCompleteness: 0,
     retainOcrText: false, links: [], linkKeys: [],
   };
@@ -93,6 +94,7 @@ export default function BusinessCards() {
   const [archiveView, setArchiveView] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<CardForm>(emptyForm);
+  const [registrationMode, setRegistrationMode] = useState<RegistrationMode>("manual");
   const [detailCard, setDetailCard] = useState<BusinessCard | null>(null);
   const [archiveCard, setArchiveCard] = useState<BusinessCard | null>(null);
   const [archiveReason, setArchiveReason] = useState("");
@@ -155,7 +157,8 @@ export default function BusinessCards() {
       await queryClient.invalidateQueries({ queryKey: ["business-cards"] });
       setFormOpen(false);
       setDuplicate(null);
-      toast.success(form.id ? "명함 정보를 수정했습니다." : `${saved.cardNumber} 명함을 등록했습니다.`);
+      const recordLabel = registrationMode === "business_card" ? "명함" : "연락처";
+      toast.success(form.id ? `${recordLabel} 정보를 수정했습니다.` : `${saved.cardNumber} ${recordLabel}를 등록했습니다.`);
     },
     onError: (error: Error) => {
       if (error instanceof DuplicateBusinessCardError) setDuplicate(error.duplicate);
@@ -166,21 +169,23 @@ export default function BusinessCards() {
     mutationFn: () => archiveBusinessCard(archiveCard!, archiveReason),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["business-cards"] });
-      setArchiveCard(null); setArchiveReason(""); setDetailCard(null); toast.success("명함을 보관했습니다.");
+      setArchiveCard(null); setArchiveReason(""); setDetailCard(null); toast.success("연락처를 보관했습니다.");
     },
     onError: (error: Error) => toast.error(error.message),
   });
   const restoreMutation = useMutation({
     mutationFn: restoreBusinessCard,
-    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["business-cards"] }); setDetailCard(null); toast.success("명함을 활성 연락망으로 복원했습니다."); },
+    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["business-cards"] }); setDetailCard(null); toast.success("연락처를 활성 연락망으로 복원했습니다."); },
     onError: (error: Error) => error instanceof DuplicateBusinessCardError ? setDuplicate(error.duplicate) : toast.error(error.message),
   });
 
-  const resetEditor = () => {
-    setForm(emptyForm()); setImageFile(null); setPreviewUrl(""); setOcrProgress(0); setOcrStatus(""); setRecognizing(false);
+  const resetEditor = (mode: RegistrationMode = "manual") => {
+    setRegistrationMode(mode);
+    setForm(emptyForm(mode)); setImageFile(null); setPreviewUrl(""); setOcrProgress(0); setOcrStatus(""); setRecognizing(false);
   };
-  const openNew = () => { resetEditor(); setFormOpen(true); };
+  const openNew = (mode: RegistrationMode) => { resetEditor(mode); setFormOpen(true); };
   const openEdit = async (card: BusinessCard) => {
+    setRegistrationMode(card.imagePath || card.collectionSource === "business_card" ? "business_card" : "manual");
     setDetailCard(null); setImageFile(null); setOcrProgress(0); setOcrStatus(""); setForm(formFromCard(card));
     setPreviewUrl(card.imagePath ? await getBusinessCardImageUrl(card.imagePath, card.id).catch(() => "") : "");
     setFormOpen(true);
@@ -222,8 +227,8 @@ export default function BusinessCards() {
   return <DashboardLayout>
     <div className="space-y-5 p-4 md:p-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><h1 className="text-2xl font-bold">명함관리</h1><p className="mt-1 text-sm text-muted-foreground">시설·용역·공공기관 담당자를 업무자료와 연결해 관리합니다.</p></div>
-        {canManage && <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />명함 등록</Button>}
+        <div><h1 className="text-2xl font-bold">연락처/명함관리</h1><p className="mt-1 text-sm text-muted-foreground">시설·용역·공공기관 담당자를 업무자료와 연결해 관리합니다.</p></div>
+        {canManage && <div className="flex flex-wrap gap-2"><Button onClick={() => openNew("manual")}><Plus className="mr-2 h-4 w-4" />연락처 등록</Button><Button variant="outline" onClick={() => openNew("business_card")}><Camera className="mr-2 h-4 w-4" />명함 촬영 등록</Button></div>}
       </header>
 
       <section className="grid grid-cols-2 border-y bg-background md:grid-cols-5">
@@ -248,13 +253,13 @@ export default function BusinessCards() {
 
       <div className="hidden overflow-hidden border bg-background md:block">
         <Table><TableHeader><TableRow><TableHead>관리번호·담당자</TableHead><TableHead>회사·업무분야</TableHead><TableHead>연락처</TableHead><TableHead>적용 주차장</TableHead><TableHead>연결 업무</TableHead><TableHead>확인일</TableHead><TableHead className="w-20 text-right">관리</TableHead></TableRow></TableHeader>
-          <TableBody>{isLoading ? <TableRow><TableCell colSpan={7} className="h-32 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></TableCell></TableRow> : filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="h-40 text-center text-muted-foreground">조건에 맞는 명함이 없습니다.</TableCell></TableRow> : filtered.map((card) => <TableRow key={card.id} className="cursor-pointer" onClick={() => setDetailCard(card)}>
+          <TableBody>{isLoading ? <TableRow><TableCell colSpan={7} className="h-32 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></TableCell></TableRow> : filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="h-40 text-center text-muted-foreground">조건에 맞는 연락처가 없습니다.</TableCell></TableRow> : filtered.map((card) => <TableRow key={card.id} className="cursor-pointer" onClick={() => setDetailCard(card)}>
             <TableCell><p className="font-medium">{card.name || "이름 미확인"} <span className="text-xs font-normal text-muted-foreground">{card.position}</span></p><p className="text-xs text-muted-foreground">{card.cardNumber}</p></TableCell>
             <TableCell><p>{card.company || "-"}</p><Badge variant="outline" className="mt-1">{CATEGORY_LABELS[card.businessCategory]}</Badge></TableCell>
             <TableCell><p>{card.mobile || card.phone || "-"}</p><p className="text-xs text-muted-foreground">{card.email}</p></TableCell>
             <TableCell><div className="flex max-w-56 flex-wrap gap-1">{card.lotTypes.map((item) => <Badge variant="secondary" key={item}>{LOT_LABELS[item]}</Badge>)}</div></TableCell>
             <TableCell>{card.links.length ? `${card.links.length}건` : <span className="text-muted-foreground">미연결</span>}</TableCell><TableCell>{card.lastVerifiedAt || "확인 필요"}</TableCell>
-            <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>{archiveView ? <Button variant="ghost" size="sm" onClick={() => restoreMutation.mutate(card)}>복원</Button> : canManage && <Button variant="ghost" size="icon" title="명함 수정" onClick={() => void openEdit(card)}><Pencil className="h-4 w-4" /></Button>}</TableCell>
+            <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>{archiveView ? <Button variant="ghost" size="sm" onClick={() => restoreMutation.mutate(card)}>복원</Button> : canManage && <Button variant="ghost" size="icon" title="연락처 수정" onClick={() => void openEdit(card)}><Pencil className="h-4 w-4" /></Button>}</TableCell>
           </TableRow>)}</TableBody></Table>
       </div>
 
@@ -266,9 +271,9 @@ export default function BusinessCards() {
     </div>
 
     <Dialog open={formOpen} onOpenChange={(open) => { setFormOpen(open); if (!open) resetEditor(); }}><DialogContent className="max-h-[94vh] max-w-5xl overflow-y-auto">
-      <DialogHeader><DialogTitle>{form.id ? "명함 수정" : "명함 등록"}</DialogTitle><DialogDescription>사진을 촬영하거나 OCR 원문을 붙여넣으면 연락처와 업무분야를 자동 정리합니다.</DialogDescription></DialogHeader>
-      <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <section className="space-y-3">
+      <DialogHeader><DialogTitle>{form.id ? "연락처 수정" : registrationMode === "business_card" ? "명함 촬영 등록" : "연락처 등록"}</DialogTitle><DialogDescription>{registrationMode === "business_card" ? "명함 사진을 선택하면 글자를 인식해 연락처 항목을 자동 정리합니다. 인식 결과는 저장 전에 수정할 수 있습니다." : "명함이 없어도 담당자 연락처를 직접 등록할 수 있습니다. 이름 또는 회사와 연락수단 하나만 입력하면 됩니다."}</DialogDescription></DialogHeader>
+      <div className={registrationMode === "business_card" ? "grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]" : "grid gap-6"}>
+        {registrationMode === "business_card" && <section className="space-y-3">
           <Label htmlFor="business-card-image">명함 이미지</Label>
           <label htmlFor="business-card-image" className="flex aspect-[1.65/1] cursor-pointer items-center justify-center overflow-hidden border border-dashed bg-muted/30 text-center">
             {previewUrl ? <img src={previewUrl} alt="명함 원본 미리보기" className="h-full w-full object-contain" /> : <span className="space-y-2 text-sm text-muted-foreground"><Camera className="mx-auto h-8 w-8" /><span className="block">촬영 또는 이미지 선택</span><span className="block">JPG, PNG, WEBP · 최대 10MB</span></span>}
@@ -278,7 +283,7 @@ export default function BusinessCards() {
           {imageFile && !recognizing && <Button variant="outline" className="w-full" onClick={() => void runOcr(imageFile)}><RotateCcw className="mr-2 h-4 w-4" />이미지 다시 인식</Button>}
           <Label htmlFor="card-rawText">OCR 원문</Label><Textarea id="card-rawText" rows={7} value={form.rawText} onChange={(event) => setForm((current) => ({ ...current, rawText: event.target.value }))} placeholder="인식 결과를 붙여넣거나 직접 수정할 수 있습니다." />
           <Button variant="outline" className="w-full" disabled={!form.rawText.trim()} onClick={() => applyParsedText(form.rawText)}><ShieldCheck className="mr-2 h-4 w-4" />OCR 원문 자동 정리</Button>
-        </section>
+        </section>}
         <section className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">{field("name", "이름", "홍길동")}{field("company", "회사·기관", "주식회사 제주시설")}{field("department", "부서", "시설사업팀")}{field("position", "직책", "팀장")}{field("mobile", "휴대전화", "010-0000-0000", "tel")}{field("phone", "사무실 전화", "064-000-0000", "tel")}{field("email", "이메일", "name@example.com", "email")}{field("website", "웹사이트", "www.example.com", "url")}</div>
           <div className="space-y-2"><Label>적용 주차장 형태</Label><div className="flex flex-wrap gap-4">{Object.entries(LOT_LABELS).map(([value, label]) => <label className="flex items-center gap-2" key={value}><Checkbox checked={form.lotTypes.includes(value as LotType)} onCheckedChange={(checked) => toggleLotType(value as LotType, Boolean(checked))} />{label}</label>)}</div></div>
@@ -294,10 +299,10 @@ export default function BusinessCards() {
           <details className="border-t pt-4" open={Boolean(suggestedKeys.size)}><summary className="cursor-pointer text-sm font-semibold">관련 업무 연결 ({form.linkKeys.length}건)</summary><div className="mt-3 max-h-56 space-y-2 overflow-y-auto border p-2">{linkOptions.length ? linkOptions.map((option) => <label className={`flex cursor-pointer gap-3 p-2 text-sm ${suggestedKeys.has(option.key) ? "bg-primary/5" : ""}`} key={option.key}><Checkbox checked={form.linkKeys.includes(option.key)} onCheckedChange={(checked) => toggleLink(option.key, Boolean(checked))} /><span className="min-w-0"><span className="block font-medium">{option.recordLabel}</span><span className="block text-xs text-muted-foreground">{option.companyName || "기관 미등록"}{suggestedKeys.has(option.key) ? " · 자동 추천" : ""}</span></span></label>) : <p className="p-3 text-sm text-muted-foreground">연결 가능한 시설·용역·문서를 불러오지 못했거나 없습니다.</p>}</div></details>
         </section>
       </div>
-      <DialogFooter><Button variant="outline" onClick={() => setFormOpen(false)}>취소</Button><Button onClick={() => saveMutation.mutate()} disabled={recognizing || saveMutation.isPending}>{saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}{form.id ? "수정 저장" : "명함 저장"}</Button></DialogFooter>
+      <DialogFooter><Button variant="outline" onClick={() => setFormOpen(false)}>취소</Button><Button onClick={() => saveMutation.mutate()} disabled={recognizing || saveMutation.isPending}>{saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : registrationMode === "business_card" ? <Upload className="mr-2 h-4 w-4" /> : <ContactRound className="mr-2 h-4 w-4" />}{form.id ? "수정 저장" : registrationMode === "business_card" ? "명함 저장" : "연락처 저장"}</Button></DialogFooter>
     </DialogContent></Dialog>
 
-    <Dialog open={Boolean(detailCard)} onOpenChange={(open) => { if (!open) { setDetailCard(null); if (searchParams.has("card")) setSearchParams({}, { replace: true }); } }}><DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto"><DialogHeader><DialogTitle>{detailCard?.name || "명함 상세"}</DialogTitle><DialogDescription>{detailCard?.cardNumber} · {detailCard?.company}</DialogDescription></DialogHeader>
+    <Dialog open={Boolean(detailCard)} onOpenChange={(open) => { if (!open) { setDetailCard(null); if (searchParams.has("card")) setSearchParams({}, { replace: true }); } }}><DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto"><DialogHeader><DialogTitle>{detailCard?.name || "연락처 상세"}</DialogTitle><DialogDescription>{detailCard?.cardNumber} · {detailCard?.company}</DialogDescription></DialogHeader>
       {detailCard && <div className="space-y-5"><div className="grid gap-5 md:grid-cols-[250px_1fr]"><div className="flex aspect-[1.65/1] items-center justify-center overflow-hidden border bg-muted/30">{detailImageUrl ? <img src={detailImageUrl} alt={`${detailCard.name} 명함`} className="h-full w-full object-contain" /> : <ContactRound className="h-12 w-12 text-muted-foreground" />}</div><dl className="grid grid-cols-[90px_1fr] gap-x-3 gap-y-3 text-sm"><dt className="text-muted-foreground">부서·직책</dt><dd>{[detailCard.department, detailCard.position].filter(Boolean).join(" · ") || "-"}</dd><dt className="text-muted-foreground">휴대전화</dt><dd><a className="text-primary" href={`tel:${detailCard.mobile}`}>{detailCard.mobile || "-"}</a></dd><dt className="text-muted-foreground">사무실</dt><dd>{detailCard.phone || "-"}</dd><dt className="text-muted-foreground">이메일</dt><dd><a className="break-all text-primary" href={`mailto:${detailCard.email}`}>{detailCard.email || "-"}</a></dd><dt className="text-muted-foreground">업무분야</dt><dd>{CATEGORY_LABELS[detailCard.businessCategory]}</dd><dt className="text-muted-foreground">확인일</dt><dd>{detailCard.lastVerifiedAt || "미확인"}</dd></dl></div>
         <section className="border-t pt-4"><h3 className="text-sm font-semibold">연결 업무</h3>{detailCard.links.length ? <div className="mt-2 divide-y border">{detailCard.links.map((link) => <Link className="flex items-center justify-between gap-3 p-3 text-sm hover:bg-muted/50" key={`${link.module}:${link.recordId}`} to={link.recordPath}><span>{link.recordLabel}</span><ExternalLink className="h-4 w-4" /></Link>)}</div> : <p className="mt-2 text-sm text-muted-foreground">연결된 시설·용역·문서가 없습니다.</p>}</section>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4"><Button variant="outline" asChild><a href={`tel:${detailCard.mobile || detailCard.phone}`}><Phone className="mr-2 h-4 w-4" />전화</a></Button><Button variant="outline" asChild><a href={`mailto:${detailCard.email}`}><Mail className="mr-2 h-4 w-4" />메일</a></Button><Button variant="outline" onClick={() => downloadVCard(detailCard)}><Download className="mr-2 h-4 w-4" />연락처 저장</Button><Button variant="outline" onClick={() => navigate(`/team-work?new=1&tab=work_order&title=${encodeURIComponent(`[${detailCard.company}] ${detailCard.name} 연락 업무`)}&category=${encodeURIComponent("대외협력")}&nextAction=${encodeURIComponent(detailCard.businessPurpose)}&parkingLotType=${detailCard.lotTypes[0]}`)}><BriefcaseBusiness className="mr-2 h-4 w-4" />업무 생성</Button></div>
@@ -305,8 +310,8 @@ export default function BusinessCards() {
       <DialogFooter>{detailCard?.archivedAt ? <Button onClick={() => detailCard && restoreMutation.mutate(detailCard)} disabled={restoreMutation.isPending}><RotateCcw className="mr-2 h-4 w-4" />복원</Button> : canManage && <><Button variant="outline" onClick={() => detailCard && setArchiveCard(detailCard)}><Archive className="mr-2 h-4 w-4" />보관</Button><Button onClick={() => detailCard && void openEdit(detailCard)}><Pencil className="mr-2 h-4 w-4" />수정</Button></>}</DialogFooter>
     </DialogContent></Dialog>
 
-    <Dialog open={Boolean(archiveCard)} onOpenChange={(open) => !open && setArchiveCard(null)}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>명함을 보관하시겠습니까?</DialogTitle><DialogDescription>삭제하지 않고 보관함으로 이동하여 감사이력과 업무 연결을 유지합니다.</DialogDescription></DialogHeader><Label htmlFor="archive-reason">보관 사유</Label><Textarea id="archive-reason" value={archiveReason} onChange={(event) => setArchiveReason(event.target.value)} placeholder="퇴사, 담당자 변경, 계약 종료 등" /><DialogFooter><Button variant="outline" onClick={() => setArchiveCard(null)}>취소</Button><Button onClick={() => archiveMutation.mutate()} disabled={!archiveReason.trim() || archiveMutation.isPending}><Archive className="mr-2 h-4 w-4" />보관</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog open={Boolean(archiveCard)} onOpenChange={(open) => !open && setArchiveCard(null)}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>연락처를 보관하시겠습니까?</DialogTitle><DialogDescription>삭제하지 않고 보관함으로 이동하여 감사이력과 업무 연결을 유지합니다.</DialogDescription></DialogHeader><Label htmlFor="archive-reason">보관 사유</Label><Textarea id="archive-reason" value={archiveReason} onChange={(event) => setArchiveReason(event.target.value)} placeholder="퇴사, 담당자 변경, 계약 종료 등" /><DialogFooter><Button variant="outline" onClick={() => setArchiveCard(null)}>취소</Button><Button onClick={() => archiveMutation.mutate()} disabled={!archiveReason.trim() || archiveMutation.isPending}><Archive className="mr-2 h-4 w-4" />보관</Button></DialogFooter></DialogContent></Dialog>
 
-    <Dialog open={Boolean(duplicate)} onOpenChange={(open) => !open && setDuplicate(null)}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>중복 연락처가 있습니다</DialogTitle><DialogDescription>{duplicate?.company} {duplicate?.name}의 휴대전화 또는 이메일이 같습니다. 새로 만들지 않고 기존 명함을 확인하거나 병합할 수 있습니다.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => { if (duplicate) setDetailCard(cards.find((card) => card.id === duplicate.id) || duplicate); setDuplicate(null); setFormOpen(false); }}><ExternalLink className="mr-2 h-4 w-4" />기존 명함 열기</Button>{canManage && duplicate && !duplicate.archivedAt && <Button onClick={() => { const existing = cards.find((card) => card.id === duplicate.id) || duplicate; setForm((current) => ({ ...current, id: existing.id, rowVersion: existing.rowVersion, imagePath: existing.imagePath || current.imagePath, links: existing.links, linkKeys: existing.links.map((link) => `${link.module}:${link.recordId}`) })); setDuplicate(null); }}><Check className="mr-2 h-4 w-4" />기존 명함에 병합</Button>}</DialogFooter></DialogContent></Dialog>
+    <Dialog open={Boolean(duplicate)} onOpenChange={(open) => !open && setDuplicate(null)}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>중복 연락처가 있습니다</DialogTitle><DialogDescription>{duplicate?.company} {duplicate?.name}의 휴대전화 또는 이메일이 같습니다. 새로 만들지 않고 기존 연락처를 확인하거나 병합할 수 있습니다.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => { if (duplicate) setDetailCard(cards.find((card) => card.id === duplicate.id) || duplicate); setDuplicate(null); setFormOpen(false); }}><ExternalLink className="mr-2 h-4 w-4" />기존 연락처 열기</Button>{canManage && duplicate && !duplicate.archivedAt && <Button onClick={() => { const existing = cards.find((card) => card.id === duplicate.id) || duplicate; setForm((current) => ({ ...current, id: existing.id, rowVersion: existing.rowVersion, imagePath: existing.imagePath || current.imagePath, links: existing.links, linkKeys: existing.links.map((link) => `${link.module}:${link.recordId}`) })); setDuplicate(null); }}><Check className="mr-2 h-4 w-4" />기존 연락처에 병합</Button>}</DialogFooter></DialogContent></Dialog>
   </DashboardLayout>;
 }

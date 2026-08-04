@@ -1,6 +1,7 @@
 /** Authentication security and active-session management. */
 import { supabase } from '@/integrations/supabase/client';
 import type { LoginResult } from '@/types/security';
+import { getSessionIdentity } from '@/lib/session-identity';
 
 async function getConfig(key: string): Promise<string> {
   const { data } = await supabase.from('system_config').select('config_value').eq('config_key', key).maybeSingle();
@@ -64,7 +65,7 @@ export async function registerSession(userId: string, token: string): Promise<bo
 
     const { error } = await (supabase.from('active_sessions') as any).insert({
       user_id: userId,
-      session_token: token.substring(0, 200),
+      session_token: getSessionIdentity(token),
       user_agent: navigator.userAgent,
       device_info: getDeviceInfo(),
       expires_at: new Date(Date.now() + timeoutMinutes * 60000).toISOString(),

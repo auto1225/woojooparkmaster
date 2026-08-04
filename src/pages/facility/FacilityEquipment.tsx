@@ -26,6 +26,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { FacilityLotCombobox } from "@/components/facility/FacilityLotCombobox";
 import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
 import { getMissingRequiredEquipment, getParkingLotWorkProfile } from "@/lib/parking-lot-work-profile";
+import { FacilityPhotoPicker } from "@/components/facility/FacilityPhotoPicker";
+import { saveFacilityRecordPhotosLocally } from "@/lib/facility-local-photos";
 
 type EquipmentSortKey = "equipment_code" | "name" | "lot" | "type" | "status" | "install_date" | "warranty_end" | "next_maintenance_date" | "maintenance_cost" | "updated_at";
 
@@ -54,6 +56,7 @@ export default function FacilityEquipment() {
   const [detailOpen, setDetailOpen] = useState(() => Boolean(searchParams.get("equipment")));
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string | null>(() => searchParams.get("equipment"));
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
 
   useEffect(() => {
     if (isMobile) setViewMode("card");
@@ -239,12 +242,18 @@ export default function FacilityEquipment() {
         phone: form.vendor_phone,
         email: form.vendor_email,
       });
+      return photoFiles.length
+        ? saveFacilityRecordPhotosLocally("equipment", saved.id, photoFiles)
+        : { savedPaths: [], saveErrors: [] };
     },
-    onSuccess: () => {
+    onSuccess: (photoResult) => {
       toast.success(editingEquipment ? "장비 정보를 수정했습니다" : "장비가 등록되었습니다");
+      if (photoResult.saveErrors.length) toast.error(`장비는 저장됐지만 사진 ${photoResult.saveErrors.length}장을 PC 폴더에 저장하지 못했습니다.`, { description: photoResult.saveErrors.join("\n") });
       queryClient.invalidateQueries({ queryKey: ["facility-equipment"] });
+      queryClient.invalidateQueries({ queryKey: ["facility-record-photos", "equipment"] });
       setDialogOpen(false);
       setEditingEquipment(null);
+      setPhotoFiles([]);
       setForm({
         equipment_type: "",
         name: "",
@@ -283,6 +292,7 @@ export default function FacilityEquipment() {
 
   const editEquipment = (item: Equipment) => {
     setEditingEquipment(item);
+    setPhotoFiles([]);
     setForm({
       equipment_type: item.equipment_type,
       name: item.name,
@@ -327,7 +337,7 @@ export default function FacilityEquipment() {
             </Button>
             {canCreate && <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => { setEditingEquipment(null); setForm({ equipment_type: "", name: "", lot_id: "", location_detail: "", floor: "", manufacturer: "", vendor_name: "", vendor_manager: "", vendor_phone: "", vendor_email: "", model: "", serial_number: "", install_date: "", warranty_end: "", purchase_cost: "", notes: "", status: "normal" }); }}>
+                <Button onClick={() => { setEditingEquipment(null); setPhotoFiles([]); setForm({ equipment_type: "", name: "", lot_id: "", location_detail: "", floor: "", manufacturer: "", vendor_name: "", vendor_manager: "", vendor_phone: "", vendor_email: "", model: "", serial_number: "", install_date: "", warranty_end: "", purchase_cost: "", notes: "", status: "normal" }); }}>
                   <Plus className="mr-1 h-4 w-4" />장비 등록
                 </Button>
               </DialogTrigger>
@@ -394,7 +404,9 @@ export default function FacilityEquipment() {
                   <div><Label>취득원가 (원)</Label><Input type="number" value={form.purchase_cost} onChange={(event) => setForm((prev) => ({ ...prev, purchase_cost: event.target.value }))} /></div>
                   <div><Label>운영 상태</Label><Select value={form.status} onValueChange={(value: EquipmentStatus) => setForm((prev) => ({ ...prev, status: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(EQUIPMENT_STATUS_LABELS).map(([key, value]) => <SelectItem key={key} value={key}>{value}</SelectItem>)}</SelectContent></Select></div>
                   <div><Label>비고</Label><Textarea value={form.notes} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} rows={2} /></div>
+                  <FacilityPhotoPicker files={photoFiles} onFilesChange={setPhotoFiles} label="장비·설치 위치 사진 (선택)" description="장비 외관, 명판, 설치 위치를 촬영하면 이후 점검과 유지보수 때 바로 확인할 수 있습니다." />
                   <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
+                  {(!form.equipment_type || !form.name || !form.lot_id) && <p role="status" className="text-xs text-amber-700">등록하려면 장비 유형, 장비명, 주차장을 입력해 주세요.</p>}
                   <Button className="w-full" disabled={!form.equipment_type || !form.name || !form.lot_id || saveMutation.isPending} onClick={() => saveMutation.mutate()}>
                     {saveMutation.isPending ? "저장 중..." : editingEquipment ? "수정 저장" : "등록"}
                   </Button>

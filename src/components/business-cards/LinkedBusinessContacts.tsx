@@ -30,6 +30,6 @@ export function LinkedBusinessContacts({ module, recordId, title = "연결된 �
         </Link>
         <div className="flex gap-2"><Button variant="outline" size="sm" asChild><a href={`tel:${contact.mobile || contact.phone}`}><Phone className="mr-1.5 h-3.5 w-3.5" />전화</a></Button>{contact.email && <Button variant="outline" size="sm" asChild><a href={`mailto:${contact.email}`}><Mail className="mr-1.5 h-3.5 w-3.5" />메일</a></Button>}</div>
       </div>)}
-    </div> : <p className="mt-3 text-sm text-muted-foreground">연결된 명함이 없습니다. 명함관리에서 이 업무를 연결하면 여기에서 바로 연락할 수 있습니다.</p>}
+    </div> : <p className="mt-3 text-sm text-muted-foreground">연결된 연락처가 없습니다. 연락처/명함관리에서 이 업무를 연결하면 여기에서 바로 연락할 수 있습니다.</p>}
   </section>;
 }

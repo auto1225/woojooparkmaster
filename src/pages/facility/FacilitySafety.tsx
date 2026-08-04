@@ -24,8 +24,10 @@ import { SafetyInspectionDetailSheet } from "@/components/facility/SafetyInspect
 import { OperationalListControls } from "@/components/common/OperationalListControls";
 import { stableMultiSort, type NullPlacement } from "@/lib/list-sorting";
 import { createSafetyCorrectiveWorkOrder } from "@/lib/facility-field-work";
+import { saveFacilityRecordPhotosLocally } from "@/lib/facility-local-photos";
 import { useAuthorization } from "@/hooks/useAuthorization";
 import { FacilityLotCombobox } from "@/components/facility/FacilityLotCombobox";
+import { FacilityPhotoPicker } from "@/components/facility/FacilityPhotoPicker";
 import { createChecklistForLotType, getParkingLotWorkProfile } from "@/lib/parking-lot-work-profile";
 import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
 
@@ -59,6 +61,7 @@ export default function FacilitySafety() {
   const [nullPlacement, setNullPlacement] = useState<NullPlacement>("last");
   const [groupByLot, setGroupByLot] = useState(false);
   const [checklistConfirmed, setChecklistConfirmed] = useState(false);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
 
   const defaultCorrectionDeadline = () => {
     const date = new Date();
@@ -212,13 +215,19 @@ export default function FacilitySafety() {
         author_name: (form as any).author_name || null,
       };
 
-      const { error } = await supabase.from("safety_inspections").insert(payload);
+      const { data: saved, error } = await supabase.from("safety_inspections").insert(payload).select("id").single();
       if (error) throw error;
+      return photoFiles.length
+        ? saveFacilityRecordPhotosLocally("safety_inspection", saved.id, photoFiles)
+        : { savedPaths: [], saveErrors: [] };
     },
-    onSuccess: () => {
+    onSuccess: (photoResult) => {
       toast.success("안전점검이 등록되었습니다");
+      if (photoResult.saveErrors.length) toast.error(`점검 결과는 저장됐지만 사진 ${photoResult.saveErrors.length}장을 PC 폴더에 저장하지 못했습니다.`, { description: photoResult.saveErrors.join("\n") });
       queryClient.invalidateQueries({ queryKey: ["facility-safety"] });
+      queryClient.invalidateQueries({ queryKey: ["facility-record-photos", "safety_inspection"] });
       setDialogOpen(false);
+      setPhotoFiles([]);
       setForm({
         lot_id: "",
         inspection_type: "monthly",
@@ -260,7 +269,7 @@ export default function FacilitySafety() {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-foreground">안전점검</h1>
-          {canCreate && <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setChecklistConfirmed(false); }}>
+          {canCreate && <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setChecklistConfirmed(false); setPhotoFiles([]); } }}>
             <DialogTrigger asChild><Button><Plus className="mr-1 h-4 w-4" />점검 등록</Button></DialogTrigger>
             <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
               <DialogHeader><DialogTitle>안전점검 실시</DialogTitle><DialogDescription>전체 합격으로 시작한 뒤 이상이 있는 항목만 불합격 또는 해당없음으로 변경합니다.</DialogDescription></DialogHeader>
@@ -362,7 +371,9 @@ export default function FacilitySafety() {
                   </>
                 )}
 
+                <FacilityPhotoPicker files={photoFiles} onFilesChange={setPhotoFiles} label="점검 현장 사진 (선택)" description="점검 전경과 불합격 항목을 촬영하면 시정조치 업무에 같은 증빙을 활용할 수 있습니다." />
                 <AuthorField value={(form as any).author_name || ""} onChange={v => setForm(prev => ({ ...prev, author_name: v } as any))} />
+                {!form.lot_id ? <p role="status" className="text-xs text-amber-700">점검할 주차장을 선택해 주세요.</p> : !checklistConfirmed ? <p role="status" className="text-xs text-amber-700">현장 확인 후 전체 합격을 누르거나 항목별 판정을 완료해 주세요.</p> : !failedItemsComplete ? <p role="status" className="text-xs text-amber-700">불합격 항목의 심각도, 문제사항, 시정계획, 기한을 모두 입력해 주세요.</p> : null}
                 <Button className="w-full" disabled={!form.lot_id || !checklistConfirmed || !failedItemsComplete || createMutation.isPending} onClick={() => createMutation.mutate()}>
                   {createMutation.isPending ? "등록 중..." : "점검 결과 저장"}
                 </Button>

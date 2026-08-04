@@ -24,6 +24,7 @@ function input(overrides: Partial<BusinessCardInput> = {}): BusinessCardInput {
 describe("business card registry", () => {
   it("validates a scoped operational contact", () => {
     expect(() => validateBusinessCardInput(input())).not.toThrow();
+    expect(() => validateBusinessCardInput(input({ collectionSource: "manual", imagePath: "", imageName: "", rawText: "", ocrCompleteness: 0 }))).not.toThrow();
     expect(() => validateBusinessCardInput(input({ mobile: "", phone: "", email: "" }))).toThrow("하나를 입력");
     expect(() => validateBusinessCardInput(input({ lotTypes: [] }))).toThrow("주차장 형태");
   });

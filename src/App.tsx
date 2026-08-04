@@ -11,7 +11,6 @@ import { handleSupabaseError } from "@/lib/api-error-handler";
 import { toast } from "sonner";
 import { setupOnlineSync } from "@/lib/offline-survey";
 import { lazy, Suspense, useEffect } from "react";
-import { useSessionSync } from "@/hooks/useSessionSync";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
 import { getModuleForPath, hasRequiredRole, isModuleEnabled, minimumRoleForPath } from "@/lib/authorization";
 import "@/styles/print.css";
@@ -21,7 +20,6 @@ import { HelpPanel } from "./components/help/HelpPanel";
 import { OnboardingGuide } from "./components/help/OnboardingGuide";
 import { initProductionErrorFilter } from "./lib/error-sanitizer";
 import { runSecurityChecks } from "./lib/security-check";
-import { initTokenSecurity } from "./lib/token-security";
 
 const Index = lazy(() => import("./pages/Index"));
 const LoginPage = lazy(() => import("./pages/Login"));
@@ -133,7 +131,6 @@ initProductionErrorFilter();
 // SEC-WEB-5: 프론트엔드 보안 체크
 runSecurityChecks();
 // SEC-WEB-4: 토큰 보안 초기화
-initTokenSecurity();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -225,6 +222,7 @@ const AppRoutes = () => (
     <Route path="/ops/free-hours" element={<ProtectedRoute><OpsFreeHoursPage /></ProtectedRoute>} />
     <Route path="/ops/abandoned-vehicles" element={<ProtectedRoute><OpsAbandonedVehicles /></ProtectedRoute>} />
     <Route path="/ops/security-inspections" element={<ProtectedRoute><OpsSecurityInspections /></ProtectedRoute>} />
+    <Route path="/ops/report" element={<ProtectedRoute><Navigate to="/reports/generate?template=RPT-OPS-STATUS&scope=operations" replace /></ProtectedRoute>} />
     <Route path="/facility" element={<ProtectedRoute><FacilityDashboard /></ProtectedRoute>} />
     <Route path="/facility/equipment" element={<ProtectedRoute><FacilityEquipment /></ProtectedRoute>} />
     <Route path="/facility/maintenance" element={<ProtectedRoute><FacilityMaintenance /></ProtectedRoute>} />
@@ -303,7 +301,6 @@ function AppWithSync() {
     const cleanup = setupOnlineSync();
     return cleanup;
   }, []);
-  useSessionSync(); // SEC-WEB-4: 멀티탭 세션 동기화
   return (
     <>
       <Suspense fallback={null}>

@@ -8,6 +8,7 @@ import { EQUIPMENT_STATUS_COLORS, EQUIPMENT_STATUS_LABELS, EQUIPMENT_TYPE_LABELS
 import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import { Archive, Pencil } from "lucide-react";
 import { LinkedBusinessContacts } from "@/components/business-cards/LinkedBusinessContacts";
+import { FacilityPhotoGallery } from "@/components/facility/FacilityPhotoGallery";
 
 interface EquipmentDetailSheetProps {
   equipment: Equipment | null;
@@ -84,6 +85,7 @@ export function EquipmentDetailSheet({ equipment, onOpenChange, open, onEdit, on
               <DetailRow label="담당자 이메일" value={equipment.vendor_email || "-"} />
             </dl>
           </section>
+          <FacilityPhotoGallery refType="equipment" refId={equipment.id} title="장비·설치 위치 사진" />
           <LinkedBusinessContacts module="FACILITY_EQUIPMENT" recordId={equipment.id} title="연결된 장비업체 담당자" />
           <DocumentLinksPanel module="FACILITY_EQUIPMENT" recordId={equipment.id} recordPath={`/facility/equipment?equipment=${equipment.id}`} recordTitle={`${equipment.equipment_code} ${equipment.name}`} />
         </div>

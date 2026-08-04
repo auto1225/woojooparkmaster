@@ -23,6 +23,7 @@ import {
 } from "@/types/report";
 import { isModuleEnabled } from "@/lib/authorization";
 import { openStoredReport, regenerateReportSamples } from "@/lib/report-engine";
+import { ANNUAL_PARKING_REPORT_TEMPLATE_CODE, OPERATIONS_REPORT_TEMPLATE_CODE, reportGeneratePath } from "@/lib/report-catalog";
 
 const CATEGORY_ICON_MAP: Record<string, any> = {
   operation: Settings, facility: Wrench, revenue: Banknote, budget: Calculator,
@@ -78,7 +79,7 @@ export default function ReportCenter() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("report_generated")
-        .select("*, template:report_templates(name, template_code)")
+        .select("id, report_number, title, period_start, period_end, file_path, status, created_at, parameters_used, template:report_templates(name, template_code)")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -138,6 +139,13 @@ export default function ReportCenter() {
   const actualReports = activeReports.filter((report: any) => !report.report_number?.startsWith("RG-DEMO-"));
   const completedReports = actualReports.filter((report: any) => report.status === "completed").length;
   const attentionReports = actualReports.filter((report: any) => report.status === "failed" || report.status === "generating").length;
+  const operationsTemplate = templates?.find((template) => template.template_code === OPERATIONS_REPORT_TEMPLATE_CODE)
+    ?? templates?.find((template) => template.template_code === "RPT-MONTHLY");
+  const operationsAvailable = Boolean(operationsTemplate && isTemplateAvailable(operationsTemplate));
+  const annualTemplate = templates?.find((template) => template.template_code === ANNUAL_PARKING_REPORT_TEMPLATE_CODE)
+    ?? templates?.find((template) => template.template_code === "RPT-YEARLY")
+    ?? templates?.find((template) => template.template_code === "RPT-DEMO-ANNUAL");
+  const annualAvailable = Boolean(annualTemplate && isTemplateAvailable(annualTemplate));
 
   const bulkGenerateMutation = useMutation({
     mutationFn: async () => {
@@ -191,6 +199,40 @@ export default function ReportCenter() {
           <Card><CardContent className="flex items-center gap-3 p-4"><CircleAlert className="h-5 w-5 text-amber-600" /><div><p className="text-xs text-muted-foreground">확인 필요</p><p className="text-xl font-bold">{attentionReports}</p></div></CardContent></Card>
           <Card><CardContent className="flex items-center gap-3 p-4"><Files className="h-5 w-5 text-violet-600" /><div><p className="text-xs text-muted-foreground">사용 템플릿</p><p className="text-xl font-bold">{templates?.length || 0}</p></div></CardContent></Card>
         </div>
+
+        <section aria-labelledby="business-report-heading" className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 id="business-report-heading" className="text-base font-semibold">업무별 보고서 작성</h2>
+              <p className="mt-1 text-sm text-muted-foreground">업무 자료를 다시 입력하지 않고 기간과 출력 항목을 선택해 공식 보고서를 만듭니다.</p>
+            </div>
+            <Badge variant="secondary">운영관리·연간 통합 적용</Badge>
+          </div>
+          <div className="overflow-hidden rounded-md border bg-card">
+            <div className="grid gap-3 p-4 md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.5fr)_160px_auto] md:items-center">
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary/10"><Settings className="h-4 w-4 text-primary" /></span>
+                <div><p className="font-medium">운영관리</p><p className="text-xs text-muted-foreground">월간·수시 현황</p></div>
+              </div>
+              <p className="text-sm text-muted-foreground">주차장, 계약, 인력, 요금, 감면, 정기권, 단속, 무료개방, 방치차량, 보안점검</p>
+              <div className="flex flex-wrap gap-1"><Badge variant="outline">PDF</Badge><Badge variant="outline">HWPX</Badge><Badge variant="outline">A4 세로·가로</Badge></div>
+              <Button size="sm" disabled={!operationsAvailable} onClick={() => navigate(reportGeneratePath(OPERATIONS_REPORT_TEMPLATE_CODE))}>
+                {operationsAvailable ? "운영 보고서 작성" : "운영 템플릿 확인 필요"}
+              </Button>
+            </div>
+            <div className="grid gap-3 border-t p-4 md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.5fr)_160px_auto] md:items-center">
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-emerald-50"><BarChart3 className="h-4 w-4 text-emerald-700" /></span>
+                <div><p className="font-medium">제주시 주차장 연간 통합</p><p className="text-xs text-muted-foreground">현황·분석·조치계획</p></div>
+              </div>
+              <p className="text-sm text-muted-foreground">112개소·6,380면 기준, 2024~2025년 24개월 비교, 유형별·월별 추이, 민원·시설·안전 및 중점관리 대상</p>
+              <div className="flex flex-wrap gap-1"><Badge variant="outline">PDF</Badge><Badge variant="outline">HWPX</Badge><Badge variant="outline">전년 비교</Badge></div>
+              <Button size="sm" disabled={!annualAvailable} onClick={() => navigate(reportGeneratePath(ANNUAL_PARKING_REPORT_TEMPLATE_CODE))}>
+                {annualAvailable ? "2025 연간보고서 작성" : "연간 템플릿 확인 필요"}
+              </Button>
+            </div>
+          </div>
+        </section>
 
         {nextSchedule && (
           <div className="bg-accent/10 border border-accent/30 rounded-lg px-4 py-3 flex items-center gap-3">
@@ -264,7 +306,7 @@ export default function ReportCenter() {
                       size="sm"
                       className="w-full"
                       disabled={!available}
-                      onClick={() => navigate(`/reports/generate?template=${t.template_code}`)}
+                      onClick={() => navigate(reportGeneratePath(t.template_code))}
                     >
                       {available ? "생성" : "필요 모듈 비활성"}
                     </Button>
@@ -301,7 +343,7 @@ export default function ReportCenter() {
                         {r.report_number?.startsWith("RG-DEMO-") && <Badge variant="outline" className="text-[9px]">샘플</Badge>}
                         {r.status === "completed" && <Button variant="ghost" size="icon" className="h-7 w-7" title="PDF 열기" onClick={async () => { try { await openStoredReport(r.file_path); } catch (error) { toast.error(error instanceof Error ? error.message : "파일을 열지 못했습니다"); } }}><Download className="h-3.5 w-3.5" /></Button>}
                         {r.status === "failed" && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" title="조건 복사 작성" onClick={() => navigate(`/reports/generate?template=${r.template?.template_code}&source=${r.id}`)}><RefreshCw className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="조건 복사 작성" onClick={() => navigate(reportGeneratePath(r.template?.template_code, r.id, r.parameters_used?.report_scope))}><RefreshCw className="h-3.5 w-3.5" /></Button>
                         )}
                         {r.status === "generating" && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
                       </div>

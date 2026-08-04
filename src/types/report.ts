@@ -30,6 +30,7 @@ export interface ReportGenerated {
   file_size?: number;
   page_count?: number;
   excel_path?: string;
+  hwp_path?: string;
   data_snapshot?: any;
   summary_data?: any;
   status: "queued" | "generating" | "completed" | "failed" | "archived";
@@ -39,6 +40,7 @@ export interface ReportGenerated {
   created_at: string;
   template?: ReportTemplate;
   generator?: { name: string };
+  official_document_number?: string;
 }
 
 export interface ReportSchedule {

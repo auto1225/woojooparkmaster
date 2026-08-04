@@ -22,8 +22,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { generateReport, getDefaultReportParameters, getReportEvidence } from "@/lib/report-engine";
 import { isModuleEnabled } from "@/lib/authorization";
 import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
+import OpsReportBuilder from "@/pages/ops/OpsReportBuilder";
+import AnnualParkingReportBuilder from "@/pages/report/AnnualParkingReportBuilder";
+import { getReportBuilderKind, reportGeneratePath } from "@/lib/report-catalog";
 
-export default function ReportGenerate() {
+function GenericReportGenerate() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const templateCode = searchParams.get("template");
@@ -69,7 +72,7 @@ export default function ReportGenerate() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("report_generated")
-        .select("*, template:report_templates(*)")
+        .select("id, title, description, parameters_used, file_format, summary_data, template:report_templates(*)")
         .eq("id", sourceId!)
         .single();
       if (error) throw error;
@@ -261,6 +264,16 @@ export default function ReportGenerate() {
                 key={t.id}
                 className={`cursor-pointer transition-all ${selectedTemplate?.id === t.id ? "ring-2 ring-primary" : "hover:shadow-md"}`}
                 onClick={() => { setSelectedTemplate(t); setTitle(t.name); setParams(getDefaultReportParameters(t.report_type)); }}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selectedTemplate?.id === t.id}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  setSelectedTemplate(t);
+                  setTitle(t.name);
+                  setParams(getDefaultReportParameters(t.report_type));
+                }}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
@@ -275,7 +288,12 @@ export default function ReportGenerate() {
               </Card>
             ))}
             <div className="md:col-span-2 flex justify-end">
-              <Button disabled={!selectedTemplate} onClick={() => setStep(2)}>다음</Button>
+              <Button disabled={!selectedTemplate} onClick={() => {
+                if (!selectedTemplate) return;
+                const path = reportGeneratePath(selectedTemplate.template_code);
+                if (getReportBuilderKind(selectedTemplate.template_code) === "operations") navigate(path);
+                else setStep(2);
+              }}>다음</Button>
             </div>
           </div>
         )}
@@ -451,4 +469,15 @@ export default function ReportGenerate() {
       </div>
     </DashboardLayout>
   );
+}
+
+export default function ReportGenerate() {
+  const [searchParams] = useSearchParams();
+  const templateCode = searchParams.get("template");
+  const scope = searchParams.get("scope");
+
+  const builder = getReportBuilderKind(templateCode, scope);
+  if (builder === "operations") return <OpsReportBuilder />;
+  if (builder === "annual_parking") return <AnnualParkingReportBuilder />;
+  return <GenericReportGenerate />;
 }

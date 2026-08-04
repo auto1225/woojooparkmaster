@@ -20,6 +20,8 @@ deploy/tls/
 work/test-results/
 work/*.pdf
 work/report-verification/
+work/verification/
+tmp/
 supabase/.temp/
 *.traineddata
 playwright-report/

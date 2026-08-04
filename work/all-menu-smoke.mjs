@@ -793,6 +793,34 @@ const fixtures = {
   ],
   report_templates: [
     {
+      id: "tmpl-annual-jeju",
+      template_code: "RPT-JEJU-ANNUAL",
+      name: "2025년 제주시 공영주차장 현황 통합보고서",
+      description: "전년 비교와 유형·월별·민원·시설·안전 분석을 포함한 연간 통합보고서",
+      report_type: "annual",
+      report_category: "comprehensive",
+      target_audience: "manager",
+      required_modules: ["OPS", "FACILITY", "COMPLAINT"],
+      parameters: [],
+      is_active: true,
+      is_favorite: true,
+      sort_order: 0,
+    },
+    {
+      id: "tmpl-ops",
+      template_code: "RPT-OPS-STATUS",
+      name: "운영관리 종합 현황 보고서",
+      description: "공영주차장 운영관리 통합 보고서",
+      report_type: "monthly",
+      report_category: "operations",
+      target_audience: "staff",
+      required_modules: ["OPS", "FACILITY"],
+      parameters: [],
+      is_active: true,
+      is_favorite: true,
+      sort_order: 1,
+    },
+    {
       id: "tmpl-1",
       template_code: "RPT-E2E",
       name: "E2E 종합 보고서",
@@ -802,8 +830,9 @@ const fixtures = {
       target_audience: "manager",
       required_modules: ["SURVEY", "FACILITY"],
       parameters: [],
+      is_active: true,
       is_favorite: false,
-      sort_order: 1,
+      sort_order: 2,
     },
   ],
   report_generated: [
@@ -1037,6 +1066,14 @@ async function fulfillJson(route, body, status = 200, extraHeaders = {}) {
 }
 
 async function installMocks(page) {
+  await page.route("**/demo/mock-file**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/pdf",
+      headers: { "content-disposition": 'attachment; filename="operations-report.pdf"' },
+      body: "%PDF-1.4\n%%EOF",
+    }),
+  );
   await page.route("**/auth/v1/token**", (route) =>
     fulfillJson(route, {
       access_token: "mock-access-token",
@@ -1123,6 +1160,7 @@ const routes = [
   `/surveys/${ids.survey}/review`,
   `/surveys/${ids.survey}/print`,
   "/ops",
+  "/ops/report",
   "/ops/staff",
   "/ops/contracts",
   "/ops/fees",
@@ -1179,6 +1217,7 @@ const routes = [
   "/realtime/api",
   "/realtime/monitor",
   "/reports",
+  "/reports/generate?template=RPT-JEJU-ANNUAL&scope=annual_parking",
   "/reports/generate",
   "/reports/history",
   "/reports/schedules",
@@ -1208,6 +1247,30 @@ const executablePath =
   "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const browser = await chromium.launch({ headless: true, executablePath });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+await page.addInitScript(() => {
+  window.__parkmasterSavedFiles = [];
+  window.showSaveFilePicker = async ({ suggestedName } = {}) => ({
+    createWritable: async () => ({
+      write: async () => {},
+      close: async () => window.__parkmasterSavedFiles.push(suggestedName || "saved-file"),
+    }),
+  });
+  const directory = (name) => ({
+    name,
+    queryPermission: async () => "granted",
+    requestPermission: async () => "granted",
+    getDirectoryHandle: async (childName) => directory(childName),
+    getFileHandle: async (fileName) => ({
+      name: fileName,
+      createWritable: async () => ({
+        write: async () => {},
+        close: async () => window.__parkmasterSavedFiles.push(fileName),
+      }),
+      getFile: async () => new File(["photo"], fileName, { type: "image/png" }),
+    }),
+  });
+  window.showDirectoryPicker = async () => directory("ParkMaster 현장사진");
+});
 await installMocks(page);
 
 const globalLogs = [];
@@ -1236,8 +1299,11 @@ await page
   .waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15000 })
   .catch(() => {});
 
+const selectedRoutes = process.env.ROUTE_FILTER
+  ? routes.filter((route) => route.includes(process.env.ROUTE_FILTER))
+  : routes;
 const results = [];
-for (const route of routes) {
+for (const route of selectedRoutes) {
   const url = `${baseUrl}${route}`;
   const beforeLogCount = globalLogs.length;
   let status = "ok";
@@ -1279,6 +1345,234 @@ for (const route of routes) {
     logs,
     bodyText,
   });
+}
+
+let annualReportChecks = { skipped: true };
+if (process.env.FEATURE_ONLY !== "1") {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(
+    `${baseUrl}/reports/generate?template=RPT-JEJU-ANNUAL&scope=annual_parking`,
+    { waitUntil: "networkidle", timeout: 30000 },
+  );
+  await page
+    .getByRole("heading", { name: "제주시 공영주차장 연간 통합보고서" })
+    .waitFor({ state: "visible", timeout: 10000 });
+
+  const annualPortraitButton = page.getByRole("button", { name: "A4 세로" });
+  const annualPortraitIsDefault =
+    (await annualPortraitButton.getAttribute("aria-pressed")) === "true";
+  const annualFixtureVisible = await page
+    .getByText(/112개소·6,380면/)
+    .isVisible();
+  const annualAllSectionsVisible = await page
+    .getByText("출력항목 전체 선택", { exact: true })
+    .isVisible();
+
+  await page.evaluate(() => {
+    window.__parkmasterSavedFiles = [];
+  });
+  const annualGenerateButtons = page.getByRole("button", { name: "통합보고서 생성" });
+  const annualGenerateButtonCount = await annualGenerateButtons.count();
+  const annualGenerateButton = annualGenerateButtons.first();
+  await annualGenerateButton.click();
+  await page
+    .getByText("2025년 연간 통합보고서 생성 완료", { exact: true })
+    .waitFor({ state: "visible", timeout: 60000 });
+
+  await page.getByRole("button", { name: "PDF 저장 위치 선택" }).click();
+  await page.waitForFunction(
+    () => window.__parkmasterSavedFiles?.some((name) => name.toLowerCase().endsWith(".pdf")),
+    { timeout: 15000 },
+  );
+  await page.getByRole("button", { name: "HWPX 저장 위치 선택" }).click();
+  await page.waitForFunction(
+    () => window.__parkmasterSavedFiles?.some((name) => name.toLowerCase().endsWith(".hwpx")),
+    { timeout: 15000 },
+  );
+  const annualSavedFiles = await page.evaluate(() => window.__parkmasterSavedFiles || []);
+  const annualDesktopMetrics = await page.evaluate(() => ({
+    viewport: window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+  }));
+  await page.screenshot({
+    path: path.join(outDir, "annual-parking-report-desktop.png"),
+    fullPage: true,
+  });
+
+  annualReportChecks = {
+    skipped: false,
+    generated: true,
+    fixtureVisible: annualFixtureVisible,
+    portraitIsDefault: annualPortraitIsDefault,
+    allSectionsVisible: annualAllSectionsVisible,
+    generateActionVisible: annualGenerateButtonCount > 0,
+    pdfSavedToComputer: annualSavedFiles.some((name) => name.toLowerCase().endsWith(".pdf")),
+    hwpxSavedToComputer: annualSavedFiles.some((name) => name.toLowerCase().endsWith(".hwpx")),
+    desktopFitsViewport:
+      annualDesktopMetrics.documentWidth <= annualDesktopMetrics.viewport,
+  };
+}
+
+let opsReportChecks = { skipped: true };
+if (process.env.FEATURE_ONLY !== "1") {
+await page.setViewportSize({ width: 1440, height: 1000 });
+await page.goto(`${baseUrl}/ops/report`, {
+  waitUntil: "networkidle",
+  timeout: 30000,
+});
+await page
+  .getByRole("heading", { name: "운영관리 보고서" })
+  .waitFor({ state: "visible", timeout: 10000 });
+const opsReportTitle = page.locator("#ops-report-title");
+await opsReportTitle.fill("2026년 8월 공영주차장 운영관리 종합 현황 보고서");
+await page.getByRole("button", { name: "문서 세부정보" }).click();
+await page
+  .getByLabel("관련 공문 문서번호")
+  .fill("제주시청-차량관리과운영팀-2026-E2E");
+const documentNumberEnteredBeforeGenerate =
+  (await page.getByLabel("관련 공문 문서번호").inputValue()) ===
+  "제주시청-차량관리과운영팀-2026-E2E";
+await page.keyboard.press("Escape");
+const portraitButton = page.getByRole("button", { name: "A4 세로" });
+const landscapeButton = page.getByRole("button", { name: "A4 가로" });
+const portraitIsDefault = (await portraitButton.getAttribute("aria-pressed")) === "true";
+await landscapeButton.click();
+const landscapeCanBeSelected = (await landscapeButton.getAttribute("aria-pressed")) === "true";
+await portraitButton.click();
+await page.getByRole("button", { name: "실무 종합" }).click();
+const opsGenerateButton = page.getByRole("button", { name: "한글·동일 PDF 생성" });
+await opsGenerateButton.waitFor({ state: "visible", timeout: 10000 });
+await page.waitForFunction(
+  () => {
+    const button = [...document.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes("한글·동일 PDF 생성"),
+    );
+    return button && !button.disabled;
+  },
+  { timeout: 15000 },
+);
+await opsGenerateButton.click();
+await page
+  .getByText("보고서 생성 완료", { exact: true })
+  .waitFor({ state: "visible", timeout: 30000 });
+const pdfSaveButton = page.getByRole("button", { name: "PDF 저장" });
+await pdfSaveButton.click();
+await page.waitForFunction(
+  () => window.__parkmasterSavedFiles?.some((name) => name.toLowerCase().endsWith(".pdf")),
+  { timeout: 15000 },
+);
+const hwpxSaveButton = page.getByRole("button", { name: "HWPX 저장" });
+await hwpxSaveButton.click();
+await page.waitForFunction(
+  () => window.__parkmasterSavedFiles?.some((name) => name.toLowerCase().endsWith(".hwpx")),
+  { timeout: 15000 },
+);
+const savedFiles = await page.evaluate(() => window.__parkmasterSavedFiles || []);
+const opsDesktopMetrics = await page.evaluate(() => ({
+  viewport: window.innerWidth,
+  documentWidth: document.documentElement.scrollWidth,
+}));
+await page.screenshot({
+  path: path.join(outDir, "operations-report-desktop.png"),
+  fullPage: true,
+});
+opsReportChecks = {
+  skipped: false,
+  generated: true,
+  portraitIsDefault,
+  landscapeCanBeSelected,
+  documentNumberEntered: documentNumberEnteredBeforeGenerate,
+  pdfPrintActionVisible: await page
+    .getByRole("button", { name: "PDF 보기·인쇄" })
+    .isVisible(),
+  pdfSavedToComputer: savedFiles.some((name) => name.toLowerCase().endsWith(".pdf")),
+  hwpxSaveActionVisible: await page
+    .getByRole("button", { name: "HWPX 저장" })
+    .isVisible(),
+  hwpxSavedToComputer: savedFiles.some((name) => name.toLowerCase().endsWith(".hwpx")),
+  desktopFitsViewport:
+    opsDesktopMetrics.documentWidth <= opsDesktopMetrics.viewport,
+};
+}
+
+const featureChecks = {};
+const featureDiagnostics = {};
+await page.goto(`${baseUrl}/business-cards`, {
+  waitUntil: "networkidle",
+  timeout: 30000,
+});
+await page.getByRole("button", { name: "연락처 등록", exact: true }).click();
+let activeDialog = page.getByRole("dialog");
+featureChecks.manualContactDialogVisible = await activeDialog
+  .getByRole("heading", { name: "연락처 등록", exact: true })
+  .isVisible();
+featureChecks.manualContactDoesNotRequireCard =
+  (await activeDialog.locator('#business-card-image').count()) === 0;
+featureChecks.manualContactSaveVisible = await activeDialog
+  .getByRole("button", { name: "연락처 저장", exact: true })
+  .isVisible();
+await activeDialog.getByLabel("이름").fill("현장 검증 연락처");
+await activeDialog.getByLabel("사무실 전화").fill("064-728-3999");
+await activeDialog.getByRole("button", { name: "연락처 저장", exact: true }).click();
+await activeDialog
+  .getByRole("heading", { name: "연락처 등록", exact: true })
+  .waitFor({ state: "hidden", timeout: 10000 });
+featureChecks.manualContactSubmittedWithoutCard = true;
+
+await page.getByRole("button", { name: "명함 촬영 등록", exact: true }).click();
+activeDialog = page.getByRole("dialog");
+const businessCardInput = activeDialog.locator('#business-card-image');
+featureChecks.businessCardImageInputVisible = (await businessCardInput.count()) === 1;
+featureChecks.businessCardMobileCameraEnabled =
+  (await businessCardInput.getAttribute("capture")) === "environment";
+featureChecks.businessCardSaveVisible = await activeDialog
+  .getByRole("button", { name: "명함 저장", exact: true })
+  .isVisible();
+await page.keyboard.press("Escape");
+
+const facilityPhotoFlows = [
+  ["/facility/equipment", "장비 등록", "장비·설치 위치 사진 (선택)"],
+  ["/facility/maintenance", "유지보수 접수", "고장 현장 사진 (선택)"],
+  ["/facility/safety", "점검 등록", "점검 현장 사진 (선택)"],
+  ["/facility/markings", "등록", "노면표시 현장 사진 (선택)"],
+];
+for (const [route, openButton, photoLabel] of facilityPhotoFlows) {
+  await page.goto(`${baseUrl}${route}`, {
+    waitUntil: "networkidle",
+    timeout: 30000,
+  });
+  await page.getByRole("button", { name: openButton, exact: true }).first().click();
+  activeDialog = page.getByRole("dialog");
+  await activeDialog.getByRole("button", { name: /저장 폴더 지정|폴더 변경|폴더 다시 연결/ }).click();
+  await activeDialog.getByText(/폴더에 저장/).last().waitFor({ state: "visible", timeout: 5000 });
+  const directoryText = await activeDialog.locator("p").allTextContents();
+  featureDiagnostics[`${route}:directoryText`] = directoryText;
+  featureChecks[`${route}:localDirectorySelected`] = directoryText.some((text) => text.includes("폴더에 저장"));
+  const photoInput = activeDialog.getByLabel(photoLabel, { exact: true });
+  featureChecks[`${route}:photoInput`] = (await photoInput.count()) === 1;
+  featureChecks[`${route}:mobileCamera`] =
+    (await photoInput.getAttribute("capture")) === "environment";
+  featureChecks[`${route}:multiplePhotos`] = await photoInput.getAttribute("multiple") !== null;
+  await photoInput.setInputFiles({
+    name: "facility-e2e.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZfkkAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  featureChecks[`${route}:selectedPhotoVisible`] = await activeDialog
+    .getByText("facility-e2e.png", { exact: true })
+    .isVisible();
+  featureChecks[`${route}:missingRequiredHelp`] = await activeDialog
+    .getByRole("status")
+    .isVisible()
+    .catch(() => false);
+  await page.keyboard.press("Escape");
+}
+const failedFeatureChecks = Object.entries(featureChecks).filter(([, passed]) => !passed);
+if (failedFeatureChecks.length) {
+  throw new Error(`Feature checks failed: ${failedFeatureChecks.map(([name]) => name).join(", ")}\n${JSON.stringify(featureDiagnostics)}`);
 }
 
 await page.setViewportSize({ width: 390, height: 844 });
@@ -1430,14 +1724,41 @@ mobileChecks.dashboardComplaintDrilldownVisible = await mobileSnapshot
 mobileChecks.dashboardFitsViewport =
   mobileDashboardMetrics.documentWidth <= mobileDashboardMetrics.viewport;
 
+await page.goto(`${baseUrl}/ops/report`, {
+  waitUntil: "networkidle",
+  timeout: 30000,
+});
+const mobileOpsReportMetrics = await page.evaluate(() => ({
+  viewport: window.innerWidth,
+  documentWidth: document.documentElement.scrollWidth,
+}));
+mobileChecks.operationsReportHeadingVisible = await page
+  .getByRole("heading", { name: "운영관리 보고서" })
+  .isVisible()
+  .catch(() => false);
+mobileChecks.operationsReportGenerateVisible = await page
+  .getByRole("button", { name: "한글·동일 PDF 생성" })
+  .isVisible()
+  .catch(() => false);
+mobileChecks.operationsReportFitsViewport =
+  mobileOpsReportMetrics.documentWidth <= mobileOpsReportMetrics.viewport;
+await page.screenshot({
+  path: path.join(outDir, "operations-report-mobile.png"),
+  fullPage: true,
+});
+
 await browser.close();
 
 const summary = {
   generatedAt: new Date().toISOString(),
   baseUrl,
-  routeCount: routes.length,
+  routeCount: selectedRoutes.length,
   ok: results.filter((r) => r.status === "ok").length,
   failures: results.filter((r) => r.status !== "ok"),
+  annualReportChecks,
+  opsReportChecks,
+  featureChecks,
+  featureDiagnostics,
   mobileChecks,
   results,
 };
