@@ -5,14 +5,20 @@ import type { Profile } from "@/types/database";
 import { getSessionIdentity } from "@/lib/session-identity";
 
 interface AuthContextType {
-  user: User | null;
-  profile: Profile | null;
+  user: AuthUser | null;
+  profile: ProfileRow | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  /** 외부에서 강제 갱신 (예: 비밀번호 변경 후) */
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// 다른 탭과 로그아웃 동기화용 채널 (한 번만 생성)
+const broadcastChannel =
+  typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("parkmaster-auth") : null;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -110,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signOut, refresh }}>
       {children}
     </AuthContext.Provider>
   );

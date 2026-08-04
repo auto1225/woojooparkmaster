@@ -1,11 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { runtimeConfig } from "@/config/runtime-config";
 
-export type AITask = 'classify_complaint' | 'draft_response' | 'summarize_report' | 'predict_demand' | 'analyze_revenue';
+export type AITask = "classify_complaint" | "draft_response" | "summarize_report" | "predict_demand" | "analyze_revenue";
 
 interface CallAIParams {
   task: AITask;
-  input: Record<string, any>;
+  input: Record<string, unknown>;
   context?: string;
 }
 

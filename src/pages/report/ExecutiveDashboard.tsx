@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { PrintButton } from "@/components/common/PrintButton";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
 import { useQuery } from "@tanstack/react-query";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { Building2, Car, Users, Wrench, Banknote, MessageSquare, Calculator, AlertTriangle } from "lucide-react";

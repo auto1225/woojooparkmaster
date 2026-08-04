@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
 import { useQuery } from "@tanstack/react-query";
 import { Banknote, TrendingUp, Car, ShieldCheck, Percent, AlertTriangle, FileSpreadsheet } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";

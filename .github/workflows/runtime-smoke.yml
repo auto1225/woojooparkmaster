@@ -1,0 +1,249 @@
+name: ParkMaster full-stack runtime smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/runtime-smoke.yml"
+      - "src/**"
+      - "api/**"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.ts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime-smoke:
+    name: PostgreSQL + API + Web + Browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: parkmaster_app
+          POSTGRES_PASSWORD: parkmaster_test_pw
+          POSTGRES_DB: parkmaster
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U parkmaster_app -d parkmaster"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        working-directory: api
+        run: npm install --no-audit --no-fund
+
+      - name: Configure backend
+        working-directory: api
+        shell: bash
+        run: |
+          cat > .env <<'EOF'
+          NODE_ENV=development
+          PORT=4000
+          HOST=127.0.0.1
+          PG_HOST=127.0.0.1
+          PG_PORT=5432
+          PG_DATABASE=parkmaster
+          PG_USER=parkmaster_app
+          PG_PASSWORD=parkmaster_test_pw
+          JWT_SECRET=parkmaster_runtime_smoke_jwt_secret_2026_at_least_64_characters_long
+          JWT_ACCESS_EXPIRES_IN=15m
+          JWT_REFRESH_EXPIRES_IN=7d
+          COOKIE_SECURE=false
+          CORS_ORIGIN=http://127.0.0.1:5173
+          UPLOAD_DIR=./uploads
+          MAX_UPLOAD_SIZE_MB=20
+          ADMIN_EMAIL=admin@parkmaster.local
+          ADMIN_PASSWORD=ParkMaster!2026
+          ADMIN_NAME=런타임테스트관리자
+          EOF
+
+      - name: Migrate database and seed administrator
+        working-directory: api
+        run: |
+          npm run migrate
+          npm run seed:admin
+          node --input-type=module <<'NODE'
+          import pg from "pg";
+          const client = new pg.Client({
+            host: "127.0.0.1",
+            port: 5432,
+            database: "parkmaster",
+            user: "parkmaster_app",
+            password: "parkmaster_test_pw",
+          });
+          await client.connect();
+          await client.query(
+            "UPDATE users SET must_change_password = false WHERE email = $1",
+            ["admin@parkmaster.local"],
+          );
+          await client.end();
+          NODE
+
+      - name: Build backend
+        working-directory: api
+        run: npm run build
+
+      - name: Start backend and frontend
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          (
+            cd api
+            nohup npx tsx src/server.ts > ../artifacts/backend.log 2>&1 &
+            echo $! > ../artifacts/backend.pid
+          )
+          nohup env VITE_API_BASE=http://127.0.0.1:4000 VITE_SENSOR_CONSOLE_URL=https://console.example.invalid \
+            npm run dev -- --host 127.0.0.1 --port 5173 > artifacts/frontend.log 2>&1 &
+          echo $! > artifacts/frontend.pid
+
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:4000/api/health >/tmp/api-health.json; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4000/api/health | tee artifacts/api-health.json
+
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:5173/login >/tmp/frontend.html; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:5173/login >/dev/null
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser verification
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import { chromium } from "@playwright/test";
+
+          const consoleMessages = [];
+          const pageErrors = [];
+          const requestFailures = [];
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({
+            viewport: { width: 1440, height: 1000 },
+            locale: "ko-KR",
+          });
+          const page = await context.newPage();
+
+          page.on("console", (message) => {
+            consoleMessages.push({ type: message.type(), text: message.text() });
+          });
+          page.on("pageerror", (error) => pageErrors.push(error.message));
+          page.on("requestfailed", (request) => {
+            requestFailures.push({
+              url: request.url(),
+              error: request.failure()?.errorText ?? "unknown",
+            });
+          });
+
+          await page.goto("http://127.0.0.1:5173/settings", {
+            waitUntil: "domcontentloaded",
+            timeout: 60_000,
+          });
+          await page.waitForTimeout(1_500);
+          await page.screenshot({ path: "artifacts/01-initial.png", fullPage: true });
+
+          const emailInput = page.locator("#email");
+          if (await emailInput.isVisible().catch(() => false)) {
+            await emailInput.fill("admin@parkmaster.local");
+            await page.locator("#password").fill("ParkMaster!2026");
+            await page.locator('button[type="submit"]').click();
+            await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
+              timeout: 60_000,
+            });
+          }
+
+          await page.goto("http://127.0.0.1:5173/settings", {
+            waitUntil: "domcontentloaded",
+            timeout: 60_000,
+          });
+          await page.waitForTimeout(3_000);
+
+          const bodyText = (await page.locator("body").innerText()).trim();
+          const viteOverlay = await page.locator("vite-error-overlay, .vite-error-overlay").count();
+          const finalUrl = page.url();
+          const title = await page.title();
+
+          await page.screenshot({ path: "artifacts/02-settings.png", fullPage: true });
+
+          const result = {
+            finalUrl,
+            title,
+            bodyLength: bodyText.length,
+            bodyPreview: bodyText.slice(0, 1500),
+            viteOverlay,
+            consoleErrors: consoleMessages.filter((item) => item.type === "error"),
+            consoleWarnings: consoleMessages.filter((item) => item.type === "warning").slice(0, 30),
+            pageErrors,
+            requestFailures,
+          };
+          fs.writeFileSync("artifacts/runtime-result.json", JSON.stringify(result, null, 2));
+          console.log(JSON.stringify(result, null, 2));
+
+          const settingsRendered = /설정|사용자 관리|시스템/.test(bodyText);
+          const stillOnLogin = new URL(finalUrl).pathname.startsWith("/login");
+          await browser.close();
+
+          if (bodyText.length < 50 || viteOverlay > 0 || pageErrors.length > 0 || stillOnLogin || !settingsRendered) {
+            process.exit(1);
+          }
+          NODE
+
+      - name: Write run summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## ParkMaster runtime smoke" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          if [ -f artifacts/runtime-result.json ]; then
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat artifacts/runtime-result.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "### Backend log" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 120 artifacts/backend.log 2>/dev/null >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parkmaster-runtime-smoke
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7

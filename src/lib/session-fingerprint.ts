@@ -1,5 +1,5 @@
 /** SEC-WEB-4: 세션 핑거프린트 (세션 고정 공격 방지) */
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/api/supabase-compat';
 import { logSecurityAudit } from './auth-security';
 
 /** 브라우저 핑거프린트 생성 */

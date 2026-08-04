@@ -2,7 +2,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { PrintButton } from "@/components/common/PrintButton";
 import { PrintHeader } from "@/components/common/PrintHeader";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
 import { useQuery } from "@tanstack/react-query";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { Button } from "@/components/ui/button";

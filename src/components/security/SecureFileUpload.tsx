@@ -1,6 +1,7 @@
 /** SEC-WEB-2: 안전한 파일 업로드 컴포넌트 */
 import { useState, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/api/supabase-compat';
+import { filesApi } from "@/integrations/api/files";
 import { validateUploadFile, getSecureUploadPath, ALLOWED_FILE_TYPES } from '@/lib/file-security';
 import { logSecurityAudit } from '@/lib/auth-security';
 import { Button } from '@/components/ui/button';
@@ -58,10 +59,7 @@ export function SecureFileUpload({ category, bucket, folder, maxFiles = 1, onUpl
 
       const securePath = `${folder}/${getSecureUploadPath(category, file.name)}`;
 
-      const { error } = await supabase.storage.from(bucket).upload(securePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-      });
+      const _ul = await filesApi.legacyUpload(bucket, securePath, file); const error = _ul.error;
 
       if (error) {
         setFiles(prev => prev.map(f => f.name === file.name && f.status === 'uploading'

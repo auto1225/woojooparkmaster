@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
 import { useQuery } from "@tanstack/react-query";
 import { Server, CheckCircle, AlertTriangle, Gauge, Wrench, FileSpreadsheet } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, ScatterChart, Scatter, XAxis, YAxis, ZAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";

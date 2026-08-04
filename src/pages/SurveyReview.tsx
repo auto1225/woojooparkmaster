@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/components/DashboardLayout";

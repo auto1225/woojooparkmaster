@@ -27,13 +27,42 @@ supabase/.temp/
 playwright-report/
 test-results/
 
-# Editor directories and files
+# Build output
+dist/
+dist-ssr/
+.vite/
+api/dist/
+
+# Runtime data
+uploads/
+api/uploads/
+backups/
+*.bak
+*.backup
+
+# Environment files — 실제 값은 절대 커밋하지 않음
+.env
+.env.*
+api/.env
+api/.env.*
+!.env.example
+!api/.env.example
+
+# Editor / OS
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Testing
+coverage/
+playwright-report/
+test-results/
+
+# Supabase CLI
+supabase/.temp/

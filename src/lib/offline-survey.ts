@@ -1,5 +1,6 @@
 // ParkMaster™ 현장조사 오프라인 모드 — IndexedDB 기반
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/api/supabase-compat";
+import { filesApi } from "@/integrations/api/files";
 import { toast } from "sonner";
 
 const DB_NAME = "parkmaster-offline";
