@@ -24,7 +24,11 @@ export default function LoginPage() {
   const { data: config } = useSystemConfig();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const isExpired = searchParams.get("expired") === "1";
+  const logoutReason = searchParams.get("reason");
+  const isExpired = searchParams.get("expired") === "1"
+    || logoutReason === "expired"
+    || logoutReason === "session_expired"
+    || logoutReason === "session_revoked";
 
   useEffect(() => {
     if (lockCountdown <= 0) return;

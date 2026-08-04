@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/api/supabase-compat";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -10,11 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Monitor, Plus, Send, CheckCircle, XCircle } from "lucide-react";
+import { Monitor, Plus, Send, CheckCircle, XCircle, Settings2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { DISPLAY_LOCATION_LABELS, DISPLAY_PROTOCOL_LABELS } from "@/types/realtime";
+import { OperationalListControls } from "@/components/common/OperationalListControls";
+import { archiveRealtimeDevice, createRealtimeDisplay, queueDisplayPush, updateRealtimeDevice } from "@/lib/workflow-commands";
+import { getParkingLotTypeLabel } from "@/lib/parking-lot-type-labels";
 
 export default function RealtimeDisplays() {
   const { profile } = useAuth();
@@ -22,11 +25,21 @@ export default function RealtimeDisplays() {
   const canEdit = profile && ['admin', 'manager'].includes(profile.role);
   const [showRegister, setShowRegister] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
+  const [search, setSearch] = useState("");
+  const [lotFilter, setLotFilter] = useState("all");
+  const [lotTypeFilter, setLotTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortKey, setSortKey] = useState("status");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [pushingBoardId, setPushingBoardId] = useState<string | null>(null);
+  const [manageBoard, setManageBoard] = useState<any>(null);
+  const [manageForm, setManageForm] = useState<Record<string, any>>({});
+  const [archiveReason, setArchiveReason] = useState("");
 
   const { data: lots } = useQuery({
     queryKey: ["parking-lots-simple"],
     queryFn: async () => {
-      const { data } = await supabase.from("parking_lots").select("id, code, name").eq("status", "active").order("code");
+      const { data } = await supabase.from("parking_lots").select("id, code, name, lot_type").eq("status", "active").order("code");
       return data || [];
     },
   });
@@ -35,7 +48,8 @@ export default function RealtimeDisplays() {
     queryKey: ["display-boards"],
     queryFn: async () => {
       const { data, error } = await supabase.from("display_boards")
-        .select("*, parking_lots(code, name)")
+        .select("*, parking_lots(code, name, lot_type)")
+        .is("archived_at", null)
         .order("lot_id").order("board_id");
       if (error) throw error;
       return data || [];
@@ -43,6 +57,22 @@ export default function RealtimeDisplays() {
   });
 
   const updateForm = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
+  const filteredBoards = useMemo(() => {
+    const rows = (boards || []).filter((board) => {
+      const lot = board.parking_lots as any;
+      if (lotFilter !== "all" && board.lot_id !== lotFilter) return false;
+      if (lotTypeFilter !== "all" && lot?.lot_type !== lotTypeFilter) return false;
+      if (statusFilter !== "all" && board.status !== statusFilter) return false;
+      const needle = search.trim().toLocaleLowerCase("ko");
+      return !needle || [board.board_id, board.board_name, board.direction, board.ip_address, board.manufacturer, board.model, board.current_message, lot?.name]
+        .some((value) => String(value || "").toLocaleLowerCase("ko").includes(needle));
+    });
+    const value = (board: any) => sortKey === "board" ? board.board_id : sortKey === "lot" ? board.parking_lots?.name : sortKey === "push" ? board.last_push : sortKey === "installed" ? board.install_date : board.status;
+    return [...rows].sort((a, b) => {
+      const result = String(value(a) || "").localeCompare(String(value(b) || ""), "ko");
+      return sortDirection === "asc" ? result : -result;
+    });
+  }, [boards, lotFilter, lotTypeFilter, search, sortDirection, sortKey, statusFilter]);
 
   const handleRegister = async () => {
     if (!form.lot_id || !form.board_id) {
@@ -53,61 +83,58 @@ export default function RealtimeDisplays() {
       format: form.template_format || '잔여 {available}대',
       full_message: form.template_full || '만 차',
     };
-    const { error } = await supabase.from("display_boards").insert({
-      lot_id: form.lot_id,
-      board_id: form.board_id,
-      board_name: form.board_name || null,
-      location: form.location || null,
-      location_type: form.location_type || null,
-      direction: form.direction || null,
-      floor: form.floor ? Number(form.floor) : null,
-      protocol: form.protocol || null,
-      ip_address: form.ip_address || null,
-      port: form.port ? Number(form.port) : null,
-      display_type: form.display_type || null,
-      display_template: template,
-      push_interval_sec: form.push_interval_sec ? Number(form.push_interval_sec) : 10,
-      manufacturer: form.manufacturer || null,
-      model: form.model || null,
-      install_date: form.install_date || null,
-    });
-    if (error) {
-      toast({ title: "등록 실패", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await createRealtimeDisplay({ ...form, display_template: template }, crypto.randomUUID());
       await logActivity({ module: "realtime", action: "create", targetType: "display_board", targetName: form.board_id });
       toast({ title: "전광판이 등록되었습니다" });
       setShowRegister(false);
       setForm({});
       queryClient.invalidateQueries({ queryKey: ["display-boards"] });
+    } catch (error) {
+      toast({ title: "등록 실패", description: error instanceof Error ? error.message : "등록하지 못했습니다.", variant: "destructive" });
     }
   };
 
   const handleManualPush = async (board: any) => {
-    // Get realtime status for the lot
-    const { data: status } = await supabase.from("lot_realtime_status")
-      .select("available_spaces, congestion_level")
-      .eq("lot_id", board.lot_id)
-      .single();
-
-    const template = board.display_template as any;
-    const available = status?.available_spaces ?? 0;
-    const isFull = status?.congestion_level === 'full';
-    const message = isFull
-      ? (template?.full_message || '만 차')
-      : (template?.format || '잔여 {available}대').replace('{available}', available.toString());
-
-    const { error } = await supabase.from("display_boards").update({
-      current_message: message,
-      last_push: new Date().toISOString(),
-      last_push_success: true,
-      last_error: null,
-    }).eq("id", board.id);
-
-    if (error) {
-      toast({ title: "전송 실패", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "전송 완료", description: `"${message}"` });
+    setPushingBoardId(board.id);
+    try {
+      const command = await queueDisplayPush(board.id, crypto.randomUUID());
+      toast({ title: "전송 요청 등록", description: `장비 응답 대기 중: “${command.message}”` });
       queryClient.invalidateQueries({ queryKey: ["display-boards"] });
+    } catch (error) {
+      toast({ title: "전송 요청 실패", description: error instanceof Error ? error.message : "요청을 등록하지 못했습니다.", variant: "destructive" });
+    } finally {
+      setPushingBoardId(null);
+    }
+  };
+
+  const openManage = (board: any) => {
+    setManageBoard(board);
+    setArchiveReason("");
+    setManageForm({ board_name: board.board_name || "", ip_address: board.ip_address || "", direction: board.direction || "", status: board.status });
+  };
+
+  const saveBoard = async () => {
+    if (!manageBoard) return;
+    try {
+      await updateRealtimeDevice("display", manageBoard.id, manageForm, manageBoard.row_version);
+      toast({ title: "전광판 정보를 수정했습니다" });
+      setManageBoard(null);
+      queryClient.invalidateQueries({ queryKey: ["display-boards"] });
+    } catch (error) {
+      toast({ title: "수정 실패", description: error instanceof Error ? error.message : "수정하지 못했습니다.", variant: "destructive" });
+    }
+  };
+
+  const archiveBoard = async () => {
+    if (!manageBoard) return;
+    try {
+      await archiveRealtimeDevice("display", manageBoard.id, archiveReason, manageBoard.row_version);
+      toast({ title: "전광판을 보관했습니다" });
+      setManageBoard(null);
+      queryClient.invalidateQueries({ queryKey: ["display-boards"] });
+    } catch (error) {
+      toast({ title: "보관 실패", description: error instanceof Error ? error.message : "보관하지 못했습니다.", variant: "destructive" });
     }
   };
 
@@ -129,15 +156,29 @@ export default function RealtimeDisplays() {
           {canEdit && <Button onClick={() => setShowRegister(true)}><Plus className="h-4 w-4 mr-1" />전광판 등록</Button>}
         </div>
 
+        <OperationalListControls
+          search={search} onSearchChange={setSearch} searchPlaceholder="전광판ID, 주차장, IP, 메시지 검색"
+          lots={(lots || []).map((lot) => ({ value: lot.id, label: `${lot.name} · ${getParkingLotTypeLabel(lot.lot_type)}` }))}
+          lotId={lotFilter} onLotChange={setLotFilter}
+          categories={[{ value: "offstreet", label: "노외주차장" }, { value: "multilevel", label: "주차빌딩" }, { value: "onstreet", label: "노상주차장" }]}
+          category={lotTypeFilter} onCategoryChange={setLotTypeFilter} categoryLabel="전체 주차장 유형"
+          statuses={[{ value: "active", label: "가동중" }, { value: "offline", label: "오프라인" }, { value: "error", label: "오류" }, { value: "maintenance", label: "점검중" }]}
+          status={statusFilter} onStatusChange={setStatusFilter}
+          sortOptions={[{ value: "status", label: "상태순" }, { value: "push", label: "마지막 전송순" }, { value: "installed", label: "설치일순" }, { value: "lot", label: "주차장순" }, { value: "board", label: "전광판ID순" }]}
+          sortKey={sortKey} onSortKeyChange={setSortKey} sortDirection={sortDirection} onSortDirectionChange={setSortDirection}
+          resultCount={filteredBoards.length} totalCount={(boards || []).length}
+          onReset={() => { setSearch(""); setLotFilter("all"); setLotTypeFilter("all"); setStatusFilter("all"); setSortKey("status"); setSortDirection("asc"); }}
+        />
+
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[1,2].map(i => <Skeleton key={i} className="h-52" />)}
           </div>
-        ) : (boards || []).length === 0 ? (
+        ) : filteredBoards.length === 0 ? (
           <Card><CardContent className="py-10 text-center text-muted-foreground">등록된 전광판이 없습니다</CardContent></Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {(boards || []).map(board => {
+            {filteredBoards.map(board => {
               const isFull = board.current_message?.includes('만');
               return (
                 <Card key={board.id}>
@@ -149,7 +190,7 @@ export default function RealtimeDisplays() {
                           {board.board_name || board.board_id}
                         </p>
                         <p className="text-[10px] text-muted-foreground font-mono">{board.board_id}</p>
-                        <p className="text-xs text-muted-foreground">{(board.parking_lots as any)?.name}</p>
+                        <p className="text-xs text-muted-foreground">{(board.parking_lots as any)?.name} · {getParkingLotTypeLabel((board.parking_lots as any)?.lot_type || board.lot_type_snapshot)}</p>
                       </div>
                       <div className="flex gap-1">
                         {board.location_type && (
@@ -171,21 +212,36 @@ export default function RealtimeDisplays() {
                         마지막 전송: {secondsAgo(board.last_push)}
                         {board.last_push_success === true && <CheckCircle className="h-3 w-3 text-emerald-500" />}
                         {board.last_push_success === false && <XCircle className="h-3 w-3 text-red-500" />}
+                        {board.last_push && board.last_push_success == null && <Badge variant="outline" className="text-[10px]">응답 대기</Badge>}
                       </div>
                       {board.last_error && <span className="text-red-500 text-[10px]">{board.last_error}</span>}
                     </div>
 
-                    {canEdit && (
-                      <Button size="sm" variant="outline" className="w-full" onClick={() => handleManualPush(board)}>
-                        <Send className="h-3.5 w-3.5 mr-1" /> 수동 전송
+                    {canEdit && <div className="grid grid-cols-[1fr_auto] gap-2">
+                      <Button size="sm" variant="outline" onClick={() => handleManualPush(board)} disabled={pushingBoardId === board.id}>
+                        <Send className="h-3.5 w-3.5 mr-1" /> {pushingBoardId === board.id ? "요청 중" : "전송 요청"}
                       </Button>
-                    )}
+                      <Button size="icon" variant="outline" title="전광판 관리" onClick={() => openManage(board)}><Settings2 className="h-3.5 w-3.5" /></Button>
+                    </div>}
                   </CardContent>
                 </Card>
               );
             })}
           </div>
         )}
+
+        <Dialog open={!!manageBoard} onOpenChange={(open) => !open && setManageBoard(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>전광판 관리 — {manageBoard?.board_id}</DialogTitle></DialogHeader>
+            {manageBoard && <div className="space-y-3">
+              <div><Label>전광판명</Label><Input value={manageForm.board_name || ""} onChange={(event) => setManageForm((value) => ({ ...value, board_name: event.target.value }))} /></div>
+              <div className="grid grid-cols-2 gap-2"><div><Label>IP 주소</Label><Input value={manageForm.ip_address || ""} onChange={(event) => setManageForm((value) => ({ ...value, ip_address: event.target.value }))} /></div><div><Label>상태</Label><Select value={manageForm.status || "active"} onValueChange={(status) => setManageForm((value) => ({ ...value, status }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">가동중</SelectItem><SelectItem value="maintenance">점검중</SelectItem><SelectItem value="offline">오프라인</SelectItem><SelectItem value="error">오류</SelectItem></SelectContent></Select></div></div>
+              <div><Label>표출 방향</Label><Input value={manageForm.direction || ""} onChange={(event) => setManageForm((value) => ({ ...value, direction: event.target.value }))} /></div>
+              <Button className="w-full" onClick={saveBoard}>수정 저장</Button>
+              <div className="flex gap-2"><Input value={archiveReason} onChange={(event) => setArchiveReason(event.target.value)} placeholder="보관 사유 3자 이상" /><Button variant="destructive" disabled={archiveReason.trim().length < 3} onClick={archiveBoard}>보관</Button></div>
+            </div>}
+          </DialogContent>
+        </Dialog>
 
         {/* Register Dialog */}
         <Dialog open={showRegister} onOpenChange={setShowRegister}>

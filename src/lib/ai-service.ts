@@ -20,8 +20,16 @@ interface CallAIParams {
   context?: string;
 }
 
-interface AIResult {
+export interface AISource {
+  path: string;
+  label: string;
+}
+
+export interface AIResult {
   result?: string;
+  confidence?: number;
+  sources: AISource[];
+  assistanceId?: string;
   category?: string;
   sub_category?: string;
   priority?: string;
@@ -35,7 +43,18 @@ export const AI_DISABLED_MESSAGE =
   "AI 어시스턴트가 비활성 상태입니다. 부서 서버에 LLM 설치 후 .env의 AI_BASE_URL을 설정하세요.";
 
 export async function callAI(params: CallAIParams): Promise<AIResult> {
-  return aiApi.task(params);
+  const result = await aiApi.task(params);
+  return {
+    ...result,
+    sources: Array.isArray(result.sources) ? result.sources as AISource[] : [],
+  } as AIResult;
+}
+
+export async function reviewAIAssistance(
+  _assistanceId: string | undefined,
+  _options: { applied: boolean; edited?: boolean; targetType?: string; targetId?: string } = { applied: false },
+) {
+  // The self-hosted AI endpoint does not persist assistance review records yet.
 }
 
 /** 호출자가 활성 여부를 미리 확인 (UI에서 버튼 disabled 처리 등) */

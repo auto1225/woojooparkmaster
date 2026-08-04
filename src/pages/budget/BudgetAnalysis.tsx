@@ -21,32 +21,53 @@ export default function BudgetAnalysis() {
   const currentYear = new Date().getFullYear();
 
   const { data: plans = [] } = useQuery({
-    queryKey: ['budget-plans-analysis'],
+    queryKey: ['budget-plans-analysis', currentYear],
     queryFn: async () => {
-      const { data } = await supabase.from('budget_plans').select('*').eq('fiscal_year', currentYear).eq('status', 'approved');
+      const { data } = await supabase
+        .from('budget_plans')
+        .select('*')
+        .eq('fiscal_year', currentYear)
+        .in('status', ['approved', 'executed']);
       return data || [];
     },
   });
+
+  const approvedPlanIds = useMemo(() => plans.map((plan: any) => plan.id), [plans]);
 
   const { data: items = [] } = useQuery({
-    queryKey: ['budget-items-analysis'],
+    queryKey: ['budget-items-analysis', approvedPlanIds],
     queryFn: async () => {
-      const { data } = await supabase.from('budget_items').select('*');
+      if (!approvedPlanIds.length) return [];
+      const { data } = await supabase
+        .from('budget_items')
+        .select('*')
+        .in('plan_id', approvedPlanIds);
       return data || [];
     },
   });
 
+  const approvedItemIds = useMemo(() => items.map((item: any) => item.id), [items]);
+
   const { data: executions = [] } = useQuery({
-    queryKey: ['budget-exec-analysis'],
+    queryKey: ['budget-exec-analysis', approvedItemIds],
     queryFn: async () => {
-      const { data } = await supabase.from('budget_executions').select('*').eq('status', 'approved');
+      if (!approvedItemIds.length) return [];
+      const { data } = await supabase
+        .from('budget_executions')
+        .select('*')
+        .in('item_id', approvedItemIds)
+        .in('status', ['approved', 'executed'])
+        .gte('execution_date', `${currentYear}-01-01`)
+        .lte('execution_date', `${currentYear}-12-31`)
+        .order('execution_date', { ascending: false });
       return data || [];
     },
   });
 
   // KPI
-  const totalBudget = plans.reduce((s: number, p: any) => s + (p.total_revenue || 0) + (p.total_expenditure || 0), 0);
-  const totalExecuted = items.reduce((s: number, i: any) => s + (i.executed_amount || 0), 0);
+  const expenditureItems = items.filter((item: any) => item.budget_type === 'expenditure' && !item.is_summary);
+  const totalBudget = plans.reduce((s: number, p: any) => s + (p.total_expenditure || 0), 0);
+  const totalExecuted = expenditureItems.reduce((s: number, i: any) => s + (i.executed_amount || 0), 0);
   const executionRate = totalBudget > 0 ? (totalExecuted / totalBudget) * 100 : 0;
   const remaining = totalBudget - totalExecuted;
 
@@ -69,7 +90,7 @@ export default function BudgetAnalysis() {
 
   // 항목별 집행
   const itemExec = useMemo(() => {
-    return items
+    return expenditureItems
       .filter((i: any) => i.category_l1 && !i.parent_item_id)
       .map((i: any) => ({
         name: i.item_name,
@@ -79,7 +100,7 @@ export default function BudgetAnalysis() {
       }))
       .sort((a: any, b: any) => b.allocated - a.allocated)
       .slice(0, 10);
-  }, [items]);
+  }, [expenditureItems]);
 
   // 예산 소진 예측
   const burnDown = useMemo(() => {

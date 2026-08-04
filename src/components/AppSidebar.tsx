@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useLayoutEffect, useMemo } from "react";
-import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText, Radio, Cpu, Server, Monitor, Key, FileBarChart, CalendarClock, LayoutTemplate, PanelLeftClose, PanelLeftOpen, GripVertical, ExternalLink } from "lucide-react";
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from "react";
+import { LayoutDashboard, Car, ClipboardCheck, Settings, BarChart3, Wrench, DollarSign, FileText, Users, Building2, Megaphone, MapPin, PieChart, ChevronLeft, ChevronRight, ChevronDown, CreditCard, Shield, Clock, Scale, UserCheck, HardHat, CalendarCheck, ShieldCheck, PaintBucket, Banknote, Calculator, LineChart, FileSearch, Receipt, ArrowRightLeft, Wallet, CircleDollarSign, BookOpen, Gavel, FolderOpen, FileCheck, Briefcase, ClipboardList, CreditCard as CreditCardIcon, AlertTriangle, Plus, BarChart2, Compass, Landmark, FileImage, ScrollText, Radio, Cpu, Server, Monitor, Key, FileBarChart, CalendarClock, LayoutTemplate, PanelLeftClose, PanelLeftOpen, GripVertical, ExternalLink, GitCompareArrows, ContactRound, Check, RotateCcw } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
@@ -19,13 +19,20 @@ import {
   useSortable, arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { runtimeConfig } from "@/config/runtime-config";
+import { isModuleEnabled } from "@/lib/authorization";
 
 const coreMenuItems = [
+  { title: "문서대장", url: "/documents", icon: FileText },
+  { title: "팀 업무관리", url: "/team-work", icon: ClipboardList, end: true },
+  { title: "업무분장", url: "/team-work/duties", icon: Users },
   { title: "대시보드", url: "/", icon: LayoutDashboard, end: true },
   { title: "종합 현황", url: "/master", icon: PanelLeftOpen },
   { title: "결재함", url: "/approvals", icon: ClipboardCheck },
   { title: "주차장 관리", url: "/lots", icon: Car },
 ];
+
+const contactMenuItem = { title: "연락처/명함관리", url: "/business-cards", icon: ContactRound };
 
 const opsSubMenu = [
   { title: "운영 현황", url: "/ops", icon: BarChart3, end: true },
@@ -36,6 +43,8 @@ const opsSubMenu = [
   { title: "월정기권", url: "/ops/passes", icon: CreditCard },
   { title: "단속 기록", url: "/ops/enforcement", icon: Shield },
   { title: "무료개방", url: "/ops/free-hours", icon: Clock },
+  { title: "방치차량 처리", url: "/ops/abandoned-vehicles", icon: Car },
+  { title: "관제·보안 점검", url: "/ops/security-inspections", icon: ShieldCheck },
 ];
 
 const facilitySubMenu = [
@@ -59,6 +68,7 @@ const budgetSubMenu = [
   { title: "예산 편성", url: "/budget/plans", icon: BookOpen },
   { title: "예산 집행", url: "/budget/executions", icon: CircleDollarSign },
   { title: "예산 전용/이체", url: "/budget/transfers", icon: ArrowRightLeft },
+  { title: "예산 분석", url: "/budget/analysis", icon: BarChart2 },
 ];
 
 const procurementSubMenu = [
@@ -84,10 +94,12 @@ const complaintSubMenu = [
 
 const planningSubMenu = [
   { title: "기획 현황", url: "/planning", icon: Compass, end: true },
+  { title: "사업 의사결정", url: "/planning/decisions", icon: GitCompareArrows },
   { title: "후보부지", url: "/planning/sites", icon: MapPin },
   { title: "공사 관리", url: "/planning/projects", icon: HardHat },
   { title: "도면 관리", url: "/planning/documents", icon: FileImage },
   { title: "인허가", url: "/planning/permits", icon: ScrollText },
+  { title: "사업 행정절차", url: "/planning/procedures", icon: ClipboardList },
 ];
 
 const realtimeSubMenu = [
@@ -104,6 +116,9 @@ const reportSubMenu = [
   { title: "보고서 이력", url: "/reports/history", icon: FileText },
   { title: "스케줄 관리", url: "/reports/schedules", icon: CalendarClock },
   { title: "대시보드 빌더", url: "/reports/dashboard-builder", icon: LayoutTemplate },
+  { title: "주차장 성과 순위", url: "/reports/ranking", icon: BarChart3 },
+  { title: "간부용 현황판", url: "/reports/executive", icon: PieChart },
+  { title: "분기 보고서", url: "/reports/print-quarterly", icon: FileBarChart },
 ];
 
 const simpleModuleMap: Record<string, { title: string; url: string; icon: any }> = {
@@ -143,25 +158,57 @@ const ALL_MODULES: ModuleDef[] = [
   { id: "REPORT", type: "collapsible", label: "보고서/통계", icon: FileBarChart, subMenu: reportSubMenu, licenseKey: "REPORT" },
 ];
 
-const STORAGE_KEY = "parkmaster-module-order";
+const MODULE_ORDER_KEY = "parkmaster-module-order";
+const CORE_ORDER_KEY = "parkmaster-core-menu-order";
+const SUBMENU_ORDER_KEY = "parkmaster-submenu-order";
 
-function getStoredOrder(): string[] | null {
+function storageKey(base: string, ownerId: string) {
+  return `${base}:${ownerId}`;
+}
+
+function getStoredOrder(key: string, defaults: string[], legacyKey?: string): string[] {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : null;
+    const stored = localStorage.getItem(key) || (legacyKey ? localStorage.getItem(legacyKey) : null);
+    const parsed = stored ? JSON.parse(stored) : [];
+    if (!Array.isArray(parsed)) return defaults;
+    const valid = parsed.filter((id): id is string => typeof id === "string" && defaults.includes(id));
+    const normalized = [...new Set(valid), ...defaults.filter((id) => !valid.includes(id))];
+    if (!localStorage.getItem(key) && stored) localStorage.setItem(key, JSON.stringify(normalized));
+    return normalized;
   } catch {
-    return null;
+    return defaults;
   }
 }
 
-function setStoredOrder(order: string[]) {
+function setStoredOrder(key: string, order: string[]) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
+    localStorage.setItem(key, JSON.stringify(order));
   } catch {}
 }
 
+function getStoredSubmenuOrder(key: string, defaults: Record<string, string[]>) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || "{}");
+    return Object.fromEntries(Object.entries(defaults).map(([moduleId, ids]) => [
+      moduleId,
+      Array.isArray(parsed[moduleId])
+        ? [...new Set((parsed[moduleId] as unknown[]).filter((id): id is string => typeof id === "string" && ids.includes(id))), ...ids.filter((id) => !(parsed[moduleId] as unknown[]).includes(id))]
+        : ids,
+    ]));
+  } catch {
+    return defaults;
+  }
+}
+
+function mergeVisibleOrder(fullOrder: string[], visibleOrder: string[]) {
+  const visible = new Set(visibleOrder);
+  let visibleIndex = 0;
+  const merged = fullOrder.map((id) => visible.has(id) ? visibleOrder[visibleIndex++] : id);
+  return [...merged, ...visibleOrder.filter((id) => !merged.includes(id))];
+}
+
 // Sortable wrapper component
-function SortableModuleItem({ id, children }: { id: string; children: React.ReactNode }) {
+function SortableModuleItem({ id, label, children, editing }: { id: string; label: string; children: React.ReactNode; editing: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -172,11 +219,49 @@ function SortableModuleItem({ id, children }: { id: string; children: React.Reac
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} className="group/sortable">
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 opacity-0 group-hover/sortable:opacity-60 transition-opacity cursor-grab z-10" {...listeners}>
-        <GripVertical className="h-3.5 w-3.5 text-sidebar-foreground/50" />
-      </div>
+    <div ref={setNodeRef} style={style} className={`group/sortable relative ${editing ? "rounded-lg ring-1 ring-inset ring-white/10" : ""}`}>
       {children}
+      {editing && (
+        <button
+          type="button"
+          className="absolute inset-x-0 top-0 z-30 flex h-11 cursor-grab items-center justify-end rounded-lg px-3 text-sidebar-foreground/70 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70 active:cursor-grabbing"
+          aria-label={`${label} 드래그하여 순서 변경`}
+          title="드래그하여 순서 변경"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SortableSubmenuItem({ id, label, children, editing }: { id: string; label: string; children: React.ReactNode; editing: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.55 : 1,
+    position: "relative" as const,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className={editing ? "relative rounded-lg ring-1 ring-inset ring-white/10" : "relative"}>
+      {children}
+      {editing && (
+        <button
+          type="button"
+          className="absolute inset-0 z-30 flex cursor-grab items-center justify-end rounded-lg px-2 text-sidebar-foreground/70 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70 active:cursor-grabbing"
+          aria-label={`${label} 드래그하여 순서 변경`}
+          title="드래그하여 순서 변경"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -189,6 +274,14 @@ export function AppSidebar() {
   const { profile, user } = useAuth();
   const { data: licenses } = useModuleLicenses();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const ownerId = user?.id || profile?.id || "local";
+  const moduleOrderStorageKey = storageKey(MODULE_ORDER_KEY, ownerId);
+  const coreOrderStorageKey = storageKey(CORE_ORDER_KEY, ownerId);
+  const submenuOrderStorageKey = storageKey(SUBMENU_ORDER_KEY, ownerId);
+  const defaultModuleOrder = useMemo(() => ALL_MODULES.map((module) => module.id), []);
+  const defaultCoreOrder = useMemo(() => coreMenuItems.map((item) => item.url), []);
+  const defaultSubmenuOrder = useMemo(() => Object.fromEntries(ALL_MODULES.filter((module) => module.subMenu).map((module) => [module.id, module.subMenu!.map((item) => item.url)])), []);
+  const [editingMenuOrder, setEditingMenuOrder] = useState(false);
 
   const handleScroll = useCallback(() => {
     if (scrollRef.current) sidebarScrollTop = scrollRef.current.scrollTop;
@@ -224,18 +317,27 @@ export function AppSidebar() {
   // Active modules
   const activeModuleIds = useMemo(() => {
     const set = new Set<string>();
-    (licenses ?? []).forEach((m) => {
-      if (m.is_active) set.add(m.module_code);
+    ALL_MODULES.forEach((module) => {
+      if (isModuleEnabled(licenses, module.licenseKey)) set.add(module.id);
     });
     return set;
   }, [licenses]);
 
   // Module order with DnD
-  const [moduleOrder, setModuleOrder] = useState<string[]>(() => {
-    const stored = getStoredOrder();
-    if (stored) return stored;
-    return ALL_MODULES.map((m) => m.id);
-  });
+  const [moduleOrder, setModuleOrder] = useState<string[]>(() => getStoredOrder(moduleOrderStorageKey, defaultModuleOrder, MODULE_ORDER_KEY));
+  const [coreOrder, setCoreOrder] = useState<string[]>(() => getStoredOrder(coreOrderStorageKey, defaultCoreOrder));
+  const [submenuOrders, setSubmenuOrders] = useState<Record<string, string[]>>(() => getStoredSubmenuOrder(submenuOrderStorageKey, defaultSubmenuOrder));
+
+  useEffect(() => {
+    setModuleOrder(getStoredOrder(moduleOrderStorageKey, defaultModuleOrder, MODULE_ORDER_KEY));
+    setCoreOrder(getStoredOrder(coreOrderStorageKey, defaultCoreOrder));
+    setSubmenuOrders(getStoredSubmenuOrder(submenuOrderStorageKey, defaultSubmenuOrder));
+  }, [coreOrderStorageKey, defaultCoreOrder, defaultModuleOrder, defaultSubmenuOrder, moduleOrderStorageKey, submenuOrderStorageKey]);
+
+  const orderedCoreItems = useMemo(() => {
+    const itemMap = new Map(coreMenuItems.map((item) => [item.url, item]));
+    return coreOrder.map((id) => itemMap.get(id)).filter((item): item is (typeof coreMenuItems)[number] => Boolean(item));
+  }, [coreOrder]);
 
   const orderedModules = useMemo(() => {
     const moduleMap = new Map(ALL_MODULES.map((m) => [m.id, m]));
@@ -243,13 +345,13 @@ export function AppSidebar() {
     // First add items in stored order
     for (const id of moduleOrder) {
       const mod = moduleMap.get(id);
-      if (mod && activeModuleIds.has(mod.licenseKey)) {
+      if (mod && activeModuleIds.has(mod.id)) {
         ordered.push(mod);
       }
     }
     // Then add any new modules not in stored order
     for (const mod of ALL_MODULES) {
-      if (activeModuleIds.has(mod.licenseKey) && !moduleOrder.includes(mod.id)) {
+      if (activeModuleIds.has(mod.id) && !moduleOrder.includes(mod.id)) {
         ordered.push(mod);
       }
     }
@@ -266,18 +368,53 @@ export function AppSidebar() {
     if (over && active.id !== over.id) {
       const oldIndex = orderedModules.findIndex((m) => m.id === active.id);
       const newIndex = orderedModules.findIndex((m) => m.id === over.id);
-      const newOrder = arrayMove(orderedModules.map((m) => m.id), oldIndex, newIndex);
+      const visibleOrder = arrayMove(orderedModules.map((m) => m.id), oldIndex, newIndex);
+      const newOrder = mergeVisibleOrder(moduleOrder, visibleOrder);
       setModuleOrder(newOrder);
-      setStoredOrder(newOrder);
+      setStoredOrder(moduleOrderStorageKey, newOrder);
     }
+  };
+
+  const handleCoreDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = coreOrder.indexOf(String(active.id));
+    const newIndex = coreOrder.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    const next = arrayMove(coreOrder, oldIndex, newIndex);
+    setCoreOrder(next);
+    setStoredOrder(coreOrderStorageKey, next);
+  };
+
+  const handleSubmenuDragEnd = (moduleId: string, visibleOrder: string[], event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = visibleOrder.indexOf(String(active.id));
+    const newIndex = visibleOrder.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    setSubmenuOrders((current) => {
+      const next = { ...current, [moduleId]: arrayMove(visibleOrder, oldIndex, newIndex) };
+      try { localStorage.setItem(submenuOrderStorageKey, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const resetMenuOrder = () => {
+    setCoreOrder(defaultCoreOrder);
+    setModuleOrder(defaultModuleOrder);
+    setSubmenuOrders(defaultSubmenuOrder);
+    setStoredOrder(coreOrderStorageKey, defaultCoreOrder);
+    setStoredOrder(moduleOrderStorageKey, defaultModuleOrder);
+    try { localStorage.setItem(submenuOrderStorageKey, JSON.stringify(defaultSubmenuOrder)); } catch {}
   };
 
   const isAdmin = profile?.role === "admin";
   // 센서 관제 콘솔(외부) URL — 환경변수로 오버라이드 가능
-  const SENSOR_CONSOLE_URL = (import.meta as any).env?.VITE_SENSOR_CONSOLE_URL || "https://console.woojoocha.com";
+  const SENSOR_CONSOLE_URL = runtimeConfig.sensorConsoleUrl;
   // Sensor Monitoring 메뉴 노출 허용 계정(내 계정만). 이메일은 소문자 비교.
   const SENSOR_CONSOLE_EMAILS = ["cmh@woojoocha.com"];
-  const canSeeConsole = SENSOR_CONSOLE_EMAILS.includes(((user?.email || profile?.email || "").toLowerCase()));
+  const canSeeConsole = Boolean(SENSOR_CONSOLE_URL)
+    && SENSOR_CONSOLE_EMAILS.includes(((user?.email || profile?.email || "").toLowerCase()));
 
   // 외부 링크 메뉴(새 탭) — 관리자 전용 Sensor Monitoring 콘솔용
   const renderExternal = (item: { title: string; href: string; icon: any }) => (
@@ -287,7 +424,7 @@ export function AppSidebar() {
           <Tooltip>
             <TooltipTrigger asChild>
               <a href={item.href} target="_blank" rel="noopener noreferrer"
-                className="flex items-center text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150">
+                className="flex items-center border-l-[3px] border-l-transparent text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150">
                 <item.icon className="h-[18px] w-[18px] shrink-0" />
               </a>
             </TooltipTrigger>
@@ -295,8 +432,8 @@ export function AppSidebar() {
           </Tooltip>
         ) : (
           <a href={item.href} target="_blank" rel="noopener noreferrer"
-            className="flex items-center text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-3 px-3">
-            <item.icon className="mr-2.5 h-[20px] w-[20px] shrink-0" />
+            className="flex items-center gap-2.5 border-l-[3px] border-l-transparent text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-3 px-3">
+            <item.icon className="h-[20px] w-[20px] shrink-0" />
             <span className="text-[17px]">{item.title}</span>
             <ExternalLink className="ml-auto h-3.5 w-3.5 opacity-50 shrink-0" />
           </a>
@@ -312,8 +449,8 @@ export function AppSidebar() {
           <Tooltip>
             <TooltipTrigger asChild>
               <NavLink to={item.url} end={item.end}
-                className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150"
-                activeClassName="bg-primary/20 text-primary-foreground border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.15)]">
+                className="border-l-[3px] border-l-transparent text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150"
+                activeClassName="bg-white/[0.14] !text-white border-l-white shadow-sm">
                 <item.icon className="h-[18px] w-[18px] shrink-0" />
               </NavLink>
             </TooltipTrigger>
@@ -321,9 +458,9 @@ export function AppSidebar() {
           </Tooltip>
         ) : (
           <NavLink to={item.url} end={item.end}
-            className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-3 px-3"
-            activeClassName="bg-primary/20 !text-[hsl(var(--sidebar-primary))] border-l-[3px] border-l-primary shadow-[0_0_12px_rgba(30,86,224,0.15)] font-semibold">
-            <item.icon className="mr-2.5 h-[20px] w-[20px] shrink-0" />
+            className="gap-2.5 border-l-[3px] border-l-transparent text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg transition-all duration-150 py-3 px-3"
+            activeClassName="bg-white/[0.14] !text-white border-l-white shadow-sm font-semibold">
+            <item.icon className="h-[20px] w-[20px] shrink-0" />
             <span className="text-[17px]">{item.title}</span>
           </NavLink>
         )}
@@ -336,32 +473,40 @@ export function AppSidebar() {
     if (collapsed) return renderLink({ title: mod.label, url: mod.subMenu[0].url, icon: mod.icon });
     const Icon = mod.icon;
     const isOpen = openStates[mod.id] ?? true;
+    const subMenuMap = new Map(mod.subMenu.map((item) => [item.url, item]));
+    const orderedSubMenu = (submenuOrders[mod.id] || mod.subMenu.map((item) => item.url)).map((id) => subMenuMap.get(id)).filter((item): item is NonNullable<typeof item> => Boolean(item));
     return (
       <Collapsible open={isOpen} onOpenChange={() => toggleOpen(mod.id)}>
         <SidebarMenuItem>
           <CollapsibleTrigger asChild>
-            <SidebarMenuButton className="text-sidebar-foreground hover:bg-white/[0.08] hover:text-white rounded-lg w-full justify-between py-3 px-3 transition-all duration-150">
-              <div className="flex items-center">
-                <Icon className="mr-2.5 h-[20px] w-[20px] shrink-0" />
+            <SidebarMenuButton className="w-full justify-between rounded-lg border-l-[3px] border-l-transparent px-3 py-3 text-sidebar-foreground transition-all duration-150 hover:bg-white/[0.08] hover:text-white">
+              <div className="flex items-center gap-2.5">
+                <Icon className="h-[20px] w-[20px] shrink-0" />
                 <span className="text-[17px]">{mod.label}</span>
               </div>
               <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
             </SidebarMenuButton>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <SidebarMenu className="ml-[18px] border-l border-white/[0.08] pl-3 mt-1 space-y-0.5">
-              {mod.subMenu.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end={item.end}
-                     className="text-sidebar-foreground hover:text-white hover:bg-white/[0.06] rounded-lg py-2.5 px-2.5 transition-all duration-150"
-                      activeClassName="!text-[hsl(var(--sidebar-primary))] bg-primary/10 border-l-2 border-l-primary font-semibold">
-                      <span className="text-[16px]">{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event) => handleSubmenuDragEnd(mod.id, orderedSubMenu.map((item) => item.url), event)}>
+              <SortableContext items={orderedSubMenu.map((item) => item.url)} strategy={verticalListSortingStrategy}>
+                <SidebarMenu className="ml-[18px] border-l border-white/[0.08] pl-3 mt-1 space-y-0.5">
+                  {orderedSubMenu.map((item) => (
+                    <SortableSubmenuItem key={item.url} id={item.url} label={item.title} editing={editingMenuOrder}>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild>
+                          <NavLink to={item.url} end={item.end}
+                            className="text-sidebar-foreground hover:text-white hover:bg-white/[0.06] rounded-lg py-2.5 px-2.5 pr-8 transition-all duration-150"
+                            activeClassName="!text-white bg-white/[0.12] border-l-2 border-l-white/90 font-semibold">
+                            <span className="text-[16px]">{item.title}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SortableSubmenuItem>
+                  ))}
+                </SidebarMenu>
+              </SortableContext>
+            </DndContext>
           </CollapsibleContent>
         </SidebarMenuItem>
       </Collapsible>
@@ -392,7 +537,9 @@ export function AppSidebar() {
       <SidebarContent ref={scrollRef} onScroll={handleScroll} className="px-2 pt-3">
         <SidebarGroup>
           <SidebarGroupLabel className="text-[15px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground px-3 mb-1.5">메인</SidebarGroupLabel>
-          <SidebarGroupContent><SidebarMenu className="space-y-0.5">{coreMenuItems.map(renderLink)}</SidebarMenu></SidebarGroupContent>
+          <SidebarGroupContent>
+            {collapsed ? <SidebarMenu className="space-y-0.5">{orderedCoreItems.map(renderLink)}</SidebarMenu> : <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCoreDragEnd}><SortableContext items={orderedCoreItems.map((item) => item.url)} strategy={verticalListSortingStrategy}><SidebarMenu className="space-y-0.5">{orderedCoreItems.map((item) => <SortableModuleItem key={item.url} id={item.url} label={item.title} editing={editingMenuOrder}>{renderLink(item)}</SortableModuleItem>)}</SidebarMenu></SortableContext></DndContext>}
+          </SidebarGroupContent>
         </SidebarGroup>
 
         {orderedModules.length > 0 && (
@@ -412,7 +559,7 @@ export function AppSidebar() {
                   <SortableContext items={orderedModules.map((m) => m.id)} strategy={verticalListSortingStrategy}>
                     <SidebarMenu className="space-y-0.5">
                       {orderedModules.map((mod) => (
-                        <SortableModuleItem key={mod.id} id={mod.id}>
+                        <SortableModuleItem key={mod.id} id={mod.id} label={mod.label} editing={editingMenuOrder}>
                           {mod.type === "simple"
                             ? renderLink({ title: mod.label, url: mod.url!, icon: mod.icon })
                             : renderCollapsible(mod)}
@@ -426,18 +573,44 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {canSeeConsole && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-[15px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground px-3 mb-1.5">센서 관제</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu className="space-y-0.5">{renderExternal({ title: "Sensor Monitoring", href: SENSOR_CONSOLE_URL, icon: Monitor })}</SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[15px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground px-3 mb-1.5">기타</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-0.5">
+              {renderLink(contactMenuItem)}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  type="button"
+                  tooltip={editingMenuOrder ? "순서 변경 완료" : "메뉴 순서 변경"}
+                  aria-pressed={editingMenuOrder}
+                  onClick={() => setEditingMenuOrder((value) => !value)}
+                  className={`gap-2.5 rounded-lg border-l-[3px] border-l-transparent px-3 py-3 text-sidebar-foreground transition-all duration-150 hover:bg-white/[0.08] hover:text-white ${editingMenuOrder ? "bg-white/[0.14] !text-white font-semibold" : ""}`}
+                >
+                  {editingMenuOrder ? <Check className="h-[20px] w-[20px] shrink-0" /> : <GripVertical className="h-[20px] w-[20px] shrink-0" />}
+                  {!collapsed && <span className="text-[17px]">{editingMenuOrder ? "순서 변경 완료" : "메뉴 순서 변경"}</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {editingMenuOrder && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    type="button"
+                    tooltip="기본 순서 복원"
+                    onClick={resetMenuOrder}
+                    className="gap-2.5 rounded-lg border-l-[3px] border-l-transparent px-3 py-3 text-sidebar-foreground transition-all duration-150 hover:bg-white/[0.08] hover:text-white"
+                  >
+                    <RotateCcw className="h-[20px] w-[20px] shrink-0" />
+                    {!collapsed && <span className="text-[17px]">기본 순서 복원</span>}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {canSeeConsole && renderExternal({ title: "Sensor Monitoring", href: SENSOR_CONSOLE_URL, icon: Monitor })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
         {isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[15px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground px-3 mb-1.5">시스템</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[15px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground px-3 mb-1.5">시스템 설정</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="space-y-0.5">{renderLink({ title: "시스템 설정", url: "/settings", icon: Settings })}</SidebarMenu>
             </SidebarGroupContent>

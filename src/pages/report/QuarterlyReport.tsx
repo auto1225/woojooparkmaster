@@ -15,8 +15,10 @@ export default function QuarterlyReport() {
   const [yearStr, qStr] = quarterParam.split('-Q');
   const year = Number(yearStr);
   const quarter = Number(qStr);
-  const qStart = new Date(year, (quarter - 1) * 3, 1).toISOString().split('T')[0];
-  const qEnd = new Date(year, quarter * 3, 0).toISOString().split('T')[0];
+  const startMonth = (quarter - 1) * 3 + 1;
+  const endMonth = quarter * 3;
+  const qStart = `${year}-${String(startMonth).padStart(2, '0')}-01`;
+  const qEnd = `${year}-${String(endMonth).padStart(2, '0')}-${String(new Date(year, endMonth, 0).getDate()).padStart(2, '0')}`;
 
   const { data: lots = [] } = useQuery({
     queryKey: ['qr-lots'],
@@ -26,7 +28,7 @@ export default function QuarterlyReport() {
   const { data: revenue = [] } = useQuery({
     queryKey: ['qr-rev', qStart, qEnd],
     queryFn: async () => {
-      const { data } = await supabase.from('revenue_daily').select('lot_id, total_amount, revenue_date').gte('revenue_date', qStart).lte('revenue_date', qEnd);
+      const { data } = await supabase.from('revenue_daily').select('lot_id, total_amount, revenue_date').gte('revenue_date', qStart).lte('revenue_date', qEnd).eq('verified', true);
       return data || [];
     },
   });

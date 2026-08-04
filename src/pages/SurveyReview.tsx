@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/api/supabase-compat";
 import { useAuth } from "@/hooks/useAuth";
-import { logActivity } from "@/lib/activity-logger";
 import { toast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,10 +14,11 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { SURVEY_STATUS_LABELS, SURVEY_STATUS_COLORS, SURVEY_TYPE_LABELS, PHOTO_CATEGORIES } from "@/types/survey";
+import { SURVEY_STATUS_LABELS, SURVEY_STATUS_COLORS, SURVEY_TYPE_LABELS, getSurveyPhotoCategories } from "@/types/survey";
 import type { SurveyStatus } from "@/types/survey";
-import { ArrowLeft, CheckCircle, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, Clock, Printer } from "lucide-react";
 import { useState } from "react";
+import { decideSurvey } from "@/lib/workflow-commands";
 
 function SummaryRow({ label, value }: { label: string; value?: any }) {
   const display = typeof value === "boolean" ? (value ? "예" : "아니오") : (value ?? "-");
@@ -33,7 +34,7 @@ export default function SurveyReviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [syncToLot, setSyncToLot] = useState(true);
@@ -65,36 +66,7 @@ export default function SurveyReviewPage() {
   const handleApprove = async () => {
     setActing(true);
     try {
-      await supabase.from("surveys").update({
-        status: "approved" as any,
-        approved_at: new Date().toISOString(),
-        approver_id: user!.id,
-      }).eq("id", id!);
-
-      // Sync to parking_lots if checked
-      if (syncToLot && data?.basic && lot?.id) {
-        await supabase.from("parking_lots").update({
-          total_spaces: data.basic.total_spaces,
-          disabled_spaces: data.basic.disabled_spaces,
-          ev_spaces: data.basic.ev_spaces,
-          compact_spaces: data.basic.compact_spaces,
-          pregnant_spaces: data.basic.pregnant_spaces,
-          lot_type: data.basic.lot_type as any,
-        }).eq("id", lot.id);
-      }
-
-      // Notify surveyor
-      if (survey?.surveyor_id) {
-        await supabase.from("notifications").insert({
-          user_id: survey.surveyor_id,
-          module: "survey",
-          title: "조사가 승인되었습니다",
-          message: `${lot?.name} 현황조사가 승인되었습니다.`,
-          link: `/surveys/${id}`,
-        });
-      }
-
-      await logActivity({ module: "survey", action: "approve", targetType: "survey", targetId: id!, targetName: lot?.name });
+      await decideSurvey(id!, "approved", { syncToLot, expectedUpdatedAt: survey?.updated_at });
       toast({ title: "승인되었습니다" });
       queryClient.invalidateQueries({ queryKey: ["surveys"] });
       navigate("/surveys");
@@ -109,22 +81,7 @@ export default function SurveyReviewPage() {
     if (!rejectReason.trim()) return;
     setActing(true);
     try {
-      await supabase.from("surveys").update({
-        status: "rejected" as any,
-        reject_reason: rejectReason,
-      }).eq("id", id!);
-
-      if (survey?.surveyor_id) {
-        await supabase.from("notifications").insert({
-          user_id: survey.surveyor_id,
-          module: "survey",
-          title: "조사가 반려되었습니다",
-          message: `${lot?.name} 현황조사가 반려되었습니다: ${rejectReason}`,
-          link: `/surveys/${id}`,
-        });
-      }
-
-      await logActivity({ module: "survey", action: "reject", targetType: "survey", targetId: id!, targetName: lot?.name });
+      await decideSurvey(id!, "rejected", { reason: rejectReason, expectedUpdatedAt: survey?.updated_at });
       toast({ title: "반려 처리되었습니다" });
       queryClient.invalidateQueries({ queryKey: ["surveys"] });
       navigate("/surveys");
@@ -139,11 +96,7 @@ export default function SurveyReviewPage() {
   const handleMarkReview = async () => {
     setActing(true);
     try {
-      await supabase.from("surveys").update({
-        status: "review" as any,
-        reviewer_id: user!.id,
-        reviewed_at: new Date().toISOString(),
-      }).eq("id", id!);
+      await decideSurvey(id!, "review", { expectedUpdatedAt: survey?.updated_at });
       toast({ title: "검토중으로 변경됨" });
       queryClient.invalidateQueries({ queryKey: ["survey-review", id] });
     } finally {
@@ -162,7 +115,7 @@ export default function SurveyReviewPage() {
         </Button>
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-xl font-bold">{lot?.name}</h2>
@@ -175,7 +128,12 @@ export default function SurveyReviewPage() {
               조사자: {surveyor?.name || "-"} | 조사일: {survey.survey_date || "-"} | 유형: {SURVEY_TYPE_LABELS[survey.survey_type] || survey.survey_type}
             </p>
           </div>
+          <Button variant="outline" onClick={() => navigate(`/surveys/${survey.id}/print`)}>
+            <Printer className="mr-1 h-4 w-4" /> 조사표 인쇄
+          </Button>
         </div>
+
+        <DocumentLinksPanel module="SURVEY" recordId={survey.id} recordPath={`/surveys/${survey.id}/review`} recordTitle={`${lot?.name || "주차장"} 현황조사`} />
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -201,7 +159,7 @@ export default function SurveyReviewPage() {
 
         <Card><CardHeader className="pb-2"><CardTitle className="text-xs">사진대장</CardTitle></CardHeader><CardContent>
           <div className="flex flex-wrap gap-1">
-            {PHOTO_CATEGORIES.map(c => {
+            {getSurveyPhotoCategories(data?.basic?.lot_type).map(c => {
               const count = data?.photos.filter((p: any) => p.category === c.code).length || 0;
               return <Badge key={c.code} variant={count > 0 ? "default" : "outline"} className="text-[10px]">{c.label} {count}</Badge>;
             })}

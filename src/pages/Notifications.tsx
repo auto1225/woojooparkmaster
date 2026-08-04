@@ -147,7 +147,7 @@ export default function Notifications() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user?.id]);
+  }, [queryClient, settings.browser_notification, user]);
 
   const handleNotifClick = (notif: any) => {
     if (!notif.is_read) markReadMutation.mutate(notif.id);

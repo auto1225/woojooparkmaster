@@ -1,17 +1,23 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatFacilityCurrency, formatFacilityDate, formatFacilityNumber } from "@/lib/facility-format";
 import type { SurfaceMarking } from "@/types/facility";
 import { CONDITION_COLORS, CONDITION_LABELS, MARKING_TYPE_LABELS } from "@/types/facility";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
+import { Archive, Pencil } from "lucide-react";
+import { FacilityPhotoGallery } from "@/components/facility/FacilityPhotoGallery";
 
 interface SurfaceMarkingDetailSheetProps {
   marking: SurfaceMarking | null;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  onEdit?: (marking: SurfaceMarking) => void;
+  onRetire?: (marking: SurfaceMarking) => void;
 }
 
-export function SurfaceMarkingDetailSheet({ marking, onOpenChange, open }: SurfaceMarkingDetailSheetProps) {
+export function SurfaceMarkingDetailSheet({ marking, onOpenChange, open, onEdit, onRetire }: SurfaceMarkingDetailSheetProps) {
   const isMobile = useIsMobile();
 
   if (!marking) return null;
@@ -29,6 +35,10 @@ export function SurfaceMarkingDetailSheet({ marking, onOpenChange, open }: Surfa
           </div>
           <SheetTitle className="pt-3 text-xl">{marking.marking_name}</SheetTitle>
           <SheetDescription>{marking.parking_lots?.name || "주차장 정보 없음"}</SheetDescription>
+          {(onEdit || onRetire) && <div className="flex gap-2 pt-3">
+            {onEdit && <Button variant="outline" size="sm" onClick={() => onEdit(marking)}><Pencil className="mr-1.5 h-4 w-4" />수정</Button>}
+            {onRetire && marking.condition !== "missing" && <Button variant="outline" size="sm" onClick={() => onRetire(marking)}><Archive className="mr-1.5 h-4 w-4" />철거 처리</Button>}
+          </div>}
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
@@ -59,6 +69,13 @@ export function SurfaceMarkingDetailSheet({ marking, onOpenChange, open }: Surfa
               <DetailBlock label="비고" value={marking.notes || "-"} />
             </div>
           </section>
+          <FacilityPhotoGallery refType="surface_marking" refId={marking.id} title="노면표시 현장 사진" />
+          <DocumentLinksPanel
+            module="FACILITY_MARKING"
+            recordId={marking.id}
+            recordPath={`/facility/markings?marking=${marking.id}`}
+            recordTitle={marking.marking_name}
+          />
         </div>
       </SheetContent>
     </Sheet>

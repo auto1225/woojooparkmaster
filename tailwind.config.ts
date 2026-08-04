@@ -12,9 +12,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ['Plus Jakarta Sans', 'Pretendard Variable', 'sans-serif'],
-        sans: ['Pretendard Variable', 'Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        display: ['Nanum Gothic', 'system-ui', 'sans-serif'],
+        sans: ['Nanum Gothic', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Consolas', 'monospace'],
       },
       fontSize: {
         'display': ['60px', { lineHeight: '1.1', letterSpacing: '-0.025em', fontWeight: '700' }],

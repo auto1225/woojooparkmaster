@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
+import { runtimeConfig } from "@/config/runtime-config";
 
 declare global {
   interface Window {
     naver: any;
+    __parkmasterNaverMapsReady?: () => void;
   }
 }
 
@@ -33,6 +35,8 @@ interface NaverMapProps {
 type SdkStatus = "idle" | "loading" | "ready" | "error";
 
 const NAVER_SCRIPT_SELECTOR = 'script[data-naver-maps-sdk="true"]';
+let naverSdkPromise: Promise<void> | null = null;
+let naverSdkClientId: string | null = null;
 
 const MARKER_COLORS: Record<string, string> = {
   blue: "hsl(211,65%,45%)",
@@ -42,20 +46,113 @@ const MARKER_COLORS: Record<string, string> = {
   gray: "hsl(220,10%,60%)",
 };
 
+function escapeHtml(value: string): string {
+  const entities: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return value.replace(/[&<>"']/g, (character) => entities[character]);
+}
+
 function getNaverSdkScript() {
   return document.querySelector<HTMLScriptElement>(NAVER_SCRIPT_SELECTOR);
 }
 
-function resetNaverSdk() {
-  document.querySelectorAll<HTMLScriptElement>(NAVER_SCRIPT_SELECTOR).forEach((script) => script.remove());
-  window.naver = undefined;
+function hasCompleteNaverMapsSdk(): boolean {
+  const maps = window.naver?.maps;
+  return Boolean(
+    maps &&
+    typeof maps.Map === "function" &&
+    typeof maps.LatLng === "function" &&
+    typeof maps.Marker === "function" &&
+    typeof maps.Point === "function" &&
+    maps.Event &&
+    typeof maps.Event.addListener === "function" &&
+    maps.Position,
+  );
+}
+
+function loadNaverMapsSdk(clientId: string): Promise<void> {
+  if (hasCompleteNaverMapsSdk()) return Promise.resolve();
+  if (naverSdkPromise && naverSdkClientId === clientId) return naverSdkPromise;
+
+  const staleScript = getNaverSdkScript();
+  if (staleScript && (staleScript.dataset.clientId !== clientId || staleScript.dataset.loaded === "true")) {
+    staleScript.remove();
+  }
+
+  naverSdkClientId = clientId;
+  naverSdkPromise = new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let script = getNaverSdkScript();
+
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      script?.removeEventListener("load", handleLoad);
+      script?.removeEventListener("error", handleError);
+      delete window.__parkmasterNaverMapsReady;
+    };
+
+    const succeed = () => {
+      if (settled || !hasCompleteNaverMapsSdk()) return;
+      settled = true;
+      if (script) script.dataset.loaded = "true";
+      cleanup();
+      resolve();
+    };
+
+    const fail = (message: string) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      script?.remove();
+      naverSdkPromise = null;
+      reject(new Error(message));
+    };
+
+    const handleLoad = () => {
+      if (hasCompleteNaverMapsSdk()) succeed();
+    };
+
+    const handleError = () => {
+      fail("네이버 지도 SDK 요청에 실패했습니다.");
+    };
+
+    window.__parkmasterNaverMapsReady = succeed;
+    const timeoutId = window.setTimeout(() => {
+      fail("네이버 지도 인증 시간이 초과되었습니다.");
+    }, 10000);
+
+    if (!script) {
+      script = document.createElement("script");
+      const params = new URLSearchParams({
+        ncpKeyId: clientId,
+        submodules: "geocoder",
+        callback: "__parkmasterNaverMapsReady",
+      });
+      script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?${params.toString()}`;
+      script.async = true;
+      script.defer = true;
+      script.dataset.naverMapsSdk = "true";
+      script.dataset.clientId = clientId;
+      document.head.appendChild(script);
+    }
+
+    script.addEventListener("load", handleLoad);
+    script.addEventListener("error", handleError);
+  });
+
+  return naverSdkPromise;
 }
 
 function createMarkerSVG(color: string, label?: string, size: "small" | "normal" | "large" = "normal"): string {
   const sizes = { small: { w: 24, h: 30, r: 8 }, normal: { w: 32, h: 40, r: 11 }, large: { w: 40, h: 50, r: 14 } };
   const s = sizes[size];
   const labelText = label
-    ? `<text x="${s.w / 2}" y="${s.r + 4}" text-anchor="middle" font-size="${size === "small" ? 8 : 10}" fill="white" font-weight="bold">${label}</text>`
+    ? `<text x="${s.w / 2}" y="${s.r + 4}" text-anchor="middle" font-size="${size === "small" ? 8 : 10}" fill="white" font-weight="bold">${escapeHtml(label)}</text>`
     : "";
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${s.w}" height="${s.h}" viewBox="0 0 ${s.w} ${s.h}">
@@ -81,20 +178,21 @@ export function NaverMap({
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const infoWindowRef = useRef<any>(null);
-  const clusterRef = useRef<any>(null);
+  const mapClickRef = useRef(onClick);
+  mapClickRef.current = onClick;
   const { data: config } = useSystemConfig();
   const [sdkStatus, setSdkStatus] = useState<SdkStatus>("idle");
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const sdkLoaded = sdkStatus === "ready";
-  const clientId = config?.naver_map_client_id?.trim() || import.meta.env.VITE_NAVER_MAP_CLIENT_ID?.trim();
+  const clientId = config?.naver_map_client_id?.trim() || runtimeConfig.naverMapClientId;
   const isConfigLoading = !config;
 
-  const defaultCenter = {
-    lat: parseFloat(config?.map_center_lat || "35.1796"),
-    lng: parseFloat(config?.map_center_lng || "129.0756"),
-  };
+  const defaultCenterLat = parseFloat(config?.map_center_lat || "35.1796");
+  const defaultCenterLng = parseFloat(config?.map_center_lng || "129.0756");
   const defaultZoom = parseInt(config?.map_default_zoom || config?.map_zoom || "13", 10);
+  const centerLat = center?.lat;
+  const centerLng = center?.lng;
 
   // Load SDK
   useEffect(() => {
@@ -104,92 +202,36 @@ export function NaverMap({
       return;
     }
 
-    const existingScript = getNaverSdkScript();
-    const existingClientId = existingScript?.dataset.clientId;
-
-    if (window.naver?.maps && existingClientId === clientId) {
-      setSdkStatus("ready");
-      setLoadError(null);
-      return;
-    }
-
-    if (existingClientId && existingClientId !== clientId) {
-      resetNaverSdk();
-    } else if (window.naver?.maps && existingClientId !== clientId) {
-      resetNaverSdk();
-    }
-
+    let active = true;
     setSdkStatus("loading");
     setLoadError(null);
 
-    let disposed = false;
-
-    const handleError = () => {
-      if (disposed) return;
-      setSdkStatus("error");
-      setLoadError("지도를 불러오지 못했습니다. Client ID와 허용 도메인 설정을 확인해주세요.");
-    };
-
-    const handleLoad = () => {
-      if (disposed) return;
-      if (!window.naver?.maps) {
-        handleError();
-        return;
-      }
-      setSdkStatus("ready");
-      setLoadError(null);
-    };
-
-    const timeoutId = window.setTimeout(() => {
-      if (!window.naver?.maps) handleError();
-    }, 10000);
-
-    const activeScript = getNaverSdkScript();
-    if (activeScript && activeScript.dataset.clientId === clientId) {
-      if (activeScript.dataset.loaded === "true") {
-        handleLoad();
-      } else {
-        activeScript.addEventListener("load", handleLoad);
-        activeScript.addEventListener("error", handleError);
-      }
-
-      return () => {
-        disposed = true;
-        window.clearTimeout(timeoutId);
-        activeScript.removeEventListener("load", handleLoad);
-        activeScript.removeEventListener("error", handleError);
-      };
-    }
-
-    const script = document.createElement("script");
-    const handleScriptLoad = () => {
-      script.dataset.loaded = "true";
-      handleLoad();
-    };
-
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(clientId)}&submodules=geocoder`;
-    script.async = true;
-    script.defer = true;
-    script.dataset.naverMapsSdk = "true";
-    script.dataset.clientId = clientId;
-    script.addEventListener("load", handleScriptLoad);
-    script.addEventListener("error", handleError);
-    document.head.appendChild(script);
+    void loadNaverMapsSdk(clientId)
+      .then(() => {
+        if (!active) return;
+        setSdkStatus("ready");
+        setLoadError(null);
+      })
+      .catch((error: Error) => {
+        if (!active) return;
+        setSdkStatus("error");
+        setLoadError(`${error.message} NCP Maps의 Dynamic Map과 웹 서비스 URL을 확인해주세요.`);
+      });
 
     return () => {
-      disposed = true;
-      window.clearTimeout(timeoutId);
-      script.removeEventListener("load", handleScriptLoad);
-      script.removeEventListener("error", handleError);
+      active = false;
     };
   }, [clientId]);
 
   // Init map
   useEffect(() => {
-    if (!sdkLoaded || !containerRef.current || !window.naver?.maps) return;
+    if (!sdkLoaded || !containerRef.current || !hasCompleteNaverMapsSdk()) return;
 
     try {
-      const c = center || defaultCenter;
+      const c = {
+        lat: centerLat ?? defaultCenterLat,
+        lng: centerLng ?? defaultCenterLng,
+      };
       const map = new window.naver.maps.Map(containerRef.current, {
         center: new window.naver.maps.LatLng(c.lat, c.lng),
         zoom: zoom ?? defaultZoom,
@@ -201,18 +243,15 @@ export function NaverMap({
 
       mapRef.current = map;
 
-      if (onClick) {
+      if (mapClickRef.current) {
         window.naver.maps.Event.addListener(map, "click", (e: any) => {
-          onClick(e.coord.lat(), e.coord.lng());
+          mapClickRef.current?.(e.coord.lat(), e.coord.lng());
         });
       }
 
       return () => {
         try {
-          markersRef.current.forEach((m) => { try { m.setMap(null); } catch {} });
-          markersRef.current = [];
           if (infoWindowRef.current) { try { infoWindowRef.current.close(); } catch {} }
-          if (clusterRef.current) { try { clusterRef.current.setMap(null); } catch {} }
         } catch {}
         mapRef.current = null;
       };
@@ -220,50 +259,65 @@ export function NaverMap({
       setSdkStatus("error");
       setLoadError("지도 초기화에 실패했습니다. 설정을 다시 확인해주세요.");
     }
-  }, [sdkLoaded]);
+  }, [centerLat, centerLng, defaultCenterLat, defaultCenterLng, defaultZoom, sdkLoaded, zoom]);
 
   // Markers
   useEffect(() => {
-    if (!mapRef.current || !sdkLoaded) return;
+    if (!mapRef.current || !sdkLoaded || !hasCompleteNaverMapsSdk()) return;
 
     markersRef.current.forEach((m) => { try { m.setMap(null); } catch {} });
     markersRef.current = [];
 
-    const naverMarkers = markers.map((m) => {
-      const colorHex = MARKER_COLORS[m.color || "blue"];
-      const sizes = { small: [24, 30], normal: [32, 40], large: [40, 50] };
-      const [w, h] = sizes[m.size || "normal"];
+    let naverMarkers: any[] = [];
+    try {
+      naverMarkers = markers.map((m) => {
+        const colorHex = MARKER_COLORS[m.color || "blue"];
+        const sizes = { small: [24, 30], normal: [32, 40], large: [40, 50] };
+        const [w, h] = sizes[m.size || "normal"];
 
-      const markerHtml = `
-        <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
-          <img src="${createMarkerSVG(colorHex, m.label, m.size || "normal")}" width="${w}" height="${h}" />
-          <div style="margin-top:2px;padding:1px 6px;background:rgba(255,255,255,0.92);border:1px solid rgba(0,0,0,0.15);border-radius:4px;white-space:nowrap;font-size:11px;font-weight:600;color:#222;box-shadow:0 1px 3px rgba(0,0,0,0.12);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${m.name}</div>
-        </div>
-      `;
+        const markerHtml = `
+          <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+            <img src="${createMarkerSVG(colorHex, m.label, m.size || "normal")}" width="${w}" height="${h}" />
+            <div style="margin-top:2px;padding:1px 6px;background:rgba(255,255,255,0.92);border:1px solid rgba(0,0,0,0.15);border-radius:4px;white-space:nowrap;font-size:11px;font-weight:600;color:#222;box-shadow:0 1px 3px rgba(0,0,0,0.12);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(m.name)}</div>
+          </div>
+        `;
 
-      const marker = new window.naver.maps.Marker({
-        position: new window.naver.maps.LatLng(m.lat, m.lng),
-        map: mapRef.current,
-        title: m.name,
-        icon: {
-          content: markerHtml,
-          anchor: new window.naver.maps.Point(w / 2, h),
-        },
+        const marker = new window.naver.maps.Marker({
+          position: new window.naver.maps.LatLng(m.lat, m.lng),
+          map: mapRef.current,
+          title: m.name,
+          icon: {
+            content: markerHtml,
+            anchor: new window.naver.maps.Point(w / 2, h),
+          },
+        });
+
+        if (m.onClick) {
+          window.naver.maps.Event.addListener(marker, "click", () => m.onClick?.(m.id));
+        }
+
+        return marker;
       });
-
-      if (m.onClick) {
-        window.naver.maps.Event.addListener(marker, "click", () => m.onClick?.(m.id));
-      }
-
-      return marker;
-    });
+    } catch {
+      naverMarkers.forEach((marker) => { try { marker.setMap(null); } catch {} });
+      setSdkStatus("error");
+      setLoadError("네이버 지도 객체를 만들지 못했습니다. Dynamic Map 사용 권한과 허용 URL을 확인해주세요.");
+      return;
+    }
 
     markersRef.current = naverMarkers;
+
+    return () => {
+      naverMarkers.forEach((marker) => {
+        try { marker.setMap(null); } catch {}
+      });
+      if (markersRef.current === naverMarkers) markersRef.current = [];
+    };
   }, [markers, sdkLoaded]);
 
   // InfoWindow
   useEffect(() => {
-    if (!mapRef.current || !sdkLoaded) return;
+    if (!mapRef.current || !sdkLoaded || !hasCompleteNaverMapsSdk()) return;
     if (infoWindowRef.current) {
       infoWindowRef.current.close();
       infoWindowRef.current = null;
@@ -273,10 +327,12 @@ export function NaverMap({
     const marker = markers.find((m) => m.id === infoWindow.id);
     if (!marker) return;
 
+    if (typeof window.naver.maps.InfoWindow !== "function") return;
+
     const iw = new window.naver.maps.InfoWindow({
       content: typeof infoWindow.content === "string"
-        ? `<div style="background:white;border-radius:8px;padding:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);min-width:180px;font-size:12px;">${infoWindow.content}</div>`
-        : `<div style="background:white;border-radius:8px;padding:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);min-width:180px;font-size:12px;">${marker.name}</div>`,
+        ? `<div style="background:white;border-radius:8px;padding:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);min-width:180px;font-size:12px;">${escapeHtml(infoWindow.content)}</div>`
+        : `<div style="background:white;border-radius:8px;padding:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);min-width:180px;font-size:12px;">${escapeHtml(marker.name)}</div>`,
       borderWidth: 0,
       backgroundColor: "transparent",
       disableAnchor: true,
@@ -288,9 +344,14 @@ export function NaverMap({
 
   // Pan to center
   useEffect(() => {
-    if (!mapRef.current || !center || !sdkLoaded) return;
-    mapRef.current.panTo(new window.naver.maps.LatLng(center.lat, center.lng));
-  }, [center?.lat, center?.lng, sdkLoaded]);
+    if (!mapRef.current || centerLat === undefined || centerLng === undefined || !sdkLoaded || !hasCompleteNaverMapsSdk()) return;
+    try {
+      mapRef.current.panTo(new window.naver.maps.LatLng(centerLat, centerLng));
+    } catch {
+      setSdkStatus("error");
+      setLoadError("지도 위치를 갱신하지 못했습니다. 네이버 지도 설정을 확인해주세요.");
+    }
+  }, [centerLat, centerLng, sdkLoaded]);
 
   if (!clientId) {
     return (

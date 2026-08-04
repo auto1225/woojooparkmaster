@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MapPin, HardHat, FileSearch, Car } from "lucide-react";
@@ -11,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { NaverMap, type MapMarker } from "@/components/common/NaverMap";
 import {
   SITE_STATUS_LABELS, SITE_STATUS_COLORS, PHASE_LABELS, PHASE_ORDER,
-  CONSTRUCTION_STATUS_COLORS, PROJECT_TYPE_LABELS, getSiteGrade, getSiteGradeColor, formatBudgetWon,
+  CONSTRUCTION_STATUS_COLORS, PROJECT_TYPE_LABELS, getSiteGrade, getSiteGradeColor, formatBudgetWon, normalizeSiteScore,
 } from "@/types/planning";
 
 export default function PlanningDashboard() {
@@ -55,7 +56,7 @@ export default function PlanningDashboard() {
 
   const loading = sitesLoading || projLoading;
   const sitesByStatus = (status: string) => (sites || []).filter(s => s.status === status).length;
-  const inProgressProjects = (projects || []).filter(p => p.status === "in_progress");
+  const inProgressProjects = (projects || []).filter(p => ["in_progress", "active"].includes(p.status));
   const estimatedSpaces = (sites || []).filter(s => ["selected", "construction"].includes(s.status))
     .reduce((sum, s) => sum + (s.estimated_spaces || 0), 0)
     + inProgressProjects.reduce((sum, p) => sum + 0, 0);
@@ -77,7 +78,7 @@ export default function PlanningDashboard() {
       lng: Number(s.longitude),
       name: s.name,
       color: STATUS_MARKER_COLORS[s.status] || "gray",
-      label: s.total_score ? Number(s.total_score).toFixed(0) : undefined,
+      label: s.total_score ? normalizeSiteScore(Number(s.total_score)).toFixed(0) : undefined,
       onClick: () => navigate("/planning/sites"),
     }));
 
@@ -91,9 +92,10 @@ export default function PlanningDashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">신설기획 현황</h1>
-          <p className="text-sm text-muted-foreground mt-1">후보부지 평가 및 공사 진행 현황</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><h1 className="text-2xl font-bold tracking-tight">신설기획 현황</h1>
+          <p className="text-sm text-muted-foreground mt-1">후보부지 평가 및 공사 진행 현황</p></div>
+          <Button onClick={() => navigate("/planning/decisions")}><FileSearch className="mr-1.5 h-4 w-4" />사업 의사결정</Button>
         </div>
 
         {/* KPI Cards */}
@@ -164,7 +166,7 @@ export default function PlanningDashboard() {
                         <TableCell className="text-right">{s.estimated_spaces || '-'}</TableCell>
                         <TableCell className="text-right">
                           <Badge className={getSiteGradeColor(Number(s.total_score))} variant="outline">
-                            {s.total_score ? Number(s.total_score).toFixed(0) : '-'}
+                            {s.total_score ? normalizeSiteScore(Number(s.total_score)).toFixed(0) : '-'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right text-xs">{s.bc_ratio ? Number(s.bc_ratio).toFixed(2) : '-'}</TableCell>

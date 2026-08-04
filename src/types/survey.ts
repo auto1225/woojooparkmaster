@@ -33,6 +33,8 @@ export interface Survey {
   reviewed_at?: string | null;
   approved_at?: string | null;
   reject_reason?: string | null;
+  invalidated_at?: string | null;
+  invalidation_reason?: string | null;
   notes?: string | null;
   created_at: string;
   updated_at: string;
@@ -62,6 +64,20 @@ export interface SurveyBasicInfo {
   surface_type_etc?: string | null;
   gps_lat?: number | null;
   gps_lng?: number | null;
+  site_area_sqm?: number | null;
+  drainage_condition?: string | null;
+  pedestrian_route_condition?: string | null;
+  road_segment?: string | null;
+  road_side?: string | null;
+  traffic_direction?: string | null;
+  space_start_no?: number | null;
+  space_end_no?: number | null;
+  sign_condition?: string | null;
+  fire_safety_condition?: string | null;
+  ventilation_condition?: string | null;
+  elevator_condition?: string | null;
+  ramp_condition?: string | null;
+  height_limit_m?: number | null;
 }
 
 export interface SurveyOperation {
@@ -159,3 +175,23 @@ export const PHOTO_CATEGORIES = [
   { code: 'kiosk', label: '무인정산기' },
   { code: 'cctv', label: 'CCTV' },
 ] as const;
+
+export const LOT_TYPE_PHOTO_CATEGORIES: Record<string, readonly { code: string; label: string }[]> = {
+  multilevel: [
+    { code: 'ramp', label: '램프·높이제한' },
+    { code: 'fire_safety', label: '소방설비' },
+    { code: 'ventilation', label: '환기설비' },
+  ],
+  onstreet: [
+    { code: 'street_segment', label: '노상 구간 전경' },
+    { code: 'road_sign', label: '표지·노면표시' },
+  ],
+  offstreet: [
+    { code: 'drainage', label: '배수시설' },
+    { code: 'pedestrian_route', label: '보행동선' },
+  ],
+};
+
+export function getSurveyPhotoCategories(lotType?: string | null) {
+  return [...PHOTO_CATEGORIES, ...(lotType ? LOT_TYPE_PHOTO_CATEGORIES[lotType] || [] : [])];
+}

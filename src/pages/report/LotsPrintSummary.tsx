@@ -8,33 +8,55 @@ import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
 import { createExcelWorkbook } from "@/lib/excel-engine";
+import { getParkingLotTypeLabel } from "@/lib/parking-lot-type-labels";
+import { OPERATOR_LABELS, type OperatorType } from "@/types/database";
+
+function getOperatorLabel(value?: string | null) {
+  return value && value in OPERATOR_LABELS ? OPERATOR_LABELS[value as OperatorType] : "미확인/기타";
+}
+
+function getQueryErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) return String(error.message);
+  return String(error);
+}
 
 export default function LotsPrintSummary() {
   const { data: config } = useSystemConfig();
   const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const { data: lots = [] } = useQuery({
+  const lotsQuery = useQuery({
     queryKey: ['lots-print'],
     queryFn: async () => {
-      const { data } = await supabase.from('parking_lots').select('*').order('code');
+      const { data, error } = await supabase.from('parking_lots').select('*').order('code');
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: equipment = [] } = useQuery({
+  const equipmentQuery = useQuery({
     queryKey: ['equip-print'],
     queryFn: async () => {
-      const { data } = await supabase.from('equipment').select('lot_id, equipment_type');
+      const { data, error } = await supabase.from('equipment').select('lot_id, equipment_type');
+      if (error) throw error;
       return data || [];
     },
   });
+
+  const lots = lotsQuery.data || [];
+  const equipment = equipmentQuery.data || [];
+  const queryErrors = [
+    ['주차장', lotsQuery.error],
+    ['장비', equipmentQuery.error],
+  ].flatMap(([label, error]) => error ? [{ label, message: getQueryErrorMessage(error) }] : []);
 
   const getEquipCount = (lotId: string, type: string) => equipment.filter(e => e.lot_id === lotId && e.equipment_type === type).length;
   const totalSpaces = lots.reduce((s: number, l: any) => s + (l.total_spaces || 0), 0);
   const totalDisabled = lots.reduce((s: number, l: any) => s + (l.disabled_spaces || 0), 0);
   const totalEv = lots.reduce((s: number, l: any) => s + (l.ev_spaces || 0), 0);
-  const directCount = lots.filter((l: any) => l.operation_type === '직영').length;
-  const outsourcedCount = lots.filter((l: any) => l.operation_type === '위탁').length;
+  const directCount = lots.filter((l: any) => l.operator_type === 'direct').length;
+  const outsourcedCount = lots.filter((l: any) => l.operator_type === 'outsourced').length;
+  const otherCount = lots.filter((l: any) => !['direct', 'outsourced'].includes(l.operator_type)).length;
 
   const handleExcel = () => {
     createExcelWorkbook({
@@ -59,9 +81,9 @@ export default function LotsPrintSummary() {
           { key: 'kiosk', label: '정산기' },
         ],
         data: lots.map((l: any, i: number) => ({
-          no: i + 1, code: l.code, name: l.name, type: l.lot_type || '-',
+          no: i + 1, code: l.code, name: l.name, type: getParkingLotTypeLabel(l.lot_type),
           spaces: l.total_spaces || 0, disabled: l.disabled_spaces || 0, ev: l.ev_spaces || 0,
-          operation: l.operation_type || '-',
+          operation: getOperatorLabel(l.operator_type),
           barrier: getEquipCount(l.id, '차단기') > 0 ? '○' : '×',
           lpr: getEquipCount(l.id, 'LPR') > 0 ? '○' : '×',
           cctv: getEquipCount(l.id, 'CCTV') > 0 ? '○' : '×',
@@ -80,12 +102,21 @@ export default function LotsPrintSummary() {
         <div className="flex items-center justify-between print:hidden">
           <h1 className="text-xl font-bold">주차장 현황표</h1>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={handleExcel}>
+            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={handleExcel} disabled={queryErrors.length > 0}>
               <FileSpreadsheet className="h-3.5 w-3.5" /> 엑셀
             </Button>
             <PrintButton />
           </div>
         </div>
+
+        {queryErrors.length > 0 && (
+          <div className="rounded border border-destructive/50 bg-destructive/5 p-4 print:hidden" role="alert">
+            <p className="text-sm font-semibold text-destructive">현황표 데이터를 불러오지 못했습니다.</p>
+            <ul className="mt-2 space-y-1 text-xs text-destructive">
+              {queryErrors.map(({ label, message }) => <li key={label}>{label}: {message}</li>)}
+            </ul>
+          </div>
+        )}
 
         <div className="print:block">
           <div className="text-center mb-4">
@@ -118,16 +149,16 @@ export default function LotsPrintSummary() {
                     <td className="border border-border p-1 text-center">{i + 1}</td>
                     <td className="border border-border p-1 text-center font-mono">{l.code}</td>
                     <td className="border border-border p-1">{l.name}</td>
-                    <td className="border border-border p-1 text-center">{l.lot_type || '-'}</td>
+                    <td className="border border-border p-1 text-center">{getParkingLotTypeLabel(l.lot_type)}</td>
                     <td className="border border-border p-1 text-right">{l.total_spaces || 0}</td>
                     <td className="border border-border p-1 text-right">{l.disabled_spaces || 0}</td>
                     <td className="border border-border p-1 text-right">{l.ev_spaces || 0}</td>
-                    <td className="border border-border p-1 text-center">{l.operation_type || '-'}</td>
+                    <td className="border border-border p-1 text-center">{getOperatorLabel(l.operator_type)}</td>
                     <td className="border border-border p-1 text-center">{getEquipCount(l.id, '차단기') > 0 ? '○' : '×'}</td>
                     <td className="border border-border p-1 text-center">{getEquipCount(l.id, 'LPR') > 0 ? '○' : '×'}</td>
                     <td className="border border-border p-1 text-center">{getEquipCount(l.id, 'CCTV') > 0 ? '○' : '×'}</td>
                     <td className="border border-border p-1 text-center">{getEquipCount(l.id, '무인정산기') > 0 ? '○' : '×'}</td>
-                    <td className="border border-border p-1">{l.operation_type === '위탁' ? l.contractor_name || '' : ''}</td>
+                    <td className="border border-border p-1">{l.operator_type === 'outsourced' ? l.operator_name || '' : ''}</td>
                   </tr>
                 ))}
               </tbody>
@@ -137,7 +168,7 @@ export default function LotsPrintSummary() {
                   <td className="border border-border p-1.5 text-right">{totalSpaces}</td>
                   <td className="border border-border p-1.5 text-right">{totalDisabled}</td>
                   <td className="border border-border p-1.5 text-right">{totalEv}</td>
-                  <td colSpan={6} className="border border-border p-1.5">직영:{directCount} / 위탁:{outsourcedCount}</td>
+                  <td colSpan={6} className="border border-border p-1.5">직영:{directCount} / 위탁:{outsourcedCount} / 기타·미확인:{otherCount}</td>
                 </tr>
               </tfoot>
             </table>

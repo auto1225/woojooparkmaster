@@ -68,6 +68,9 @@ export interface SiteCandidate {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  client_mutation_id?: string;
+  row_version?: number;
+  archived_at?: string;
 }
 
 export interface ConstructionProject {
@@ -115,6 +118,10 @@ export interface ConstructionProject {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  client_mutation_id?: string;
+  row_version?: number;
+  lot_type_snapshot?: string;
+  archived_at?: string;
   site?: SiteCandidate;
   parking_lot?: { code: string; name: string };
 }
@@ -143,6 +150,9 @@ export interface DesignDocument {
   tags?: any;
   uploaded_by?: string;
   created_at: string;
+  row_version?: number;
+  archived_at?: string;
+  archived_reason?: string;
 }
 
 export interface Permit {
@@ -173,15 +183,22 @@ export interface Permit {
   assigned_to?: string;
   created_at: string;
   updated_at: string;
+  official_document_number?: string;
+  client_mutation_id?: string;
+  row_version?: number;
+  archived_at?: string;
 }
 
 // 한글 매핑
 export const SITE_STATUS_LABELS: Record<string, string> = {
   candidate: '후보', evaluating: '평가중', selected: '선정',
+  pending: '후보', evaluation: '평가중',
   rejected: '탈락', construction: '공사중', completed: '완료',
 };
 export const SITE_STATUS_COLORS: Record<string, string> = {
   candidate: 'bg-muted text-muted-foreground',
+  pending: 'bg-muted text-muted-foreground',
+  evaluation: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   evaluating: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   selected: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
   rejected: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
@@ -190,6 +207,7 @@ export const SITE_STATUS_COLORS: Record<string, string> = {
 };
 export const OWNERSHIP_LABELS: Record<string, string> = {
   municipal: '시유지', national: '국유지', private: '사유지', mixed: '혼합',
+  public: '공공소유',
 };
 export const PROJECT_TYPE_LABELS: Record<string, string> = {
   new_construction: '신설', expansion: '확장', renovation: '리모델링',
@@ -197,6 +215,7 @@ export const PROJECT_TYPE_LABELS: Record<string, string> = {
 };
 export const PHASE_LABELS: Record<string, string> = {
   planning: '기획', basic_design: '기본설계', detail_design: '실시설계',
+  design: '설계',
   permitting: '인허가', bidding: '입찰', construction: '시공',
   inspection: '준공검수', completion: '준공',
 };
@@ -205,19 +224,20 @@ export const PHASE_ORDER = [
   'bidding', 'construction', 'inspection', 'completion',
 ];
 export const CONSTRUCTION_STATUS_LABELS: Record<string, string> = {
-  planning: '기획중', in_progress: '진행중', suspended: '중단',
+  planning: '기획중', in_progress: '진행중', active: '진행중', suspended: '중단',
   completed: '완료', cancelled: '취소',
 };
 export const CONSTRUCTION_STATUS_COLORS: Record<string, string> = {
   planning: 'bg-muted text-muted-foreground',
   in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  active: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   suspended: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
   cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
 };
 export const PERMIT_STATUS_LABELS: Record<string, string> = {
   not_started: '미착수', preparing: '준비중', submitted: '제출',
-  reviewing: '심사중', approved: '승인', conditional_approved: '조건부승인',
+  reviewing: '심사중', in_review: '심사중', approved: '승인', conditional_approved: '조건부승인',
   rejected: '반려', expired: '만료', resubmitting: '재제출',
 };
 export const PERMIT_STATUS_COLORS: Record<string, string> = {
@@ -236,6 +256,7 @@ export const REVIEW_STATUS_LABELS: Record<string, string> = {
   approved: '승인', revision_required: '수정요청', final: '최종',
 };
 export const DOC_TYPE_LABELS: Record<string, string> = {
+  basic_design: '기본설계도', detailed_design: '실시설계도', structural_calc: '구조계산서',
   master_plan: '종합배치도', floor_plan: '층별 평면도', elevation: '입면도',
   section: '단면도', detail: '상세도', structural: '구조도',
   electrical: '전기도', mechanical: '기계설비도', landscape: '조경도',
@@ -254,19 +275,37 @@ export const ACQUISITION_LABELS: Record<string, string> = {
   donation: '기부채납', expropriation: '수용',
 };
 
+export const PERMIT_TYPE_LABELS: Record<string, string> = {
+  building_permit: '건축허가',
+  traffic_impact: '교통영향평가',
+  environment: '환경영향평가',
+  fire_safety: '소방동의',
+};
+
+export function getPermitTypeLabel(value: string): string {
+  return PERMIT_TYPE_LABELS[value] || value;
+}
+
+export function normalizeSiteScore(score?: number | null): number {
+  const value = Number(score || 0);
+  return value > 100 ? value / 5 : value;
+}
+
 export function getSiteGrade(score?: number | null): string {
-  if (!score) return 'D(미흡)';
-  if (score >= 80) return 'A(우수)';
-  if (score >= 60) return 'B(양호)';
-  if (score >= 40) return 'C(보통)';
+  const normalized = normalizeSiteScore(score);
+  if (!normalized) return 'D(미흡)';
+  if (normalized >= 80) return 'A(우수)';
+  if (normalized >= 60) return 'B(양호)';
+  if (normalized >= 40) return 'C(보통)';
   return 'D(미흡)';
 }
 
 export function getSiteGradeColor(score?: number | null): string {
-  if (!score) return 'bg-muted text-muted-foreground';
-  if (score >= 80) return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-  if (score >= 60) return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-  if (score >= 40) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+  const normalized = normalizeSiteScore(score);
+  if (!normalized) return 'bg-muted text-muted-foreground';
+  if (normalized >= 80) return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+  if (normalized >= 60) return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+  if (normalized >= 40) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
   return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
 }
 

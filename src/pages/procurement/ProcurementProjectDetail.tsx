@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { supabase } from "@/integrations/api/supabase-compat";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { getParkingLotTypeLabel } from "@/lib/parking-lot-type-labels";
 import { logActivity } from "@/lib/activity-logger";
 import {
   BID_TYPE_LABELS, BID_TYPE_COLORS, CONTRACT_TYPE_LABELS, BID_STATUS_LABELS, BID_STATUS_COLORS,
@@ -26,6 +28,7 @@ import { ArrowLeft, Plus, Check, X, Upload } from "lucide-react";
 export default function ProcurementProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { profile } = useAuth();
   const isAdmin = profile && ['admin', 'manager'].includes(profile.role);
   const [addSubmissionOpen, setAddSubmissionOpen] = useState(false);
@@ -34,7 +37,7 @@ export default function ProcurementProjectDetail() {
   const { data: project, refetch: refetchProject } = useQuery({
     queryKey: ['bid-project', id],
     queryFn: async () => {
-      const { data } = await supabase.from('bid_projects').select('*, parking_lots(code, name)').eq('id', id!).single();
+      const { data } = await supabase.from('bid_projects').select('*, parking_lots(code, name, lot_type)').eq('id', id!).single();
       return data;
     },
   });
@@ -74,62 +77,41 @@ export default function ProcurementProjectDetail() {
 
   // Submission form
   const [subForm, setSubForm] = useState({
-    company_name: '', business_number: '', representative: '', contact_person: '', contact_phone: '',
+    company_name: '', business_number: '', representative: '', contact_person: '', contact_phone: '', contact_email: '',
     bid_amount: 0, submitted_at: new Date().toISOString().slice(0, 16),
   });
 
   const handleAddSubmission = async () => {
-    if (!subForm.company_name) { toast.error('업체명을 입력해주세요'); return; }
-    const count = (submissions?.length || 0) + 1;
-    const subNumber = `BS-${project?.bid_number?.split('-').slice(1).join('-')}-${String(count).padStart(2, '0')}`;
-    const { error } = await supabase.from('bid_submissions').insert({
-      bid_project_id: id!, submission_number: subNumber, company_name: subForm.company_name,
-      business_number: subForm.business_number || null, representative: subForm.representative || null,
-      contact_person: subForm.contact_person || null, contact_phone: subForm.contact_phone || null,
-      bid_amount: subForm.bid_amount || null, submitted_at: subForm.submitted_at ? new Date(subForm.submitted_at).toISOString() : null,
+    if (!subForm.company_name || !subForm.business_number || !subForm.contact_person || !subForm.contact_phone || !subForm.bid_amount) { toast.error('업체명, 사업자번호, 담당자, 연락처, 투찰금액을 입력해주세요'); return; }
+    const { error } = await (supabase as any).rpc('add_bid_submission', {
+      p_project_id: id!, p_company_name: subForm.company_name, p_business_number: subForm.business_number,
+      p_representative: subForm.representative || null, p_contact_person: subForm.contact_person,
+      p_contact_phone: subForm.contact_phone, p_contact_email: subForm.contact_email || null,
+      p_bid_amount: subForm.bid_amount, p_submitted_at: subForm.submitted_at ? new Date(subForm.submitted_at).toISOString() : null,
+      p_client_mutation_id: crypto.randomUUID(),
     });
     if (error) { toast.error(error.message); return; }
     toast.success('업체 등록 완료');
     await logActivity({ module: 'PROCUREMENT', action: '입찰업체 등록', targetType: 'bid_submissions', targetName: subForm.company_name });
     setAddSubmissionOpen(false);
-    setSubForm({ company_name: '', business_number: '', representative: '', contact_person: '', contact_phone: '', bid_amount: 0, submitted_at: new Date().toISOString().slice(0, 16) });
+    setSubForm({ company_name: '', business_number: '', representative: '', contact_person: '', contact_phone: '', contact_email: '', bid_amount: 0, submitted_at: new Date().toISOString().slice(0, 16) });
     refetchSubs();
   };
 
   // Evaluation
   const handleSaveEvaluation = async (submissionId: string, scores: { price: number; technical: number; business: number }) => {
-    const total = scores.price + scores.technical + scores.business;
-    const existing = evaluations?.find(e => e.submission_id === submissionId);
-    if (existing) {
-      await supabase.from('bid_evaluations').update({
-        price_score: scores.price, technical_score: scores.technical, business_score: scores.business,
-        total_score: total,
-      }).eq('id', existing.id);
-    } else {
-      await supabase.from('bid_evaluations').insert({
-        bid_project_id: id!, submission_id: submissionId,
-        price_score: scores.price, technical_score: scores.technical, business_score: scores.business,
-        total_score: total, evaluator_id: profile?.id, evaluator_name: profile?.name,
-        evaluation_date: new Date().toISOString().split('T')[0],
-      });
-    }
-    // Update ranks
-    const { data: allEvals } = await supabase.from('bid_evaluations').select('id, total_score')
-      .eq('bid_project_id', id!).order('total_score', { ascending: false });
-    if (allEvals) {
-      for (let i = 0; i < allEvals.length; i++) {
-        await supabase.from('bid_evaluations').update({ rank: i + 1 }).eq('id', allEvals[i].id);
-      }
-    }
+    const { error } = await (supabase as any).rpc('save_bid_evaluation', {
+      p_project_id: id!, p_submission_id: submissionId, p_price_score: scores.price,
+      p_technical_score: scores.technical, p_business_score: scores.business, p_is_qualified: true, p_comments: null,
+    });
+    if (error) { toast.error(error.message); return; }
     toast.success('평가 저장');
     refetchEvals();
   };
 
   // Status change
   const handleStatusChange = async (newStatus: string) => {
-    const payload: any = { status: newStatus };
-    if (newStatus === 'announced') payload.announce_date = new Date().toISOString().split('T')[0];
-    const { error } = await supabase.from('bid_projects').update(payload).eq('id', id!);
+    const { error } = await (supabase as any).rpc('transition_bid_project', { p_project_id: id!, p_target_status: newStatus, p_reason: null });
     if (error) { toast.error(error.message); return; }
     toast.success(`상태 변경: ${BID_STATUS_LABELS[newStatus]}`);
     await logActivity({ module: 'PROCUREMENT', action: `상태변경→${BID_STATUS_LABELS[newStatus]}`, targetType: 'bid_projects', targetName: project?.title });
@@ -138,33 +120,27 @@ export default function ProcurementProjectDetail() {
 
   // Contract form
   const [ctForm, setCtForm] = useState({
-    contractor_name: '', contract_amount: 0, vat_amount: 0, total_amount: 0,
+    document_number: '', contractor_name: '', business_number: '', representative: '', contact_person: '', phone: '', email: '', address: '', contract_amount: 0, vat_amount: 0, total_amount: 0,
     contract_date: '', contract_start: '', contract_end: '', warranty_months: 12,
     penalty_rate: 0.25, submission_id: '',
   });
 
   const handleCreateContract = async () => {
-    if (!ctForm.contractor_name || !ctForm.contract_date) { toast.error('필수 항목을 입력해주세요'); return; }
-    const { data: existing } = await supabase.from('bid_contracts').select('contract_number').order('contract_number', { ascending: false }).limit(1);
-    const year = new Date().getFullYear();
-    const lastNum = existing?.[0]?.contract_number ? parseInt(existing[0].contract_number.split('-')[2] || '0') : 0;
-    const contractNumber = `CT-${year}-${String(lastNum + 1).padStart(3, '0')}`;
-    const warrantyEnd = ctForm.contract_end && ctForm.warranty_months
-      ? (() => { const d = new Date(ctForm.contract_end); d.setMonth(d.getMonth() + ctForm.warranty_months); return d.toISOString().split('T')[0]; })()
-      : null;
-
-    const { error } = await supabase.from('bid_contracts').insert({
-      bid_project_id: id!, submission_id: ctForm.submission_id || submissions?.[0]?.id,
-      contract_number: contractNumber, contractor_name: ctForm.contractor_name,
-      contract_amount: ctForm.contract_amount, vat_amount: ctForm.vat_amount,
-      total_amount: ctForm.total_amount || ctForm.contract_amount + ctForm.vat_amount,
-      contract_date: ctForm.contract_date, contract_start: ctForm.contract_start, contract_end: ctForm.contract_end,
-      warranty_months: ctForm.warranty_months, warranty_end: warrantyEnd,
-      penalty_rate: ctForm.penalty_rate, created_by: profile?.id,
+    if (!ctForm.document_number || !ctForm.contractor_name || !ctForm.business_number || !ctForm.contact_person || !ctForm.phone || !ctForm.contract_date || !ctForm.contract_start || !ctForm.contract_end) { toast.error('문서번호와 계약·업체·담당자 필수 항목을 입력해주세요'); return; }
+    const { data, error } = await (supabase as any).rpc('create_bid_contract', {
+      p_project_id: id!, p_submission_id: ctForm.submission_id || submissions?.[0]?.id,
+      p_document_number: ctForm.document_number, p_contractor_name: ctForm.contractor_name,
+      p_business_number: ctForm.business_number, p_representative: ctForm.representative || null,
+      p_contact_person: ctForm.contact_person, p_phone: ctForm.phone, p_email: ctForm.email || null, p_address: ctForm.address || null,
+      p_contract_amount: ctForm.contract_amount, p_vat_amount: ctForm.vat_amount,
+      p_total_amount: ctForm.total_amount || ctForm.contract_amount + ctForm.vat_amount,
+      p_contract_date: ctForm.contract_date, p_contract_start: ctForm.contract_start, p_contract_end: ctForm.contract_end,
+      p_warranty_months: ctForm.warranty_months, p_penalty_rate: ctForm.penalty_rate, p_client_mutation_id: crypto.randomUUID(),
     });
     if (error) { toast.error(error.message); return; }
     toast.success('계약 체결 완료');
-    await logActivity({ module: 'PROCUREMENT', action: '계약체결', targetType: 'bid_contracts', targetName: contractNumber });
+    const created = Array.isArray(data) ? data[0] : data;
+    await logActivity({ module: 'PROCUREMENT', action: '계약체결', targetType: 'bid_contracts', targetId: created?.id, targetName: created?.contract_number });
     setAddContractOpen(false);
     refetchProject();
   };
@@ -172,8 +148,10 @@ export default function ProcurementProjectDetail() {
   if (!project) return <DashboardLayout><div className="p-8 text-center">로딩중...</div></DashboardLayout>;
 
   const statusActions: Record<string, { label: string; next: string }> = {
-    draft: { label: '공고', next: 'announced' },
-    announced: { label: '입찰 마감', next: 'closed' },
+    draft: { label: '검토 요청', next: 'review' },
+    rejected: { label: '보완 후 재요청', next: 'review' },
+    announced: { label: '입찰 시작', next: 'bidding' },
+    bidding: { label: '입찰 마감', next: 'closed' },
     closed: { label: '평가 시작', next: 'evaluation' },
     evaluation: { label: '낙찰 처리', next: 'awarded' },
   };
@@ -213,7 +191,9 @@ export default function ProcurementProjectDetail() {
                 if (top) {
                   const sub = submissions?.find(s => s.id === top.submission_id);
                   setCtForm(f => ({
-                    ...f, contractor_name: sub?.company_name || '', submission_id: top.submission_id,
+                    ...f, contractor_name: sub?.company_name || '', business_number: sub?.business_number || '',
+                    representative: sub?.representative || '', contact_person: sub?.contact_person || '',
+                    phone: sub?.contact_phone || '', email: sub?.contact_email || '', submission_id: top.submission_id,
                     contract_amount: sub?.bid_amount || 0, vat_amount: Math.round((sub?.bid_amount || 0) * 0.1),
                     total_amount: Math.round((sub?.bid_amount || 0) * 1.1),
                   }));
@@ -224,7 +204,12 @@ export default function ProcurementProjectDetail() {
           </div>
         </div>
 
-        <Tabs defaultValue="info">
+        <DocumentLinksPanel module="PROCUREMENT" recordId={project.id} recordPath={`/procurement/projects/${project.id}`} recordTitle={project.title} />
+
+        <Tabs
+          value={["info", "submissions", "evaluation", "contract", "documents"].includes(searchParams.get("tab") || "") ? searchParams.get("tab")! : "info"}
+          onValueChange={(tab) => setSearchParams(tab === "info" ? {} : { tab }, { replace: true })}
+        >
           <TabsList>
             <TabsTrigger value="info">사업 정보</TabsTrigger>
             <TabsTrigger value="submissions">참여 업체 ({submissions?.length || 0})</TabsTrigger>
@@ -239,11 +224,12 @@ export default function ProcurementProjectDetail() {
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-sm">기본 정보</CardTitle></CardHeader>
                 <CardContent className="text-sm space-y-1">
+                  <div className="flex justify-between py-1 border-b gap-3"><span className="text-muted-foreground">근거 문서번호</span><span className="font-mono text-right">{(project as any).document_number || '-'}</span></div>
                   <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">입찰방식</span><span>{BID_TYPE_LABELS[project.bid_type]}</span></div>
                   <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">계약유형</span><span>{CONTRACT_TYPE_LABELS[project.contract_type]}</span></div>
                   <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">분류</span><span>{project.category || '-'}</span></div>
                   <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">평가방법</span><span>{EVAL_METHOD_LABELS[project.evaluation_method || ''] || '-'}</span></div>
-                  <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">관련주차장</span><span>{(project.parking_lots as any)?.name || '-'}</span></div>
+                  <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">관련주차장</span><span>{(project.parking_lots as any)?.name || '-'} · {getParkingLotTypeLabel((project.parking_lots as any)?.lot_type)}</span></div>
                   <div className="flex justify-between py-1"><span className="text-muted-foreground">나라장터</span><span>{project.nara_ref || '-'}</span></div>
                 </CardContent>
               </Card>
@@ -255,7 +241,7 @@ export default function ProcurementProjectDetail() {
                   <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">공고일</span><span>{project.announce_date || '-'}</span></div>
                   <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">마감일</span><span>{project.bid_deadline?.split('T')[0] || '-'}</span></div>
                   <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">개찰일</span><span>{project.bid_open_date || '-'}</span></div>
-                  <div className="flex justify-between py-1"><span className="text-muted-foreground">수행기간</span><span>{project.work_period_days ? `${project.work_period_days}일` : '-'}</span></div>
+                  <div className="flex justify-between py-1"><span className="text-muted-foreground">수행기간</span><span>{project.work_start_date && project.work_end_date ? `${project.work_start_date} ~ ${project.work_end_date}` : project.work_period_days ? `${project.work_period_days}일` : '-'}</span></div>
                 </CardContent>
               </Card>
               {project.description && (
@@ -271,7 +257,7 @@ export default function ProcurementProjectDetail() {
           <TabsContent value="submissions">
             <div className="space-y-4">
               <div className="flex justify-end">
-                <Button size="sm" onClick={() => setAddSubmissionOpen(true)}><Plus className="h-3.5 w-3.5 mr-1" />업체 등록</Button>
+                {['announced', 'bidding', 'closed', 'evaluation'].includes(project.status) && <Button size="sm" onClick={() => setAddSubmissionOpen(true)}><Plus className="h-3.5 w-3.5 mr-1" />업체 등록</Button>}
               </div>
               <Card>
                 <CardContent className="p-0">
@@ -430,13 +416,14 @@ export default function ProcurementProjectDetail() {
             <div className="space-y-3">
               <div><Label>업체명 *</Label><Input value={subForm.company_name} onChange={e => setSubForm(f => ({ ...f, company_name: e.target.value }))} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>사업자번호</Label><Input value={subForm.business_number} onChange={e => setSubForm(f => ({ ...f, business_number: e.target.value }))} /></div>
+                <div><Label>사업자번호 *</Label><Input value={subForm.business_number} onChange={e => setSubForm(f => ({ ...f, business_number: e.target.value }))} /></div>
                 <div><Label>대표자</Label><Input value={subForm.representative} onChange={e => setSubForm(f => ({ ...f, representative: e.target.value }))} /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>담당자</Label><Input value={subForm.contact_person} onChange={e => setSubForm(f => ({ ...f, contact_person: e.target.value }))} /></div>
-                <div><Label>연락처</Label><Input value={subForm.contact_phone} onChange={e => setSubForm(f => ({ ...f, contact_phone: e.target.value }))} /></div>
+                <div><Label>담당자 *</Label><Input value={subForm.contact_person} onChange={e => setSubForm(f => ({ ...f, contact_person: e.target.value }))} /></div>
+                <div><Label>연락처 *</Label><Input value={subForm.contact_phone} onChange={e => setSubForm(f => ({ ...f, contact_phone: e.target.value }))} /></div>
               </div>
+              <div><Label>이메일</Label><Input type="email" value={subForm.contact_email} onChange={e => setSubForm(f => ({ ...f, contact_email: e.target.value }))} /></div>
               <div>
                 <Label>투찰금액 (원)</Label>
                 <Input type="number" value={subForm.bid_amount} onChange={e => setSubForm(f => ({ ...f, bid_amount: Number(e.target.value) }))} />
@@ -458,7 +445,11 @@ export default function ProcurementProjectDetail() {
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader><DialogTitle>계약 체결</DialogTitle></DialogHeader>
             <div className="space-y-3">
+              <div><Label>계약 문서번호 *</Label><Input value={ctForm.document_number} onChange={e => setCtForm(f => ({ ...f, document_number: e.target.value }))} placeholder="제주시청-차량관리과-2026-0000" /></div>
               <div><Label>계약업체 *</Label><Input value={ctForm.contractor_name} onChange={e => setCtForm(f => ({ ...f, contractor_name: e.target.value }))} /></div>
+              <div className="grid grid-cols-2 gap-3"><div><Label>사업자번호 *</Label><Input value={ctForm.business_number} onChange={e => setCtForm(f => ({ ...f, business_number: e.target.value }))} /></div><div><Label>대표자</Label><Input value={ctForm.representative} onChange={e => setCtForm(f => ({ ...f, representative: e.target.value }))} /></div></div>
+              <div className="grid grid-cols-2 gap-3"><div><Label>업체 담당자 *</Label><Input value={ctForm.contact_person} onChange={e => setCtForm(f => ({ ...f, contact_person: e.target.value }))} /></div><div><Label>연락처 *</Label><Input value={ctForm.phone} onChange={e => setCtForm(f => ({ ...f, phone: e.target.value }))} /></div></div>
+              <div className="grid grid-cols-2 gap-3"><div><Label>이메일</Label><Input type="email" value={ctForm.email} onChange={e => setCtForm(f => ({ ...f, email: e.target.value }))} /></div><div><Label>주소</Label><Input value={ctForm.address} onChange={e => setCtForm(f => ({ ...f, address: e.target.value }))} /></div></div>
               <div className="grid grid-cols-3 gap-3">
                 <div><Label>계약금액</Label><Input type="number" value={ctForm.contract_amount} onChange={e => {
                   const amt = Number(e.target.value);

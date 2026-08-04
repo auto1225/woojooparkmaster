@@ -5,9 +5,11 @@ import { supabase } from "@/integrations/api/supabase-compat";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { INSPECTION_TYPE_LABELS, INSPECTION_STATUS_LABELS, RESULT_LABELS, RESULT_COLORS, formatServiceAmount } from "@/types/service";
+import { ArrowRight } from "lucide-react";
 
 export default function ServiceInspections() {
   const navigate = useNavigate();
@@ -69,12 +71,13 @@ export default function ServiceInspections() {
                     <TableHead className="text-right">대상금액</TableHead>
                     <TableHead>결과</TableHead>
                     <TableHead>상태</TableHead>
+                    <TableHead className="text-right">실행</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map(i => (
                     <TableRow key={i.id} className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate(`/service/projects/${i.project_id}`)}>
+                      onClick={() => navigate(`/service/projects/${i.project_id}?tab=inspections`)}>
                       <TableCell className="text-xs font-mono">{i.inspection_number}</TableCell>
                       <TableCell className="text-sm">{(i.service_projects as any)?.title}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px]">{INSPECTION_TYPE_LABELS[i.inspection_type] || i.inspection_type}</Badge></TableCell>
@@ -83,9 +86,10 @@ export default function ServiceInspections() {
                       <TableCell className="text-right text-sm">{formatServiceAmount(i.target_amount)}</TableCell>
                       <TableCell>{i.result ? <Badge variant="outline" className={`text-[10px] ${RESULT_COLORS[i.result] || ''}`}>{RESULT_LABELS[i.result] || i.result}</Badge> : "-"}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px]">{INSPECTION_STATUS_LABELS[i.status] || i.status}</Badge></TableCell>
+                      <TableCell className="text-right" onClick={(event) => event.stopPropagation()}><Button size="sm" variant="outline" onClick={() => navigate(`/service/projects/${i.project_id}?tab=inspections`)}>처리 <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></TableCell>
                     </TableRow>
                   ))}
-                  {filtered.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">검수 내역 없음</TableCell></TableRow>}
+                  {filtered.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">검수 내역 없음</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </CardContent></Card>

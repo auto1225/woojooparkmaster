@@ -11,12 +11,12 @@ const VALID_TRANSITIONS: Record<string, Record<string, string[]>> = {
   },
   complaint: {
     received: ['assigned'],
-    assigned: ['in_progress'],
+    assigned: ['in_progress', 'pending_external', 'responded'],
     in_progress: ['responded', 'pending_external'],
-    pending_external: ['in_progress'],
+    pending_external: ['in_progress', 'responded'],
     responded: ['closed', 'reopened'],
-    closed: [],
-    reopened: ['in_progress'],
+    closed: ['reopened'],
+    reopened: ['in_progress', 'pending_external', 'responded'],
   },
   bid_project: {
     draft: ['review'],

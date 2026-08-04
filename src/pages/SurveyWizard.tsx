@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/api/supabase-compat";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -8,10 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
-import { logActivity } from "@/lib/activity-logger";
 import { SURVEY_STATUS_LABELS, SURVEY_STATUS_COLORS } from "@/types/survey";
 import type { SurveyStatus, SurveyBasicInfo, SurveyOperation, SurveyInfra, SurveyUsage, SurveySensorPlan, SurveyPhoto } from "@/types/survey";
-import { ArrowLeft, Check, Save } from "lucide-react";
+import { ArrowLeft, Check } from "lucide-react";
 import { StepBasicInfo } from "@/components/survey/StepBasicInfo";
 import { StepOperation } from "@/components/survey/StepOperation";
 import { StepInfra } from "@/components/survey/StepInfra";
@@ -19,6 +18,9 @@ import { StepUsage } from "@/components/survey/StepUsage";
 import { StepSensorPlan } from "@/components/survey/StepSensorPlan";
 import { StepPhotos } from "@/components/survey/StepPhotos";
 import { StepReview } from "@/components/survey/StepReview";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
+import { submitSurvey } from "@/lib/workflow-commands";
+import { saveSurveyOffline } from "@/lib/offline-survey";
 
 const STEPS = [
   { label: "기본현황", key: "basic" },
@@ -33,14 +35,16 @@ const STEPS = [
 export default function SurveyWizardPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const [step, setStep] = useState(0);
+  const initialStep = Math.min(6, Math.max(0, Number(searchParams.get("step") || 0)));
+  const [step, setStep] = useState(initialStep);
   const [saving, setSaving] = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["survey-wizard", id],
     queryFn: async () => {
-      const [surveyRes, basicRes, opRes, infraRes, usageRes, sensorRes, photosRes] = await Promise.all([
+      const [surveyRes, basicRes, opRes, infraRes, usageRes, sensorRes, photosRes, documentLinksRes] = await Promise.all([
         supabase.from("surveys").select("*, parking_lots(code, name, address_jibun)").eq("id", id!).single(),
         supabase.from("survey_basic_info").select("*").eq("survey_id", id!).single(),
         supabase.from("survey_operation").select("*").eq("survey_id", id!).single(),
@@ -48,6 +52,7 @@ export default function SurveyWizardPage() {
         supabase.from("survey_usage").select("*").eq("survey_id", id!).single(),
         supabase.from("survey_sensor_plan").select("*").eq("survey_id", id!).single(),
         supabase.from("survey_photos").select("*").eq("survey_id", id!).order("category").order("sort_order"),
+        supabase.from("attachments").select("id").eq("module", "SURVEY").eq("ref_type", "official_document_link").eq("ref_id", id!),
       ]);
       return {
         survey: surveyRes.data,
@@ -57,6 +62,7 @@ export default function SurveyWizardPage() {
         usage: usageRes.data,
         sensor: sensorRes.data,
         photos: photosRes.data || [],
+        documentLinks: documentLinksRes.data || [],
       };
     },
     enabled: !!id,
@@ -71,21 +77,49 @@ export default function SurveyWizardPage() {
 
   const survey = data?.survey;
   const lot = survey?.parking_lots as any;
-  const isReadOnly = false;
+  const isReadOnly = ["submitted", "review", "approved"].includes(survey?.status || "");
 
   const saveStep = useCallback(async (stepData: any, tableName: string, recordId: string) => {
     setSaving(true);
+    const { created_at: _createdAt, updated_at: _updatedAt, ...payload } = stepData;
     try {
-      const { error } = await supabase.from(tableName as any).update(stepData).eq("id", recordId);
+      if (!navigator.onLine) {
+        await saveSurveyOffline(id!, tableName, recordId, payload, survey?.updated_at);
+        toast({ title: "오프라인 저장됨", description: "네트워크가 연결되면 자동으로 동기화합니다." });
+        return;
+      }
+      const { error } = await supabase.from(tableName as any).update(payload).eq("id", recordId);
       if (error) throw error;
+      await supabase.from("surveys").update({ updated_at: new Date().toISOString() }).eq("id", id!);
       toast({ title: "저장되었습니다" });
-      refetch();
+      await refetch();
     } catch (err: any) {
-      toast({ title: "저장 실패", description: err.message, variant: "destructive" });
+      if (!navigator.onLine || /fetch|network|connection/i.test(err.message || "")) {
+        await saveSurveyOffline(id!, tableName, recordId, payload, survey?.updated_at);
+        toast({ title: "오프라인 저장됨", description: "연결 복구 후 자동으로 동기화합니다." });
+      } else {
+        toast({ title: "저장 실패", description: err.message, variant: "destructive" });
+        throw err;
+      }
     } finally {
       setSaving(false);
     }
+  }, [id, refetch, survey?.updated_at]);
+
+  useEffect(() => {
+    const refreshAfterSync = () => refetch();
+    window.addEventListener("parkmaster:offline-sync", refreshAfterSync);
+    return () => window.removeEventListener("parkmaster:offline-sync", refreshAfterSync);
   }, [refetch]);
+
+  useEffect(() => {
+    const expected = step === 0 ? null : String(step);
+    if (searchParams.get("step") === expected) return;
+    const next = new URLSearchParams(searchParams);
+    if (step === 0) next.delete("step");
+    else next.set("step", String(step));
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, step]);
 
   const handleNext = async () => {
     if (step < STEPS.length - 1) setStep(s => s + 1);
@@ -95,27 +129,7 @@ export default function SurveyWizardPage() {
     if (!id) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("surveys").update({
-        status: "submitted" as any,
-        submitted_at: new Date().toISOString(),
-      }).eq("id", id);
-      if (error) throw error;
-
-      // Create notification for reviewers
-      const { data: managers } = await supabase.from("profiles").select("id").in("role", ["admin", "manager"]);
-      if (managers?.length) {
-        await supabase.from("notifications").insert(
-          managers.map((m: any) => ({
-            user_id: m.id,
-            module: "survey",
-            title: "조사 제출됨",
-            message: `${lot?.name} 현황조사가 제출되었습니다.`,
-            link: `/surveys/${id}/review`,
-          }))
-        );
-      }
-
-      await logActivity({ module: "survey", action: "submit", targetType: "survey", targetId: id, targetName: lot?.name });
+      await submitSurvey(id, survey?.updated_at);
       toast({ title: "제출이 완료되었습니다" });
       queryClient.invalidateQueries({ queryKey: ["surveys"] });
       navigate("/surveys");
@@ -154,6 +168,13 @@ export default function SurveyWizardPage() {
           </div>
         </div>
 
+        <DocumentLinksPanel
+          module="SURVEY"
+          recordId={survey.id}
+          recordPath={`/surveys/${survey.id}`}
+          recordTitle={`${lot?.name || "주차장"} 현황조사`}
+        />
+
         {/* Step Progress */}
         <div className="flex gap-1 overflow-x-auto pb-2">
           {STEPS.map((s, i) => (
@@ -177,31 +198,21 @@ export default function SurveyWizardPage() {
         {/* Step Content */}
         <Card>
           <CardContent className="pt-6">
-            {step === 0 && <StepBasicInfo data={data?.basic} onSave={(d) => saveStep(d, "survey_basic_info", data?.basic?.id!)} readOnly={isReadOnly} />}
-            {step === 1 && <StepOperation data={data?.operation} onSave={(d) => saveStep(d, "survey_operation", data?.operation?.id!)} readOnly={isReadOnly} />}
-            {step === 2 && <StepInfra data={data?.infra} onSave={(d) => saveStep(d, "survey_infra", data?.infra?.id!)} readOnly={isReadOnly} />}
-            {step === 3 && <StepUsage data={data?.usage} onSave={(d) => saveStep(d, "survey_usage", data?.usage?.id!)} readOnly={isReadOnly} />}
-            {step === 4 && <StepSensorPlan data={data?.sensor} onSave={(d) => saveStep(d, "survey_sensor_plan", data?.sensor?.id!)} readOnly={isReadOnly} />}
-            {step === 5 && <StepPhotos surveyId={id!} photos={data?.photos || []} onRefresh={refetch} readOnly={isReadOnly} />}
+            {step === 0 && <StepBasicInfo data={data?.basic} onSave={(d) => saveStep(d, "survey_basic_info", data?.basic?.id || '')} onNext={() => setStep(1)} readOnly={isReadOnly} />}
+            {step === 1 && <StepOperation data={data?.operation} onSave={(d) => saveStep(d, "survey_operation", data?.operation?.id || '')} onNext={() => setStep(2)} readOnly={isReadOnly} />}
+            {step === 2 && <StepInfra data={data?.infra} onSave={(d) => saveStep(d, "survey_infra", data?.infra?.id || '')} onNext={() => setStep(3)} readOnly={isReadOnly} />}
+            {step === 3 && <StepUsage data={data?.usage} onSave={(d) => saveStep(d, "survey_usage", data?.usage?.id || '')} onNext={() => setStep(4)} readOnly={isReadOnly} />}
+            {step === 4 && <StepSensorPlan data={data?.sensor} onSave={(d) => saveStep(d, "survey_sensor_plan", data?.sensor?.id || '')} onNext={() => setStep(5)} readOnly={isReadOnly} />}
+            {step === 5 && <StepPhotos surveyId={id!} photos={data?.photos || []} onRefresh={refetch} lotType={data?.basic?.lot_type} readOnly={isReadOnly} />}
             {step === 6 && <StepReview data={data!} onGoToStep={setStep} onSubmit={handleSubmit} isReadOnly={isReadOnly} />}
           </CardContent>
         </Card>
 
         {/* Navigation */}
         {step < 6 && (
-          <div className="flex justify-between">
+          <div className="sticky bottom-2 z-10 flex min-h-11 justify-between rounded-md border bg-background/95 p-2 shadow-sm backdrop-blur">
             <Button variant="outline" disabled={step === 0} onClick={() => setStep(s => s - 1)}>이전</Button>
-            <div className="flex gap-2">
-              {!isReadOnly && (
-                <Button variant="outline" disabled={saving} onClick={() => {
-                  // Trigger save via form ref or current step's save
-                  toast({ title: "현재 스텝 데이터를 저장하려면 각 필드 입력 후 '다음' 또는 '임시저장' 버튼을 이용하세요." });
-                }}>
-                  <Save className="h-4 w-4 mr-1" /> 임시저장
-                </Button>
-              )}
-              <Button onClick={handleNext}>다음</Button>
-            </div>
+            {(isReadOnly || step === 5) && <Button onClick={handleNext}>다음 단계</Button>}
           </div>
         )}
       </div>

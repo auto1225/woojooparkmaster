@@ -3,8 +3,23 @@
 export function runSecurityChecks(): string[] {
   const issues: string[] = [];
 
+  // Preserve field drafts created before the storage-key policy was tightened.
+  const legacyDraftPrefix = 'parkmaster:complaint-field-draft:';
+  const legacyDraftKeys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(legacyDraftPrefix)) legacyDraftKeys.push(key);
+  }
+  legacyDraftKeys.forEach((key) => {
+    const value = localStorage.getItem(key);
+    const complaintId = key.slice(legacyDraftPrefix.length);
+    if (value && complaintId) localStorage.setItem(`parkmaster-complaint-field-draft-${complaintId}`, value);
+    localStorage.removeItem(key);
+  });
+
   // HTTPS 확인
-  if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+  const isLocalLoopback = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '::1';
+  if (window.location.protocol !== 'https:' && !isLocalLoopback) {
     issues.push('HTTPS가 적용되지 않았습니다.');
     console.warn('[SECURITY] Not using HTTPS');
   }

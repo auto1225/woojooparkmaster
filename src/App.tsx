@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,117 +10,127 @@ import { GlobalSearch } from "@/components/common/GlobalSearch";
 import { handleSupabaseError } from "@/lib/api-error-handler";
 import { toast } from "sonner";
 import { setupOnlineSync } from "@/lib/offline-survey";
-import { useEffect } from "react";
-import { useSessionSync } from "@/hooks/useSessionSync";
+import { lazy, Suspense, useEffect } from "react";
+import { useModuleLicenses } from "@/hooks/useSystemConfig";
+import { getModuleForPath, hasRequiredRole, isModuleEnabled, minimumRoleForPath } from "@/lib/authorization";
 import "@/styles/print.css";
 import "@/lib/i18n";
 
-// --- Page imports (unchanged) ---
-import Index from "./pages/Index";
-import LoginPage from "./pages/Login";
-import LotsPage from "./pages/Lots";
-import LotNewPage from "./pages/LotNew";
-import LotDetailPage from "./pages/LotDetail";
-import LotEditPage from "./pages/LotEdit";
-import SurveysPage from "./pages/Surveys";
-import SurveyWizardPage from "./pages/SurveyWizard";
-import SurveyReviewPage from "./pages/SurveyReview";
-import SurveyProgressPage from "./pages/SurveyProgress";
-import OpsDashboardPage from "./pages/ops/OpsDashboard";
-import OpsStaffPage from "./pages/ops/OpsStaff";
-import OpsContractsPage from "./pages/ops/OpsContracts";
-import OpsFeesPage from "./pages/ops/OpsFees";
-import OpsExemptionsPage from "./pages/ops/OpsExemptions";
-import OpsPassesPage from "./pages/ops/OpsPasses";
-import OpsEnforcementPage from "./pages/ops/OpsEnforcement";
-import OpsFreeHoursPage from "./pages/ops/OpsFreeHours";
-import FacilityDashboard from "./pages/facility/FacilityDashboard";
-import FacilityEquipment from "./pages/facility/FacilityEquipment";
-import FacilityMaintenance from "./pages/facility/FacilityMaintenance";
-import FacilitySchedule from "./pages/facility/FacilitySchedule";
-import FacilitySafety from "./pages/facility/FacilitySafety";
-import FacilityMarkings from "./pages/facility/FacilityMarkings";
-import RevenueDashboard from "./pages/revenue/RevenueDashboard";
-import RevenueDaily from "./pages/revenue/RevenueDaily";
-import RevenueReconcile from "./pages/revenue/RevenueReconcile";
-import RevenueAnalysis from "./pages/revenue/RevenueAnalysis";
-import BudgetDashboard from "./pages/budget/BudgetDashboard";
-import BudgetPlans from "./pages/budget/BudgetPlans";
-import BudgetExecutions from "./pages/budget/BudgetExecutions";
-import BudgetTransfers from "./pages/budget/BudgetTransfers";
-import ProcurementDashboard from "./pages/procurement/ProcurementDashboard";
-import ProcurementProjects from "./pages/procurement/ProcurementProjects";
-import ProcurementProjectNew from "./pages/procurement/ProcurementProjectNew";
-import ProcurementProjectDetail from "./pages/procurement/ProcurementProjectDetail";
-import ProcurementContracts from "./pages/procurement/ProcurementContracts";
-import ProcurementDocuments from "./pages/procurement/ProcurementDocuments";
-import ServiceDashboard from "./pages/service/ServiceDashboard";
-import ServiceProjects from "./pages/service/ServiceProjects";
-import ServiceProjectNew from "./pages/service/ServiceProjectNew";
-import ServiceProjectDetail from "./pages/service/ServiceProjectDetail";
-import ServiceInspections from "./pages/service/ServiceInspections";
-import ServicePayments from "./pages/service/ServicePayments";
-import ServiceIssues from "./pages/service/ServiceIssues";
-import ComplaintDashboard from "./pages/complaint/ComplaintDashboard";
-import ComplaintNew from "./pages/complaint/ComplaintNew";
-import ComplaintDetail from "./pages/complaint/ComplaintDetail";
-import ComplaintStats from "./pages/complaint/ComplaintStats";
-import PlanningDashboard from "./pages/planning/PlanningDashboard";
-import PlanningSites from "./pages/planning/PlanningSites";
-import PlanningProjects from "./pages/planning/PlanningProjects";
-import PlanningProjectDetail from "./pages/planning/PlanningProjectDetail";
-import PlanningDocuments from "./pages/planning/PlanningDocuments";
-import PlanningPermits from "./pages/planning/PlanningPermits";
-import RealtimeDashboard from "./pages/realtime/RealtimeDashboard";
-import RealtimeSensors from "./pages/realtime/RealtimeSensors";
-import RealtimeGateways from "./pages/realtime/RealtimeGateways";
-import RealtimeDisplays from "./pages/realtime/RealtimeDisplays";
-import RealtimeApi from "./pages/realtime/RealtimeApi";
-import RealtimeMonitor from "./pages/realtime/RealtimeMonitor";
-import ReportCenter from "./pages/report/ReportCenter";
-import ReportGenerate from "./pages/report/ReportGenerate";
-import ReportHistory from "./pages/report/ReportHistory";
-import ReportSchedules from "./pages/report/ReportSchedules";
-import DashboardBuilder from "./pages/report/DashboardBuilder";
-import SurveyPrint from "./pages/SurveyPrint";
-import ParkingLayout from "./pages/facility/ParkingLayout";
-import ApprovalsPage from "./pages/Approvals";
-import NotificationsPage from "./pages/Notifications";
-import ProfilePage from "./pages/Profile";
-import ActivityAnalyticsPage from "./pages/settings/ActivityAnalytics";
-import SettingsPage from "./pages/Settings";
-import HelpPage from "./pages/Help";
-import DeliveryChecklist from "./pages/admin/DeliveryChecklist";
-import SecurityReview from "./pages/admin/SecurityReview";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import ChangePassword from "./pages/ChangePassword";
-import PrivacyPage from "./pages/Privacy";
-import ForbiddenPage from "./pages/Forbidden";
-import SecurityReport from "./pages/settings/SecurityReport";
-import BudgetAnalysis from "./pages/budget/BudgetAnalysis";
-import FacilityAnalysis from "./pages/facility/FacilityAnalysis";
-import ParkingRanking from "./pages/report/ParkingRanking";
-import ExecutiveDashboard from "./pages/report/ExecutiveDashboard";
-import LotsPrintSummary from "./pages/report/LotsPrintSummary";
-import RevenuePrintMonthly from "./pages/revenue/RevenuePrintMonthly";
-import QuarterlyReport from "./pages/report/QuarterlyReport";
-import NotFound from "./pages/NotFound";
-import MasterHub from "./pages/MasterHub";
-import DynamicMasterView from "./pages/DynamicMasterView";
 import { HelpPanel } from "./components/help/HelpPanel";
 import { OnboardingGuide } from "./components/help/OnboardingGuide";
-import { SecurityDiagnosisBanner } from "./pages/settings/SecurityManagement";
 import { initProductionErrorFilter } from "./lib/error-sanitizer";
 import { runSecurityChecks } from "./lib/security-check";
-import { initTokenSecurity } from "./lib/token-security";
+
+const Index = lazy(() => import("./pages/Index"));
+const LoginPage = lazy(() => import("./pages/Login"));
+const LotsPage = lazy(() => import("./pages/Lots"));
+const LotNewPage = lazy(() => import("./pages/LotNew"));
+const LotDetailPage = lazy(() => import("./pages/LotDetail"));
+const LotEditPage = lazy(() => import("./pages/LotEdit"));
+const SurveysPage = lazy(() => import("./pages/Surveys"));
+const SurveyWizardPage = lazy(() => import("./pages/SurveyWizard"));
+const SurveyReviewPage = lazy(() => import("./pages/SurveyReview"));
+const SurveyProgressPage = lazy(() => import("./pages/SurveyProgress"));
+const OpsDashboardPage = lazy(() => import("./pages/ops/OpsDashboard"));
+const OpsStaffPage = lazy(() => import("./pages/ops/OpsStaff"));
+const OpsContractsPage = lazy(() => import("./pages/ops/OpsContracts"));
+const OpsFeesPage = lazy(() => import("./pages/ops/OpsFees"));
+const OpsExemptionsPage = lazy(() => import("./pages/ops/OpsExemptions"));
+const OpsPassesPage = lazy(() => import("./pages/ops/OpsPasses"));
+const OpsEnforcementPage = lazy(() => import("./pages/ops/OpsEnforcement"));
+const OpsFreeHoursPage = lazy(() => import("./pages/ops/OpsFreeHours"));
+const OpsAbandonedVehicles = lazy(() => import("./pages/ops/OpsAbandonedVehicles"));
+const OpsSecurityInspections = lazy(() => import("./pages/ops/OpsSecurityInspections"));
+const FacilityDashboard = lazy(() => import("./pages/facility/FacilityDashboard"));
+const FacilityEquipment = lazy(() => import("./pages/facility/FacilityEquipment"));
+const FacilityMaintenance = lazy(() => import("./pages/facility/FacilityMaintenance"));
+const FacilitySchedule = lazy(() => import("./pages/facility/FacilitySchedule"));
+const FacilitySafety = lazy(() => import("./pages/facility/FacilitySafety"));
+const FacilityMarkings = lazy(() => import("./pages/facility/FacilityMarkings"));
+const ParkingLayout = lazy(() => import("./pages/facility/ParkingLayout"));
+const FacilityAnalysis = lazy(() => import("./pages/facility/FacilityAnalysis"));
+const RevenueDashboard = lazy(() => import("./pages/revenue/RevenueDashboard"));
+const RevenueDaily = lazy(() => import("./pages/revenue/RevenueDaily"));
+const RevenueReconcile = lazy(() => import("./pages/revenue/RevenueReconcile"));
+const RevenueAnalysis = lazy(() => import("./pages/revenue/RevenueAnalysis"));
+const RevenuePrintMonthly = lazy(() => import("./pages/revenue/RevenuePrintMonthly"));
+const BudgetDashboard = lazy(() => import("./pages/budget/BudgetDashboard"));
+const BudgetPlans = lazy(() => import("./pages/budget/BudgetPlans"));
+const BudgetExecutions = lazy(() => import("./pages/budget/BudgetExecutions"));
+const BudgetTransfers = lazy(() => import("./pages/budget/BudgetTransfers"));
+const BudgetAnalysis = lazy(() => import("./pages/budget/BudgetAnalysis"));
+const ProcurementDashboard = lazy(() => import("./pages/procurement/ProcurementDashboard"));
+const ProcurementProjects = lazy(() => import("./pages/procurement/ProcurementProjects"));
+const ProcurementProjectNew = lazy(() => import("./pages/procurement/ProcurementProjectNew"));
+const ProcurementProjectDetail = lazy(() => import("./pages/procurement/ProcurementProjectDetail"));
+const ProcurementContracts = lazy(() => import("./pages/procurement/ProcurementContracts"));
+const ProcurementDocuments = lazy(() => import("./pages/procurement/ProcurementDocuments"));
+const ServiceDashboard = lazy(() => import("./pages/service/ServiceDashboard"));
+const ServiceProjects = lazy(() => import("./pages/service/ServiceProjects"));
+const ServiceProjectNew = lazy(() => import("./pages/service/ServiceProjectNew"));
+const ServiceProjectDetail = lazy(() => import("./pages/service/ServiceProjectDetail"));
+const ServiceInspections = lazy(() => import("./pages/service/ServiceInspections"));
+const ServicePayments = lazy(() => import("./pages/service/ServicePayments"));
+const ServiceIssues = lazy(() => import("./pages/service/ServiceIssues"));
+const ComplaintDashboard = lazy(() => import("./pages/complaint/ComplaintDashboard"));
+const ComplaintNew = lazy(() => import("./pages/complaint/ComplaintNew"));
+const ComplaintDetail = lazy(() => import("./pages/complaint/ComplaintDetail"));
+const ComplaintStats = lazy(() => import("./pages/complaint/ComplaintStats"));
+const PlanningDashboard = lazy(() => import("./pages/planning/PlanningDashboard"));
+const PlanningDecisionCenter = lazy(() => import("./pages/planning/PlanningDecisionCenter"));
+const PlanningSites = lazy(() => import("./pages/planning/PlanningSites"));
+const PlanningProjects = lazy(() => import("./pages/planning/PlanningProjects"));
+const PlanningProjectDetail = lazy(() => import("./pages/planning/PlanningProjectDetail"));
+const PlanningDocuments = lazy(() => import("./pages/planning/PlanningDocuments"));
+const PlanningPermits = lazy(() => import("./pages/planning/PlanningPermits"));
+const PlanningProcedures = lazy(() => import("./pages/planning/PlanningProcedures"));
+const RealtimeDashboard = lazy(() => import("./pages/realtime/RealtimeDashboard"));
+const RealtimeSensors = lazy(() => import("./pages/realtime/RealtimeSensors"));
+const RealtimeGateways = lazy(() => import("./pages/realtime/RealtimeGateways"));
+const RealtimeDisplays = lazy(() => import("./pages/realtime/RealtimeDisplays"));
+const RealtimeApi = lazy(() => import("./pages/realtime/RealtimeApi"));
+const RealtimeMonitor = lazy(() => import("./pages/realtime/RealtimeMonitor"));
+const ReportCenter = lazy(() => import("./pages/report/ReportCenter"));
+const ReportGenerate = lazy(() => import("./pages/report/ReportGenerate"));
+const ReportHistory = lazy(() => import("./pages/report/ReportHistory"));
+const ReportSchedules = lazy(() => import("./pages/report/ReportSchedules"));
+const DashboardBuilder = lazy(() => import("./pages/report/DashboardBuilder"));
+const ParkingRanking = lazy(() => import("./pages/report/ParkingRanking"));
+const ExecutiveDashboard = lazy(() => import("./pages/report/ExecutiveDashboard"));
+const LotsPrintSummary = lazy(() => import("./pages/report/LotsPrintSummary"));
+const QuarterlyReport = lazy(() => import("./pages/report/QuarterlyReport"));
+const SurveyPrint = lazy(() => import("./pages/SurveyPrint"));
+const ApprovalsPage = lazy(() => import("./pages/Approvals"));
+const NotificationsPage = lazy(() => import("./pages/Notifications"));
+const ProfilePage = lazy(() => import("./pages/Profile"));
+const ActivityAnalyticsPage = lazy(() => import("./pages/settings/ActivityAnalytics"));
+const SettingsPage = lazy(() => import("./pages/Settings"));
+const HelpPage = lazy(() => import("./pages/Help"));
+const DeliveryChecklist = lazy(() => import("./pages/admin/DeliveryChecklist"));
+const SecurityReview = lazy(() => import("./pages/admin/SecurityReview"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword"));
+const PrivacyPage = lazy(() => import("./pages/Privacy"));
+const ForbiddenPage = lazy(() => import("./pages/Forbidden"));
+const SecurityReport = lazy(() => import("./pages/settings/SecurityReport"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const MasterHub = lazy(() => import("./pages/MasterHub"));
+const DynamicMasterView = lazy(() => import("./pages/DynamicMasterView"));
+const DocumentsPage = lazy(() => import("./pages/Documents"));
+const DocumentDetailPage = lazy(() => import("./pages/DocumentDetail"));
+const TeamWorkCenter = lazy(() => import("./pages/TeamWorkCenter"));
+const TeamDuties = lazy(() => import("./pages/TeamDuties"));
+const BusinessCards = lazy(() => import("./pages/BusinessCards"));
+const SecurityDiagnosisBanner = lazy(() => import("./pages/settings/SecurityManagement").then((module) => ({
+  default: module.SecurityDiagnosisBanner,
+})));
 
 // SEC-C-2: 프로덕션 에러 필터링 초기화
 initProductionErrorFilter();
 // SEC-WEB-5: 프론트엔드 보안 체크
 runSecurityChecks();
 // SEC-WEB-4: 토큰 보안 초기화
-initTokenSecurity();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -140,8 +150,11 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) {
+  const { user, profile, loading } = useAuth();
+  const location = useLocation();
+  const moduleCode = getModuleForPath(location.pathname);
+  const { data: licenses, isLoading: licensesLoading } = useModuleLicenses();
+  if (loading || (user && !profile) || (moduleCode && licensesLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -149,6 +162,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
+  if (!hasRequiredRole(profile?.role, minimumRoleForPath(location.pathname))) {
+    return <Navigate to="/403" replace />;
+  }
+  if (moduleCode && !isModuleEnabled(licenses, moduleCode)) {
+    return <Navigate to="/403" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -159,8 +178,17 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RouteLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center" role="status" aria-label="화면 불러오는 중">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    </div>
+  );
+}
+
 const AppRoutes = () => (
-  <Routes>
+  <Suspense fallback={<RouteLoading />}>
+    <Routes>
     <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
     <Route path="/forgot-password" element={<ForgotPassword />} />
     <Route path="/reset-password" element={<ResetPassword />} />
@@ -170,6 +198,11 @@ const AppRoutes = () => (
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/master" element={<ProtectedRoute><MasterHub /></ProtectedRoute>} />
     <Route path="/master/:moduleCode" element={<ProtectedRoute><DynamicMasterView /></ProtectedRoute>} />
+    <Route path="/documents" element={<ProtectedRoute><DocumentsPage /></ProtectedRoute>} />
+    <Route path="/documents/:id" element={<ProtectedRoute><DocumentDetailPage /></ProtectedRoute>} />
+    <Route path="/team-work" element={<ProtectedRoute><TeamWorkCenter /></ProtectedRoute>} />
+    <Route path="/team-work/duties" element={<ProtectedRoute><TeamDuties /></ProtectedRoute>} />
+    <Route path="/business-cards" element={<ProtectedRoute><BusinessCards /></ProtectedRoute>} />
     <Route path="/lots" element={<ProtectedRoute><LotsPage /></ProtectedRoute>} />
     <Route path="/lots/new" element={<ProtectedRoute><LotNewPage /></ProtectedRoute>} />
     <Route path="/lots/:id" element={<ProtectedRoute><LotDetailPage /></ProtectedRoute>} />
@@ -187,6 +220,9 @@ const AppRoutes = () => (
     <Route path="/ops/passes" element={<ProtectedRoute><OpsPassesPage /></ProtectedRoute>} />
     <Route path="/ops/enforcement" element={<ProtectedRoute><OpsEnforcementPage /></ProtectedRoute>} />
     <Route path="/ops/free-hours" element={<ProtectedRoute><OpsFreeHoursPage /></ProtectedRoute>} />
+    <Route path="/ops/abandoned-vehicles" element={<ProtectedRoute><OpsAbandonedVehicles /></ProtectedRoute>} />
+    <Route path="/ops/security-inspections" element={<ProtectedRoute><OpsSecurityInspections /></ProtectedRoute>} />
+    <Route path="/ops/report" element={<ProtectedRoute><Navigate to="/reports/generate?template=RPT-OPS-STATUS&scope=operations" replace /></ProtectedRoute>} />
     <Route path="/facility" element={<ProtectedRoute><FacilityDashboard /></ProtectedRoute>} />
     <Route path="/facility/equipment" element={<ProtectedRoute><FacilityEquipment /></ProtectedRoute>} />
     <Route path="/facility/maintenance" element={<ProtectedRoute><FacilityMaintenance /></ProtectedRoute>} />
@@ -221,11 +257,13 @@ const AppRoutes = () => (
     <Route path="/complaints/stats" element={<ProtectedRoute><ComplaintStats /></ProtectedRoute>} />
     <Route path="/complaints/:id" element={<ProtectedRoute><ComplaintDetail /></ProtectedRoute>} />
     <Route path="/planning" element={<ProtectedRoute><PlanningDashboard /></ProtectedRoute>} />
+    <Route path="/planning/decisions" element={<ProtectedRoute><PlanningDecisionCenter /></ProtectedRoute>} />
     <Route path="/planning/sites" element={<ProtectedRoute><PlanningSites /></ProtectedRoute>} />
     <Route path="/planning/projects" element={<ProtectedRoute><PlanningProjects /></ProtectedRoute>} />
     <Route path="/planning/projects/:id" element={<ProtectedRoute><PlanningProjectDetail /></ProtectedRoute>} />
     <Route path="/planning/documents" element={<ProtectedRoute><PlanningDocuments /></ProtectedRoute>} />
     <Route path="/planning/permits" element={<ProtectedRoute><PlanningPermits /></ProtectedRoute>} />
+    <Route path="/planning/procedures" element={<ProtectedRoute><PlanningProcedures /></ProtectedRoute>} />
     <Route path="/realtime" element={<ProtectedRoute><RealtimeDashboard /></ProtectedRoute>} />
     <Route path="/realtime/sensors" element={<ProtectedRoute><RealtimeSensors /></ProtectedRoute>} />
     <Route path="/realtime/gateways" element={<ProtectedRoute><RealtimeGateways /></ProtectedRoute>} />
@@ -254,7 +292,8 @@ const AppRoutes = () => (
     <Route path="/admin/security-review" element={<ProtectedRoute><SecurityReview /></ProtectedRoute>} />
     <Route path="/settings/security/report" element={<ProtectedRoute><SecurityReport /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
-  </Routes>
+    </Routes>
+  </Suspense>
 );
 
 function AppWithSync() {
@@ -262,10 +301,11 @@ function AppWithSync() {
     const cleanup = setupOnlineSync();
     return cleanup;
   }, []);
-  useSessionSync(); // SEC-WEB-4: 멀티탭 세션 동기화
   return (
     <>
-      <SecurityDiagnosisBanner />
+      <Suspense fallback={null}>
+        <SecurityDiagnosisBanner />
+      </Suspense>
       <AppRoutes />
       <HelpPanel />
       <OnboardingGuide />

@@ -18,7 +18,7 @@ export function AuthorField({ value, onChange, label = "작성자", readOnly }: 
     if (!value && profile?.name) {
       onChange(profile.name);
     }
-  }, [profile?.name]);
+  }, [onChange, profile?.name, value]);
 
   return (
     <div className="space-y-1.5">

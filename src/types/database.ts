@@ -12,8 +12,8 @@ export type SurveyStatus = 'draft' | 'in_progress' | 'submitted' | 'review' | 'a
 
 export const TEAM_LABELS: Record<TeamType, string> = { operations: '운영관리팀', facilities: '시설관리팀', planning: '기획팀', admin: '관리자' };
 export const ROLE_LABELS: Record<RoleType, string> = { admin: '관리자', manager: '매니저', editor: '편집자', viewer: '열람자' };
-export const LOT_TYPE_LABELS: Record<LotType, string> = { offstreet: '노외주차장', onstreet: '노상주차장', multilevel: '복층화 주차장', vacant_lot: '공한지 주차장', underground: '지하주차장' };
-export const OPERATOR_LABELS: Record<OperatorType, string> = { direct: '직영', outsourced: '위탁운영', other: '기타' };
+export const LOT_TYPE_LABELS: Record<LotType, string> = { offstreet: '노외주차장', onstreet: '노상주차장', multilevel: '주차빌딩', vacant_lot: '공한지주차장', underground: '지하주차장' };
+export const OPERATOR_LABELS: Record<OperatorType, string> = { direct: '직영', outsourced: '위탁운영', other: '미확인/기타' };
 export const SURFACE_LABELS: Record<SurfaceType, string> = { ascon: '아스콘', block: '블럭', concrete: '콘크리트', other: '기타' };
 export const LOT_STATUS_LABELS: Record<LotStatus, string> = { active: '운영중', inactive: '미운영', construction: '공사중', closed: '폐쇄' };
 export const POWER_LABELS: Record<PowerStatus, string> = { supplied: '공급중', available: '가능', unavailable: '불가' };

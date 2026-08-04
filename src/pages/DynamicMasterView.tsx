@@ -6,7 +6,7 @@
  * 설정 파일 하나만 수정하면 화면·엑셀·PDF에 즉시 반영됩니다.
  */
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { MasterDataView } from "@/components/common/MasterDataView";
@@ -53,7 +53,7 @@ export default function DynamicMasterView() {
 }
 
 function SingleTabMaster({ config, tab, navigate }: { config: any; tab: any; navigate: any }) {
-  const { data = [], isLoading } = useQuery<Record<string, any>[]>({
+  const { data = [], isLoading, isError, refetch } = useQuery<Record<string, any>[]>({
     queryKey: [tab.queryKey],
     queryFn: tab.queryFn,
   });
@@ -65,6 +65,9 @@ function SingleTabMaster({ config, tab, navigate }: { config: any; tab: any; nav
       columns={tab.columns}
       data={data}
       loading={isLoading}
+      error={isError}
+      onRetry={() => void refetch()}
+      moduleCode={config.code}
       frozenColumns={tab.frozenColumns ?? 3}
       exportFileName={tab.exportFileName}
       filterConfig={tab.filterConfig}
@@ -74,13 +77,21 @@ function SingleTabMaster({ config, tab, navigate }: { config: any; tab: any; nav
 }
 
 function MultiTabMaster({ config, navigate }: { config: any; navigate: any }) {
-  const [activeTab, setActiveTab] = useState(config.tabs[0].key);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(config.tabs.some((tab: any) => tab.key === requestedTab) ? requestedTab : config.tabs[0].key);
+  const changeTab = (value: string) => {
+    setActiveTab(value);
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", value);
+    setSearchParams(next, { replace: true });
+  };
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">{config.title}</h1>
       {config.subtitle && <p className="text-sm text-muted-foreground">{config.subtitle}</p>}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={changeTab}>
         <TabsList>
           {config.tabs.map((t: any) => (
             <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>
@@ -88,7 +99,7 @@ function MultiTabMaster({ config, navigate }: { config: any; navigate: any }) {
         </TabsList>
         {config.tabs.map((tab: any) => (
           <TabsContent key={tab.key} value={tab.key}>
-            <TabContent tab={tab} navigate={navigate} />
+            <TabContent tab={tab} navigate={navigate} moduleCode={config.code} />
           </TabsContent>
         ))}
       </Tabs>
@@ -96,8 +107,8 @@ function MultiTabMaster({ config, navigate }: { config: any; navigate: any }) {
   );
 }
 
-function TabContent({ tab, navigate }: { tab: any; navigate: any }) {
-  const { data = [], isLoading } = useQuery<Record<string, any>[]>({
+function TabContent({ tab, navigate, moduleCode }: { tab: any; navigate: any; moduleCode: string }) {
+  const { data = [], isLoading, isError, refetch } = useQuery<Record<string, any>[]>({
     queryKey: [tab.queryKey],
     queryFn: tab.queryFn,
   });
@@ -108,6 +119,9 @@ function TabContent({ tab, navigate }: { tab: any; navigate: any }) {
       columns={tab.columns}
       data={data}
       loading={isLoading}
+      error={isError}
+      onRetry={() => void refetch()}
+      moduleCode={moduleCode}
       frozenColumns={tab.frozenColumns ?? 3}
       exportFileName={tab.exportFileName}
       filterConfig={tab.filterConfig}

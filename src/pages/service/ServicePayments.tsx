@@ -5,9 +5,11 @@ import { supabase } from "@/integrations/api/supabase-compat";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PAYMENT_TYPE_LABELS, PAYMENT_STATUS_LABELS, formatServiceAmount } from "@/types/service";
+import { ArrowRight } from "lucide-react";
 
 export default function ServicePayments() {
   const navigate = useNavigate();
@@ -76,13 +78,14 @@ export default function ServicePayments() {
                     <TableHead>지급일</TableHead>
                     <TableHead>상태</TableHead>
                     <TableHead>지연</TableHead>
+                    <TableHead className="text-right">실행</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map(p => (
                     <TableRow key={p.id}
                       className={`cursor-pointer hover:bg-muted/50 ${p.is_delayed ? "bg-destructive/5" : ""}`}
-                      onClick={() => navigate(`/service/projects/${p.project_id}`)}>
+                      onClick={() => navigate(`/service/projects/${p.project_id}?tab=payments`)}>
                       <TableCell className="text-xs font-mono">{p.payment_number}</TableCell>
                       <TableCell className="text-sm">{(p.service_projects as any)?.title}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px]">{PAYMENT_TYPE_LABELS[p.payment_type] || p.payment_type}</Badge></TableCell>
@@ -95,9 +98,10 @@ export default function ServicePayments() {
                       <TableCell className="text-xs">{p.paid_date || "-"}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px]">{PAYMENT_STATUS_LABELS[p.status] || p.status}</Badge></TableCell>
                       <TableCell>{p.is_delayed ? <Badge variant="outline" className="text-[10px] text-destructive">D+{p.delay_days}일</Badge> : "-"}</TableCell>
+                      <TableCell className="text-right" onClick={(event) => event.stopPropagation()}><Button size="sm" variant="outline" onClick={() => navigate(`/service/projects/${p.project_id}?tab=payments`)}>처리 <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button></TableCell>
                     </TableRow>
                   ))}
-                  {filtered.length === 0 && <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground py-8">지급 내역 없음</TableCell></TableRow>}
+                  {filtered.length === 0 && <TableRow><TableCell colSpan={13} className="text-center text-muted-foreground py-8">지급 내역 없음</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </CardContent></Card>

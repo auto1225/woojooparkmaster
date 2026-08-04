@@ -11,13 +11,14 @@ import { formatManWon } from "@/types/revenue";
 import { PLAN_TYPE_LABELS, BUDGET_STATUS_LABELS, BUDGET_STATUS_COLORS } from "@/types/budget";
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useModuleLicenses } from "@/hooks/useSystemConfig";
+import { isModuleEnabled } from "@/lib/authorization";
 
 export default function BudgetDashboard() {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const { data: licenses } = useModuleLicenses();
-  const revenueActive = (licenses ?? []).some(m => m.module_code === 'REVENUE' && m.is_active);
+  const revenueActive = isModuleEnabled(licenses, "REVENUE");
 
   const { data: plans } = useQuery({
     queryKey: ['budget-plans', year],
@@ -42,7 +43,7 @@ export default function BudgetDashboard() {
     queryKey: ['revenue-year-total', year],
     enabled: revenueActive,
     queryFn: async () => {
-      const { data } = await supabase.from('revenue_daily').select('cash_amount, card_amount, mobile_amount, monthly_pass_amount, other_amount')
+      const { data } = await supabase.from('revenue_daily').select('cash_amount, card_amount, mobile_amount, monthly_pass_amount, other_amount').eq('verified', true)
         .gte('revenue_date', `${year}-01-01`).lte('revenue_date', `${year}-12-31`);
       return (data || []).reduce((s, r) => s + (r.cash_amount || 0) + (r.card_amount || 0) + (r.mobile_amount || 0) + (r.monthly_pass_amount || 0) + (r.other_amount || 0), 0);
     },
@@ -93,16 +94,16 @@ export default function BudgetDashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <h1 className="text-2xl font-bold">예산 현황</h1>
-          <div className="flex gap-2 items-center">
+          <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[7rem_minmax(0,1fr)_auto]">
             <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
               <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
               <SelectContent>{[currentYear + 1, currentYear, currentYear - 1, currentYear - 2].map(y => <SelectItem key={y} value={String(y)}>{y}년</SelectItem>)}</SelectContent>
             </Select>
             {plans && plans.length > 0 && (
               <Select value={selectedPlanId || activePlan?.id || ''} onValueChange={setSelectedPlanId}>
-                <SelectTrigger className="w-48"><SelectValue placeholder="편성안 선택" /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-64"><SelectValue placeholder="편성안 선택" /></SelectTrigger>
                 <SelectContent>{plans.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}</SelectContent>
               </Select>
             )}

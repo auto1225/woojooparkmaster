@@ -1,17 +1,24 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatFacilityCurrency, formatFacilityDate, formatFacilityNumber } from "@/lib/facility-format";
 import type { Equipment } from "@/types/facility";
 import { EQUIPMENT_STATUS_COLORS, EQUIPMENT_STATUS_LABELS, EQUIPMENT_TYPE_LABELS } from "@/types/facility";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
+import { Archive, Pencil } from "lucide-react";
+import { LinkedBusinessContacts } from "@/components/business-cards/LinkedBusinessContacts";
+import { FacilityPhotoGallery } from "@/components/facility/FacilityPhotoGallery";
 
 interface EquipmentDetailSheetProps {
   equipment: Equipment | null;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  onEdit?: (equipment: Equipment) => void;
+  onDecommission?: (equipment: Equipment) => void;
 }
 
-export function EquipmentDetailSheet({ equipment, onOpenChange, open }: EquipmentDetailSheetProps) {
+export function EquipmentDetailSheet({ equipment, onOpenChange, open, onEdit, onDecommission }: EquipmentDetailSheetProps) {
   const isMobile = useIsMobile();
 
   if (!equipment) return null;
@@ -28,6 +35,10 @@ export function EquipmentDetailSheet({ equipment, onOpenChange, open }: Equipmen
           <SheetDescription>
             {equipment.equipment_code} · {equipment.parking_lots?.name || "주차장 정보 없음"}
           </SheetDescription>
+          {(onEdit || onDecommission) && <div className="flex gap-2 pt-3">
+            {onEdit && <Button variant="outline" size="sm" onClick={() => onEdit(equipment)}><Pencil className="mr-1.5 h-4 w-4" />수정</Button>}
+            {onDecommission && equipment.status !== "decommissioned" && <Button variant="outline" size="sm" onClick={() => onDecommission(equipment)}><Archive className="mr-1.5 h-4 w-4" />폐기 처리</Button>}
+          </div>}
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
@@ -64,6 +75,19 @@ export function EquipmentDetailSheet({ equipment, onOpenChange, open }: Equipmen
               {equipment.notes || "등록된 메모가 없습니다."}
             </div>
           </section>
+
+          <section className="rounded-2xl border bg-card p-4">
+            <h3 className="text-sm font-semibold text-foreground">관련 업체 연락망</h3>
+            <dl className="mt-4 space-y-3 text-sm">
+              <DetailRow label="업체명" value={equipment.vendor_name || "-"} />
+              <DetailRow label="업체 담당자" value={equipment.vendor_manager || "-"} />
+              <DetailRow label="담당자 연락처" value={equipment.vendor_phone || "-"} />
+              <DetailRow label="담당자 이메일" value={equipment.vendor_email || "-"} />
+            </dl>
+          </section>
+          <FacilityPhotoGallery refType="equipment" refId={equipment.id} title="장비·설치 위치 사진" />
+          <LinkedBusinessContacts module="FACILITY_EQUIPMENT" recordId={equipment.id} title="연결된 장비업체 담당자" />
+          <DocumentLinksPanel module="FACILITY_EQUIPMENT" recordId={equipment.id} recordPath={`/facility/equipment?equipment=${equipment.id}`} recordTitle={`${equipment.equipment_code} ${equipment.name}`} />
         </div>
       </SheetContent>
     </Sheet>

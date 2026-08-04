@@ -4,14 +4,20 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { formatFacilityDate } from "@/lib/facility-format";
 import type { ChecklistItem, SafetyInspection } from "@/types/facility";
 import { GRADE_COLORS, INSPECTION_TYPE_LABELS } from "@/types/facility";
+import { Button } from "@/components/ui/button";
+import { Loader2, Wrench } from "lucide-react";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
+import { FacilityPhotoGallery } from "@/components/facility/FacilityPhotoGallery";
 
 interface SafetyInspectionDetailSheetProps {
   inspection: SafetyInspection | null;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  creatingItemKey?: string | null;
+  onCreateCorrectiveWork?: (item: ChecklistItem, itemIndex: number) => void;
 }
 
-export function SafetyInspectionDetailSheet({ inspection, onOpenChange, open }: SafetyInspectionDetailSheetProps) {
+export function SafetyInspectionDetailSheet({ inspection, onOpenChange, open, creatingItemKey, onCreateCorrectiveWork }: SafetyInspectionDetailSheetProps) {
   const isMobile = useIsMobile();
 
   if (!inspection) return null;
@@ -65,11 +71,25 @@ export function SafetyInspectionDetailSheet({ inspection, onOpenChange, open }: 
                 <div key={category} className="rounded-xl border bg-muted/20 p-3">
                   <p className="text-sm font-semibold text-foreground">{category}</p>
                   <ul className="mt-3 space-y-2">
-                    {items.map((item, index) => (
-                      <li key={`${item.item}-${index}`} className="flex items-start justify-between gap-3 rounded-lg bg-background px-3 py-2 text-sm">
+                    {items.map((item, index) => {
+                      const itemIndex = checklistItems.indexOf(item);
+                      const itemKey = `${item.category}:${item.item}`;
+                      return <li key={`${item.item}-${index}`} className="flex items-start justify-between gap-3 rounded-lg bg-background px-3 py-2 text-sm">
                         <div>
                           <p className="font-medium text-foreground">{item.item}</p>
                           <p className="text-xs text-muted-foreground">{item.note || "메모 없음"}</p>
+                          {item.result === "fail" && onCreateCorrectiveWork && (
+                            <Button
+                              className="mt-2"
+                              size="sm"
+                              variant="outline"
+                              disabled={creatingItemKey === itemKey}
+                              onClick={() => onCreateCorrectiveWork(item, itemIndex)}
+                            >
+                              {creatingItemKey === itemKey ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Wrench className="mr-1.5 h-3.5 w-3.5" />}
+                              시정 작업 생성
+                            </Button>
+                          )}
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           <Badge variant={item.result === "fail" ? "destructive" : item.result === "pass" ? "default" : "outline"}>
@@ -77,13 +97,20 @@ export function SafetyInspectionDetailSheet({ inspection, onOpenChange, open }: 
                           </Badge>
                           {item.severity && <span className="text-xs text-muted-foreground">심각도 {item.severity}</span>}
                         </div>
-                      </li>
-                    ))}
+                      </li>;
+                    })}
                   </ul>
                 </div>
               ))}
             </div>
           </section>
+          <FacilityPhotoGallery refType="safety_inspection" refId={inspection.id} title="점검 현장 사진" />
+          <DocumentLinksPanel
+            module="FACILITY_SAFETY"
+            recordId={inspection.id}
+            recordPath={`/facility/safety?inspection=${inspection.id}`}
+            recordTitle={`${inspection.inspection_number} ${inspection.parking_lots?.name || "안전점검"}`}
+          />
         </div>
       </SheetContent>
     </Sheet>

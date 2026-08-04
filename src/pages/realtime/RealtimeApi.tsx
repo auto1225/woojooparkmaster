@@ -13,52 +13,45 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/EmptyState";
-import { Key, Plus, Copy, Eye, EyeOff, Trash2, RefreshCw, AlertCircle } from "lucide-react";
+import { Key, Plus, Copy, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { logActivity } from "@/lib/activity-logger";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 
+const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/realtime-api`;
 const ENDPOINTS = [
-  { method: 'GET', path: '/api/v1/lots', description: '전체 주차장 실시간 현황' },
-  { method: 'GET', path: '/api/v1/lots/:id', description: '개별 주차장 현황' },
-  { method: 'GET', path: '/api/v1/lots/:id/history', description: '시간대별 이력' },
-  { method: 'WS', path: '/ws/realtime', description: '실시간 구독 (WebSocket)' },
+  { method: 'GET', path: `${API_BASE}/lots`, description: '전체 주차장 실시간 현황' },
+  { method: 'GET', path: `${API_BASE}/lots/:id`, description: '개별 주차장 현황 (UUID 또는 코드)' },
+  { method: 'GET', path: `${API_BASE}/lots/:id/history`, description: '시간대별 이력 (최대 31일)' },
 ];
 
-function generateApiKey(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let key = 'pk_live_';
-  for (let i = 0; i < 32; i++) key += chars[Math.floor(Math.random() * chars.length)];
-  return key;
-}
-
-function maskKey(key: string): string {
-  if (key.length <= 12) return key;
-  return key.slice(0, 8) + '••••••••' + key.slice(-4);
-}
-
 export default function RealtimeApi() {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const queryClient = useQueryClient();
   const canEdit = profile && ['admin', 'manager'].includes(profile.role);
 
   const [showCreate, setShowCreate] = useState(false);
-  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [createdKey, setCreatedKey] = useState("");
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyExpires, setNewKeyExpires] = useState('');
   const [newKeyDescription, setNewKeyDescription] = useState('');
   const [newKeyRateLimit, setNewKeyRateLimit] = useState('60');
+  const closeCreateDialog = () => {
+    setShowCreate(false);
+    setCreatedKey('');
+    setNewKeyName('');
+    setNewKeyExpires('');
+    setNewKeyDescription('');
+    setNewKeyRateLimit('60');
+  };
 
   // Fetch API keys
   const { data: apiKeys, isLoading: keysLoading } = useQuery({
     queryKey: ['api-keys'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('api_keys')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data, error } = await (supabase.rpc as any)('list_api_keys_safe');
       if (error) throw error;
       return data || [];
     },
@@ -121,34 +114,22 @@ export default function RealtimeApi() {
   // Create API key mutation
   const createMutation = useMutation({
     mutationFn: async () => {
-      const fullKey = generateApiKey();
-      const prefix = fullKey.slice(0, 12) + '...';
-      const { error } = await supabase.from('api_keys').insert({
-        key_name: newKeyName.trim(),
-        api_key: fullKey,
-        key_prefix: prefix,
-        description: newKeyDescription.trim() || null,
-        rate_limit_per_minute: parseInt(newKeyRateLimit) || 60,
-        expires_at: newKeyExpires ? new Date(newKeyExpires).toISOString() : null,
-        created_by: user?.id,
-        notes: null,
-      } as any);
+      const { data, error } = await (supabase.rpc as any)('create_realtime_api_key', {
+        p_key_name: newKeyName.trim(),
+        p_description: newKeyDescription.trim() || null,
+        p_expires_at: newKeyExpires ? new Date(newKeyExpires).toISOString() : null,
+        p_rate_limit: parseInt(newKeyRateLimit) || 60,
+        p_client_mutation_id: crypto.randomUUID(),
+      });
       if (error) throw error;
-      return fullKey;
+      return data as { key?: string | null; replayed?: boolean };
     },
-    onSuccess: (fullKey) => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['api-keys'] });
       logActivity({ module: 'realtime', action: 'create', targetType: 'api_key', targetName: newKeyName });
-      toast({
-        title: "API 키가 생성되었습니다",
-        description: "키를 복사하세요. 이후에는 마스킹 처리됩니다.",
-      });
-      navigator.clipboard.writeText(fullKey);
-      setShowCreate(false);
-      setNewKeyName('');
-      setNewKeyExpires('');
-      setNewKeyDescription('');
-      setNewKeyRateLimit('60');
+      if (!result?.key) throw new Error("재전송된 요청입니다. 기존 키 원문은 다시 표시할 수 없습니다.");
+      setCreatedKey(result.key);
+      toast({ title: "API 키가 생성되었습니다", description: "이 화면에서 한 번만 확인할 수 있습니다." });
     },
     onError: (err: any) => {
       toast({ title: "생성 실패", description: err.message, variant: "destructive" });
@@ -158,7 +139,7 @@ export default function RealtimeApi() {
   // Revoke / Delete key
   const revokeMutation = useMutation({
     mutationFn: async (keyId: string) => {
-      const { error } = await supabase.from('api_keys').update({ status: 'revoked' } as any).eq('id', keyId);
+      const { error } = await (supabase.rpc as any)('revoke_realtime_api_key', { p_key_id: keyId });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -167,8 +148,6 @@ export default function RealtimeApi() {
       setDeleteTarget(null);
     },
   });
-
-  const toggleKey = (id: string) => setShowKeys(prev => ({ ...prev, [id]: !prev[id] }));
 
   const getStatusBadge = (key: any) => {
     if (key.status === 'revoked') return <Badge variant="destructive" className="text-[10px]">폐기</Badge>;
@@ -258,16 +237,8 @@ export default function RealtimeApi() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <span className="font-mono text-xs">{showKeys[k.id] ? k.api_key : maskKey(k.api_key)}</span>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleKey(k.id)}>
-                            {showKeys[k.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
-                            navigator.clipboard.writeText(k.api_key);
-                            toast({ title: "클립보드에 복사되었습니다" });
-                          }}>
-                            <Copy className="h-3 w-3" />
-                          </Button>
+                          <span className="font-mono text-xs">{k.key_prefix || '-'}</span>
+                          <span className="text-[10px] text-muted-foreground">원문 재조회 불가</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-xs whitespace-nowrap">{k.created_at?.split('T')[0]}</TableCell>
@@ -332,10 +303,21 @@ export default function RealtimeApi() {
         </div>
 
         {/* Create Key Dialog */}
-        <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <Dialog open={showCreate} onOpenChange={(open) => open ? setShowCreate(true) : closeCreateDialog()}>
           <DialogContent>
             <DialogHeader><DialogTitle>API 키 생성</DialogTitle></DialogHeader>
-            <div className="space-y-3">
+            {createdKey ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">보안을 위해 키 원문은 지금 한 번만 표시됩니다.</p>
+                <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-3">
+                  <code className="min-w-0 flex-1 break-all text-xs">{createdKey}</code>
+                  <Button type="button" size="icon" variant="outline" title="키 복사" onClick={() => {
+                    navigator.clipboard.writeText(createdKey);
+                    toast({ title: "API 키를 복사했습니다" });
+                  }}><Copy className="h-4 w-4" /></Button>
+                </div>
+              </div>
+            ) : <div className="space-y-3">
               <div>
                 <Label>키 이름 <span className="text-destructive">*</span></Label>
                 <Input value={newKeyName} onChange={e => setNewKeyName(e.target.value)} placeholder="예: 카카오맵 연동" />
@@ -363,15 +345,15 @@ export default function RealtimeApi() {
                   </Select>
                 </div>
               </div>
-            </div>
+            </div>}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreate(false)}>취소</Button>
+              {createdKey ? <Button onClick={closeCreateDialog}>확인</Button> : <><Button variant="outline" onClick={closeCreateDialog}>취소</Button>
               <Button
                 onClick={() => createMutation.mutate()}
                 disabled={!newKeyName.trim() || createMutation.isPending}
               >
                 {createMutation.isPending ? "생성 중..." : "생성"}
-              </Button>
+              </Button></>}
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -18,6 +18,7 @@ import { CHART_COLORS, ChartTooltipContent } from "@/lib/chart-config";
 import { useTheme } from "@/hooks/useTheme";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { createExcelWorkbook } from "@/lib/excel-engine";
+import { LOT_TYPE_LABELS, type LotType } from "@/types/database";
 
 const CATEGORY_COLORS = ["#3b82f6", "#ef4444", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6b7280"];
 
@@ -31,7 +32,7 @@ export default function ComplaintStats() {
   const { data: complaints = [] } = useQuery({
     queryKey: ["complaints-stats-all"],
     queryFn: async () => {
-      const { data } = await supabase.from("complaints").select("*, parking_lots(name)").order("received_at", { ascending: false });
+      const { data } = await supabase.from("complaints").select("*, parking_lots(name, lot_type)").order("received_at", { ascending: false });
       return data || [];
     },
   });
@@ -46,13 +47,13 @@ export default function ComplaintStats() {
     queryFn: async () => { const { data } = await supabase.from("complaint_staff_performance").select("*"); return data || []; },
   });
 
-  const now = new Date();
+  const [now] = useState(() => new Date());
   const periodFiltered = useMemo(() => {
     let start = new Date(now.getFullYear(), 0, 1);
     if (period === "month") start = new Date(now.getFullYear(), now.getMonth(), 1);
     else if (period === "quarter") start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
     return complaints.filter((c: any) => new Date(c.received_at) >= start);
-  }, [complaints, period]);
+  }, [complaints, now, period]);
 
   // Previous period for comparison
   const prevFiltered = useMemo(() => {
@@ -62,7 +63,7 @@ export default function ComplaintStats() {
       return complaints.filter((c: any) => { const d = new Date(c.received_at); return d >= ps && d <= pe; });
     }
     return [];
-  }, [complaints, period]);
+  }, [complaints, now, period]);
 
   // KPIs
   const total = periodFiltered.length;
@@ -72,10 +73,9 @@ export default function ComplaintStats() {
   const avgDays = closedWithTime.length
     ? closedWithTime.reduce((s: number, c: any) => s + (new Date(c.closed_at).getTime() - new Date(c.received_at).getTime()) / 86400000, 0) / closedWithTime.length
     : 0;
-  const slaCount = closedWithTime.filter((c: any) => {
-    const d = (new Date(c.closed_at).getTime() - new Date(c.received_at).getTime()) / 86400000;
-    return d <= 7;
-  }).length;
+  const slaCount = closedWithTime.filter((c: any) => c.due_date
+    ? new Date(c.closed_at).getTime() <= new Date(c.due_date).setHours(23, 59, 59, 999)
+    : (new Date(c.closed_at).getTime() - new Date(c.received_at).getTime()) / 86400000 <= 7).length;
   const slaRate = closedWithTime.length > 0 ? (slaCount / closedWithTime.length) * 100 : 0;
   const withScore = periodFiltered.filter((c: any) => c.satisfaction_score);
   const avgSat = withScore.length ? withScore.reduce((s: number, c: any) => s + c.satisfaction_score, 0) / withScore.length : 0;
@@ -106,7 +106,7 @@ export default function ComplaintStats() {
         };
       })
       .sort((a, b) => b.count - a.count);
-  }, [complaints]);
+  }, [complaints, now]);
 
   const prevTotal = prevFiltered.length;
 
@@ -116,6 +116,23 @@ export default function ComplaintStats() {
     periodFiltered.forEach((c: any) => { map[c.category] = (map[c.category] || 0) + 1; });
     return Object.entries(map).map(([k, v]) => ({ name: CATEGORY_LABELS[k] || k, value: v })).sort((a, b) => b.value - a.value);
   }, [periodFiltered]);
+
+  const lotTypeData = useMemo(() => {
+    const map: Record<string, { total: number; open: number; overdue: number }> = {};
+    periodFiltered.forEach((complaint: any) => {
+      const key = complaint.parking_lots?.lot_type || "unassigned";
+      if (!map[key]) map[key] = { total: 0, open: 0, overdue: 0 };
+      map[key].total += 1;
+      if (!["closed", "responded"].includes(complaint.status)) map[key].open += 1;
+      if (complaint.due_date && !["closed", "responded"].includes(complaint.status) && new Date(complaint.due_date) < now) map[key].overdue += 1;
+    });
+    return Object.entries(map).map(([key, value]) => ({
+      name: key === "unassigned" ? "형태 미지정" : LOT_TYPE_LABELS[key as LotType] || key,
+      접수: value.total,
+      미처리: value.open,
+      기한초과: value.overdue,
+    })).sort((a, b) => b.접수 - a.접수);
+  }, [now, periodFiltered]);
 
   // Monthly trend
   const monthlyData = useMemo(() => {
@@ -187,8 +204,10 @@ export default function ComplaintStats() {
       const m = c.received_at.slice(0, 7);
       if (!map[m]) map[m] = { total: 0, met: 0 };
       map[m].total++;
-      const days = (new Date(c.closed_at).getTime() - new Date(c.received_at).getTime()) / 86400000;
-      if (days <= 7) map[m].met++;
+      const met = c.due_date
+        ? new Date(c.closed_at).getTime() <= new Date(c.due_date).setHours(23, 59, 59, 999)
+        : (new Date(c.closed_at).getTime() - new Date(c.received_at).getTime()) / 86400000 <= 7;
+      if (met) map[m].met++;
     });
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0])).map(([month, d]) => ({
       month: month.slice(5) + '월', rate: Number(((d.met / d.total) * 100).toFixed(1)),
@@ -222,6 +241,7 @@ export default function ComplaintStats() {
           headers: [
             { key: 'date', label: '접수일', format: 'date' as const, width: 12 },
             { key: 'lot', label: '주차장', width: 14 },
+            { key: 'lotType', label: '주차장 형태', width: 14 },
             { key: 'category', label: '유형', width: 10 },
             { key: 'channel', label: '채널', width: 8 },
             { key: 'status', label: '상태', width: 8 },
@@ -231,6 +251,7 @@ export default function ComplaintStats() {
           data: periodFiltered.map((c: any) => ({
             date: c.received_at?.split('T')[0],
             lot: c.parking_lots?.name || '-',
+            lotType: c.parking_lots?.lot_type ? LOT_TYPE_LABELS[c.parking_lots.lot_type as LotType] : '-',
             category: CATEGORY_LABELS[c.category] || c.category,
             channel: CHANNEL_LABELS[c.channel] || c.channel,
             status: c.status,
@@ -327,6 +348,26 @@ export default function ComplaintStats() {
                     </PieChart>
                   </ResponsiveContainer>
                   <p className="text-center font-bold text-lg">{total}건</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">주차장 형태별 민원·미처리</CardTitle></CardHeader>
+                <CardContent>
+                  {lotTypeData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={lotTypeData} layout="vertical" margin={{ left: 35 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#e2e8f0'} />
+                        <XAxis type="number" tick={{ fontSize: 10 }} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={82} />
+                        <Tooltip content={<ChartTooltipContent isDark={isDark} />} />
+                        <Legend />
+                        <Bar dataKey="접수" fill={CHART_COLORS.primary[0]} radius={[0, 3, 3, 0]} />
+                        <Bar dataKey="미처리" fill={CHART_COLORS.status.warning} radius={[0, 3, 3, 0]} />
+                        <Bar dataKey="기한초과" fill={CHART_COLORS.status.danger} radius={[0, 3, 3, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">데이터 없음</div>}
                 </CardContent>
               </Card>
 

@@ -2688,6 +2688,10 @@ export type Database = {
           total_maintenance_cost: number | null
           updated_at: string | null
           useful_life_years: number | null
+          vendor_email: string | null
+          vendor_manager: string | null
+          vendor_name: string | null
+          vendor_phone: string | null
           warranty_end: string | null
           warranty_start: string | null
         }
@@ -2727,6 +2731,10 @@ export type Database = {
           total_maintenance_cost?: number | null
           updated_at?: string | null
           useful_life_years?: number | null
+          vendor_email?: string | null
+          vendor_manager?: string | null
+          vendor_name?: string | null
+          vendor_phone?: string | null
           warranty_end?: string | null
           warranty_start?: string | null
         }
@@ -2766,6 +2774,10 @@ export type Database = {
           total_maintenance_cost?: number | null
           updated_at?: string | null
           useful_life_years?: number | null
+          vendor_email?: string | null
+          vendor_manager?: string | null
+          vendor_name?: string | null
+          vendor_phone?: string | null
           warranty_end?: string | null
           warranty_start?: string | null
         }
@@ -3375,7 +3387,10 @@ export type Database = {
           total_cost: number | null
           updated_at: string | null
           vendor_contact: string | null
+          vendor_email: string | null
+          vendor_manager: string | null
           vendor_name: string | null
+          vendor_phone: string | null
         }
         Insert: {
           after_photo?: string | null
@@ -3415,7 +3430,10 @@ export type Database = {
           total_cost?: number | null
           updated_at?: string | null
           vendor_contact?: string | null
+          vendor_email?: string | null
+          vendor_manager?: string | null
           vendor_name?: string | null
+          vendor_phone?: string | null
         }
         Update: {
           after_photo?: string | null
@@ -3455,7 +3473,10 @@ export type Database = {
           total_cost?: number | null
           updated_at?: string | null
           vendor_contact?: string | null
+          vendor_email?: string | null
+          vendor_manager?: string | null
           vendor_name?: string | null
+          vendor_phone?: string | null
         }
         Relationships: [
           {
@@ -3552,7 +3573,10 @@ export type Database = {
           schedule_name: string
           schedule_type: string
           updated_at: string | null
+          vendor_email: string | null
+          vendor_manager: string | null
           vendor_name: string | null
+          vendor_phone: string | null
         }
         Insert: {
           advance_notice_days?: number | null
@@ -3575,7 +3599,10 @@ export type Database = {
           schedule_name: string
           schedule_type: string
           updated_at?: string | null
+          vendor_email?: string | null
+          vendor_manager?: string | null
           vendor_name?: string | null
+          vendor_phone?: string | null
         }
         Update: {
           advance_notice_days?: number | null
@@ -3598,7 +3625,10 @@ export type Database = {
           schedule_name?: string
           schedule_type?: string
           updated_at?: string | null
+          vendor_email?: string | null
+          vendor_manager?: string | null
           vendor_name?: string | null
+          vendor_phone?: string | null
         }
         Relationships: [
           {
@@ -4634,6 +4664,9 @@ export type Database = {
       }
       report_generated: {
         Row: {
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           created_at: string | null
           data_snapshot: Json | null
           description: string | null
@@ -4647,12 +4680,14 @@ export type Database = {
           hwp_path: string | null
           id: string
           is_shared: boolean | null
+          official_document_number: string | null
           page_count: number | null
           parameters_used: Json | null
           period_end: string | null
           period_start: string | null
           period_type: string | null
           report_number: string
+          row_version: number
           shared_at: string | null
           shared_with: Json | null
           status: string | null
@@ -4660,8 +4695,12 @@ export type Database = {
           target_lots: Json | null
           template_id: string
           title: string
+          updated_at: string
         }
         Insert: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string | null
           data_snapshot?: Json | null
           description?: string | null
@@ -4675,12 +4714,14 @@ export type Database = {
           hwp_path?: string | null
           id?: string
           is_shared?: boolean | null
+          official_document_number?: string | null
           page_count?: number | null
           parameters_used?: Json | null
           period_end?: string | null
           period_start?: string | null
           period_type?: string | null
           report_number: string
+          row_version?: number
           shared_at?: string | null
           shared_with?: Json | null
           status?: string | null
@@ -4688,8 +4729,12 @@ export type Database = {
           target_lots?: Json | null
           template_id: string
           title: string
+          updated_at?: string
         }
         Update: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string | null
           data_snapshot?: Json | null
           description?: string | null
@@ -4703,12 +4748,14 @@ export type Database = {
           hwp_path?: string | null
           id?: string
           is_shared?: boolean | null
+          official_document_number?: string | null
           page_count?: number | null
           parameters_used?: Json | null
           period_end?: string | null
           period_start?: string | null
           period_type?: string | null
           report_number?: string
+          row_version?: number
           shared_at?: string | null
           shared_with?: Json | null
           status?: string | null
@@ -4716,6 +4763,7 @@ export type Database = {
           target_lots?: Json | null
           template_id?: string
           title?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -4873,6 +4921,7 @@ export type Database = {
           header_config: Json | null
           id: string
           is_favorite: boolean | null
+          is_active: boolean
           is_system: boolean | null
           name: string
           page_orientation: string | null
@@ -4899,6 +4948,7 @@ export type Database = {
           header_config?: Json | null
           id?: string
           is_favorite?: boolean | null
+          is_active?: boolean
           is_system?: boolean | null
           name: string
           page_orientation?: string | null
@@ -4925,6 +4975,7 @@ export type Database = {
           header_config?: Json | null
           id?: string
           is_favorite?: boolean | null
+          is_active?: boolean
           is_system?: boolean | null
           name?: string
           page_orientation?: string | null

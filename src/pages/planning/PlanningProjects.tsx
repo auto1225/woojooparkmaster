@@ -19,6 +19,7 @@ import { toast } from "@/hooks/use-toast";
 import { logActivity } from "@/lib/activity-logger";
 import { Plus } from "lucide-react";
 import { AuthorField } from "@/components/common/AuthorField";
+import { createConstructionProject } from "@/lib/workflow-commands";
 import {
   PROJECT_TYPE_LABELS, PHASE_LABELS, CONSTRUCTION_STATUS_LABELS, CONSTRUCTION_STATUS_COLORS,
   formatBudgetWon,
@@ -48,8 +49,9 @@ export default function PlanningProjects() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("site_candidates")
-        .select("id, name, site_number, estimated_spaces, address_jibun")
-        .in("status", ["selected", "evaluating", "candidate"]);
+        .select("id, name, site_number, estimated_spaces, address_jibun, planned_lot_type")
+        .eq("status", "selected")
+        .is("archived_at", null);
       if (error) throw error;
       return data || [];
     },
@@ -61,31 +63,31 @@ export default function PlanningProjects() {
   const updateForm = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
 
   const handleSave = async () => {
-    if (!form.project_name) { toast({ title: "사업명을 입력해주세요", variant: "destructive" }); return; }
-    const year = new Date().getFullYear();
-    const count = (projects || []).length + 1;
-    const projectNumber = `CP-${year}-${String(count).padStart(3, '0')}`;
-    const totalBudget = (Number(form.design_cost) || 0) + (Number(form.construction_cost) || 0) + (Number(form.supervision_cost) || 0) + (Number(form.other_cost) || 0);
-
-    const { error } = await supabase.from("construction_projects").insert([{
-      project_number: projectNumber,
-      project_name: form.project_name,
-      project_type: form.project_type || 'new_construction',
-      site_id: form.site_id || null,
-      description: form.description || null,
-      contractor: form.contractor || null,
-      supervisor: form.supervisor || null,
-      designer: form.designer || null,
-      total_budget: totalBudget || null,
-      design_cost: Number(form.design_cost) || 0,
-      construction_cost: Number(form.construction_cost) || 0,
-      supervision_cost: Number(form.supervision_cost) || 0,
-      other_cost: Number(form.other_cost) || 0,
-      target_completion: form.target_completion || null,
-      created_by: profile?.id,
-      author_name: form.author_name || null,
-    }] as any);
-    if (error) { toast({ title: "등록 실패", description: error.message, variant: "destructive" }); return; }
+    if (!form.project_name?.trim() || !form.site_id) {
+      toast({ title: "사업명과 선정 후보지를 입력해 주세요", variant: "destructive" });
+      return;
+    }
+    try {
+      await createConstructionProject({
+        siteId: form.site_id,
+        projectName: form.project_name.trim(),
+        projectType: form.project_type || "new_construction",
+        description: form.description,
+        contractor: form.contractor,
+        supervisor: form.supervisor,
+        designer: form.designer,
+        targetCompletion: form.target_completion,
+        designCost: Number(form.design_cost) || 0,
+        constructionCost: Number(form.construction_cost) || 0,
+        supervisionCost: Number(form.supervision_cost) || 0,
+        otherCost: Number(form.other_cost) || 0,
+        authorName: form.author_name,
+        clientMutationId: crypto.randomUUID(),
+      });
+    } catch (error) {
+      toast({ title: "등록 실패", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+      return;
+    }
     toast({ title: "공사 프로젝트 등록 완료" });
     logActivity({ module: "PLANNING", action: "project_created", targetType: "construction_project", targetName: form.project_name });
     setShowNew(false);
@@ -181,7 +183,7 @@ export default function PlanningProjects() {
                 <SelectContent>{Object.entries(PROJECT_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label>연계 후보부지</Label>
+            <div><Label>선정 후보지 *</Label>
               <Select value={form.site_id || ''} onValueChange={v => updateForm('site_id', v)}>
                 <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
                 <SelectContent>{(selectedSites || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name} ({s.site_number})</SelectItem>)}</SelectContent>

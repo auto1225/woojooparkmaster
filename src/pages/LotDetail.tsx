@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { DocumentLinksPanel } from "@/components/documents/DocumentLinksPanel";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/api/supabase-compat";
@@ -20,14 +21,16 @@ import type { LotType, LotStatus, OperatorType, SurfaceType, PowerStatus } from 
 import { EXECUTION_TYPE_LABELS, BUDGET_STATUS_LABELS } from "@/types/budget";
 import { formatManWon } from "@/types/revenue";
 import { BID_STATUS_LABELS, BID_STATUS_COLORS } from "@/types/procurement";
-import { CATEGORY_LABELS, COMPLAINT_STATUS_LABELS, COMPLAINT_STATUS_COLORS } from "@/types/complaint";
+import { CATEGORY_LABELS, COMPLAINT_STATUS_LABELS, COMPLAINT_STATUS_COLORS, isComplaintOverdue } from "@/types/complaint";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS, SERVICE_TYPE_LABELS, formatServiceAmount } from "@/types/service";
 import { CONGESTION_LABELS, CONGESTION_COLORS, CONGESTION_BG } from "@/types/realtime";
 import { PrintButton } from "@/components/common/PrintButton";
 import { PrintHeader } from "@/components/common/PrintHeader";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
+import type { ParkingLotSurveyFact } from "@/types/parking-survey";
+import { ArrowLeft, Pencil, Trash2, CheckCircle, XCircle, AlertTriangle, ClipboardList, Wrench } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { isModuleEnabled } from "@/lib/authorization";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-success/10 text-success border-success/20",
@@ -36,15 +39,23 @@ const STATUS_COLORS: Record<string, string> = {
   closed: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
+const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
+  reported: "접수", assigned: "배정", in_progress: "진행 중", pending_parts: "부품 대기", completed: "완료",
+};
+
+const SURVEY_STATUS_LABELS: Record<string, string> = {
+  draft: "작성 중", in_progress: "조사 중", submitted: "제출", review: "검토 중", rejected: "반려",
+};
+
 function BoolIcon({ value }: { value: boolean }) {
   return value ? <CheckCircle className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-muted-foreground/40" />;
 }
 
 function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
   return (
-    <div className="flex justify-between py-1.5 border-b last:border-0">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-xs font-medium">{value ?? "-"}</span>
+    <div className="flex items-start justify-between gap-4 py-1.5 border-b last:border-0">
+      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className="min-w-0 break-words text-right text-xs font-medium">{value ?? "-"}</span>
     </div>
   );
 }
@@ -184,11 +195,13 @@ export default function LotDetailPage() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const { data: licenses } = useModuleLicenses();
-  const budgetActive = (licenses ?? []).some(m => m.module_code === 'BUDGET' && m.is_active);
-  const procurementActive = (licenses ?? []).some(m => m.module_code === 'PROCUREMENT' && m.is_active);
-  const serviceActive = (licenses ?? []).some(m => m.module_code === 'SERVICE' && m.is_active);
-  const complaintActive = (licenses ?? []).some(m => m.module_code === 'COMPLAINT' && m.is_active);
-  const realtimeActive = (licenses ?? []).some(m => m.module_code === 'REALTIME' && m.is_active);
+  const budgetActive = isModuleEnabled(licenses, "BUDGET");
+  const procurementActive = isModuleEnabled(licenses, "PROCUREMENT");
+  const serviceActive = isModuleEnabled(licenses, "SERVICE");
+  const complaintActive = isModuleEnabled(licenses, "COMPLAINT");
+  const realtimeActive = isModuleEnabled(licenses, "REALTIME");
+  const facilityActive = isModuleEnabled(licenses, "FACILITY");
+  const surveyActive = isModuleEnabled(licenses, "SURVEY");
 
   const { data: bidProjects } = useQuery({
     queryKey: ['lot-bid-projects', id],
@@ -215,12 +228,70 @@ export default function LotDetailPage() {
     queryKey: ['lot-complaints', id],
     queryFn: async () => {
       const { data } = await supabase.from('complaints')
-        .select('id, complaint_number, category, title, received_at, status, priority, is_overdue')
+        .select('id, complaint_number, category, title, received_at, status, priority, due_date')
         .eq('lot_id', id!).order('received_at', { ascending: false }).limit(20);
       return data || [];
     },
     enabled: !!id && complaintActive,
   });
+
+  const { data: lotMaintenance } = useQuery({
+    queryKey: ['lot-open-maintenance', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('maintenance_logs')
+        .select('id, log_number, title, status, priority, reported_at, maintenance_schedules(next_due_date)')
+        .eq('lot_id', id!)
+        .in('status', ['reported', 'assigned', 'in_progress', 'pending_parts', 'completed'])
+        .order('reported_at', { ascending: false });
+      return data || [];
+    },
+    enabled: !!id && facilityActive,
+  });
+
+  const { data: lotSurveys } = useQuery({
+    queryKey: ['lot-open-surveys', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('surveys')
+        .select('id, status, survey_date, submitted_at')
+        .eq('lot_id', id!)
+        .in('status', ['draft', 'in_progress', 'submitted', 'review', 'rejected'])
+        .order('updated_at', { ascending: false });
+      return data || [];
+    },
+    enabled: !!id && surveyActive,
+  });
+
+  const openWork = useMemo(() => {
+    const items: Array<{ id: string; type: string; title: string; status: string; due?: string | null; route: string; overdue: boolean }> = [];
+    lotComplaints?.filter((item) => !['closed', 'responded'].includes(item.status)).forEach((item) => items.push({
+      id: item.id,
+      type: '민원',
+      title: item.title,
+      status: COMPLAINT_STATUS_LABELS[item.status] || item.status,
+      due: item.due_date,
+      route: `/complaints/${item.id}`,
+      overdue: isComplaintOverdue(item),
+    }));
+    lotMaintenance?.forEach((item: any) => items.push({
+      id: item.id,
+      type: '유지보수',
+      title: item.title,
+      status: MAINTENANCE_STATUS_LABELS[item.status] || item.status,
+      due: item.maintenance_schedules?.next_due_date,
+      route: `/facility/maintenance?work=${item.id}`,
+      overdue: Boolean(item.maintenance_schedules?.next_due_date && item.maintenance_schedules.next_due_date < new Date().toISOString().slice(0, 10)),
+    }));
+    lotSurveys?.forEach((item) => items.push({
+      id: item.id,
+      type: '현황조사',
+      title: '주차장 현황조사',
+      status: SURVEY_STATUS_LABELS[item.status] || item.status,
+      due: item.survey_date,
+      route: item.status === 'submitted' || item.status === 'review' ? `/surveys/${item.id}/review` : `/surveys/${item.id}`,
+      overdue: false,
+    }));
+    return items.sort((a, b) => Number(b.overdue) - Number(a.overdue));
+  }, [lotComplaints, lotMaintenance, lotSurveys]);
 
   const { data: realtimeStatus } = useQuery({
     queryKey: ['lot-realtime-status', id],
@@ -268,6 +339,21 @@ export default function LotDetailPage() {
     enabled: !!id,
   });
 
+  const { data: surveyFact, isLoading: isSurveyLoading } = useQuery<ParkingLotSurveyFact | null>({
+    queryKey: ["parking-lot-survey-fact", id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("parking_lot_survey_facts")
+        .select("*, survey_data_sources(source_code, title, publisher, contractor, report_month, source_filename, source_sha256, validation_status)")
+        .eq("lot_id", id!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as ParkingLotSurveyFact | null;
+    },
+    enabled: !!id,
+    retry: false,
+  });
+
   const canEdit = profile && ["admin", "manager", "editor"].includes(profile.role);
   const canDelete = profile?.role === "admin";
 
@@ -280,26 +366,24 @@ export default function LotDetailPage() {
     if (!lot) return;
     setCheckingRelated(true);
     const counts: Record<string, number> = {};
-    
-    const { count: surveyCount } = await supabase.from("surveys").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
-    if (surveyCount) counts["현황조사"] = surveyCount;
 
-    if ((licenses ?? []).some((m: any) => m.module_code === "OPS" && m.is_active)) {
-      const { count: staffCount } = await supabase.from("operations_staff").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
-      if (staffCount) counts["관리인력"] = staffCount;
-    }
-    if ((licenses ?? []).some((m: any) => m.module_code === "FACILITY" && m.is_active)) {
-      const { count: equipCount } = await supabase.from("equipment").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
-      if (equipCount) counts["시설장비"] = equipCount;
-    }
-    if ((licenses ?? []).some((m: any) => m.module_code === "REVENUE" && m.is_active)) {
-      const { count: revCount } = await supabase.from("revenue_daily").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
-      if (revCount) counts["수입기록"] = revCount;
-    }
-    if (complaintActive) {
-      const { count: compCount } = await supabase.from("complaints").select("id", { count: "exact", head: true }).eq("lot_id", lot.id);
-      if (compCount) counts["민원"] = compCount;
-    }
+    const relatedQueries = await Promise.all([
+      supabase.from("surveys").select("id", { count: "exact", head: true }).eq("lot_id", lot.id),
+      supabase.from("operations_staff").select("id", { count: "exact", head: true }).eq("lot_id", lot.id),
+      supabase.from("equipment").select("id", { count: "exact", head: true }).eq("lot_id", lot.id),
+      supabase.from("maintenance_logs").select("id", { count: "exact", head: true }).eq("lot_id", lot.id),
+      supabase.from("parking_spaces").select("id", { count: "exact", head: true }).eq("lot_id", lot.id),
+      supabase.from("revenue_daily").select("id", { count: "exact", head: true }).eq("lot_id", lot.id),
+      supabase.from("complaints").select("id", { count: "exact", head: true }).eq("lot_id", lot.id),
+      supabase.from("bid_projects").select("id", { count: "exact", head: true }).eq("lot_id", lot.id),
+      supabase.from("service_projects").select("id", { count: "exact", head: true }).eq("lot_id", lot.id),
+      supabase.from("attachments").select("id", { count: "exact", head: true })
+        .eq("module", "LOT").eq("ref_id", lot.id).eq("ref_type", "official_document_link"),
+    ]);
+    const labels = ["현황조사", "관리인력", "시설장비", "유지보수", "주차면 배치", "수입기록", "민원", "입찰·계약", "용역사업", "공식 문서"];
+    relatedQueries.forEach((result, index) => {
+      if (result.count) counts[labels[index]] = result.count;
+    });
 
     setRelatedCounts(counts);
     setCheckingRelated(false);
@@ -320,7 +404,7 @@ export default function LotDetailPage() {
   };
 
   const hasRelated = Object.keys(relatedCounts).length > 0;
-  const canConfirmDelete = hasRelated ? deleteConfirmName === lot?.name : true;
+  const canConfirmDelete = !hasRelated && deleteConfirmName === lot?.name;
 
   if (isLoading) {
     return (
@@ -348,7 +432,7 @@ export default function LotDetailPage() {
     <DashboardLayout>
       <div className="max-w-4xl space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <Button variant="ghost" size="sm" onClick={() => navigate("/lots")} className="mb-2 -ml-2">
               <ArrowLeft className="h-4 w-4 mr-1" /> 목록
@@ -362,7 +446,7 @@ export default function LotDetailPage() {
             </div>
             <p className="text-sm text-muted-foreground mt-1">{lot.address_jibun || lot.address_road || "주소 미등록"}</p>
           </div>
-          <div className="flex gap-2 shrink-0">
+          <div className="flex flex-wrap gap-2 shrink-0">
             <PrintButton />
             {canEdit && (
               <Button variant="outline" size="sm" onClick={() => navigate(`/lots/${lot.id}/edit`)}>
@@ -393,7 +477,11 @@ export default function LotDetailPage() {
                                   <li key={label}>{label}: <strong>{count}건</strong></li>
                                 ))}
                               </ul>
-                              <p className="text-destructive font-medium">삭제하면 연결된 모든 데이터가 함께 삭제됩니다.</p>
+                              <p className="text-destructive font-medium">행정·회계 이력 보존을 위해 삭제할 수 없습니다. 운영 상태를 폐쇄로 변경하거나 연결 데이터를 먼저 정리하세요.</p>
+                            </>
+                          ) : (
+                            <>
+                              <p>연결 데이터는 없지만 삭제하면 되돌릴 수 없습니다.</p>
                               <div className="space-y-1.5">
                                 <p className="text-xs">삭제하려면 주차장명 "<strong>{lot.name}</strong>"을 입력하세요:</p>
                                 <Input
@@ -404,8 +492,6 @@ export default function LotDetailPage() {
                                 />
                               </div>
                             </>
-                          ) : (
-                            <p>정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
                           )}
                         </div>
                       </AlertDialogDescription>
@@ -417,7 +503,7 @@ export default function LotDetailPage() {
                         disabled={!canConfirmDelete}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
-                        삭제
+                        {hasRelated ? "삭제 불가" : "삭제"}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -429,9 +515,25 @@ export default function LotDetailPage() {
 
         <PrintHeader />
 
+        <DocumentLinksPanel module="LOT" recordId={lot.id} recordPath={`/lots/${lot.id}`} recordTitle={lot.name} />
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <Button variant="outline" className="min-h-11 justify-start" onClick={() => navigate(`/complaints/new?lot=${lot.id}`)}>
+            <AlertTriangle className="mr-2 h-4 w-4" /> 이 주차장 민원 접수
+          </Button>
+          <Button variant="outline" className="min-h-11 justify-start" onClick={() => navigate(`/facility/maintenance?lot=${lot.id}`)}>
+            <Wrench className="mr-2 h-4 w-4" /> 유지보수 업무 보기
+          </Button>
+          <Button variant="outline" className="min-h-11 justify-start" onClick={() => navigate(`/facility/layout/${lot.id}`)}>
+            <ClipboardList className="mr-2 h-4 w-4" /> 주차면 배치 관리
+          </Button>
+        </div>
+
         <Tabs defaultValue="info">
-          <TabsList>
+          <TabsList className="h-auto flex-wrap justify-start">
             <TabsTrigger value="info">기본정보</TabsTrigger>
+            <TabsTrigger value="survey">2025 현황조사</TabsTrigger>
+            <TabsTrigger value="work">열린 업무 {openWork.length}</TabsTrigger>
             {budgetActive && <TabsTrigger value="budget">예산현황</TabsTrigger>}
             {procurementActive && <TabsTrigger value="procurement">입찰/계약</TabsTrigger>}
             {serviceActive && <TabsTrigger value="service">용역사업</TabsTrigger>}
@@ -446,12 +548,18 @@ export default function LotDetailPage() {
                 <CardHeader className="pb-2"><CardTitle className="text-xs font-mono text-muted-foreground uppercase">기본 정보</CardTitle></CardHeader>
                 <CardContent>
                   <InfoRow label="유형" value={LOT_TYPE_LABELS[lot.lot_type as LotType]} />
+                  <InfoRow label="행정동" value={lot.admin_dong} />
                   <InfoRow label="운영주체" value={OPERATOR_LABELS[lot.operator_type as OperatorType]} />
                   {lot.operator_name && <InfoRow label="위탁업체" value={lot.operator_name} />}
                   <InfoRow label="총 주차면" value={(lot.total_spaces || 0).toLocaleString()} />
                   <InfoRow label="층수" value={lot.floors} />
                   <InfoRow label="바닥 포장재" value={lot.surface_type ? SURFACE_LABELS[lot.surface_type as SurfaceType] : undefined} />
                   <InfoRow label="면적" value={lot.area_sqm ? `${lot.area_sqm} ㎡` : undefined} />
+                  <InfoRow label="장애인 주차면" value={lot.disabled_spaces ?? 0} />
+                  <InfoRow label="전기차 주차면" value={lot.ev_spaces ?? 0} />
+                  <InfoRow label="경차 주차면" value={lot.compact_spaces ?? 0} />
+                  <InfoRow label="임산부 주차면" value={lot.pregnant_spaces ?? 0} />
+                  <InfoRow label="기타 전용면" value={lot.other_spaces ?? 0} />
                 </CardContent>
               </Card>
 
@@ -495,6 +603,143 @@ export default function LotDetailPage() {
                 </Card>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="survey">
+            {isSurveyLoading ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-52" />)}
+              </div>
+            ) : surveyFact ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">운영 및 주차면</CardTitle></CardHeader>
+                    <CardContent>
+                      <InfoRow label="일반 주차면" value={(surveyFact.general_spaces ?? 0).toLocaleString()} />
+                      <InfoRow label="기타면 유형" value={surveyFact.other_space_type} />
+                      <InfoRow label="운영 구분" value={surveyFact.operation_category} />
+                      <InfoRow label="운영시간" value={surveyFact.operating_hours_text} />
+                      <InfoRow label="관리인력" value={surveyFact.management_type} />
+                      <InfoRow label="상주인원" value={`${surveyFact.resident_staff_count}명`} />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">관제 및 안내</CardTitle></CardHeader>
+                    <CardContent>
+                      <InfoRow label="통합관제" value={surveyFact.control_system_linked ? "연계" : "미연계"} />
+                      <InfoRow label="주차포털" value={surveyFact.parking_portal_linked ? "연계" : "미연계"} />
+                      <InfoRow label="관제 제조사" value={surveyFact.control_manufacturer} />
+                      <InfoRow label="전광판" value={surveyFact.display_installation_status} />
+                      <InfoRow label="전광판 통신" value={surveyFact.display_network_type} />
+                      <InfoRow label="전광판 운영" value={surveyFact.display_use_status} />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">센서 및 구축량</CardTitle></CardHeader>
+                    <CardContent>
+                      <InfoRow label="기존 주차면센서" value={surveyFact.existing_sensor_status} />
+                      <InfoRow label="센서 제조사" value={surveyFact.sensor_manufacturer} />
+                      <InfoRow label="센서 사용여부" value={surveyFact.sensor_use_status} />
+                      <InfoRow label="신규 센서" value={`${(surveyFact.new_sensor_target_count ?? 0).toLocaleString()}개`} />
+                      <InfoRow label="게이트웨이" value={`${surveyFact.gateway_target_count ?? 0}개`} />
+                      <InfoRow label="전광판 개발" value={surveyFact.display_development_possible} />
+                      <InfoRow label="포털 연계 가능" value={surveyFact.portal_link_possible} />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">이용 및 우선순위</CardTitle></CardHeader>
+                    <CardContent>
+                      <InfoRow label="이용률" value={surveyFact.utilization_band} />
+                      <InfoRow label="혼잡시간" value={surveyFact.peak_period} />
+                      <InfoRow label="주이용객" value={surveyFact.primary_users} />
+                      <InfoRow label="이용객 기타" value={surveyFact.user_notes} />
+                      <InfoRow label="구축 우선순위" value={surveyFact.priority_rank ? `${surveyFact.priority_rank}위` : null} />
+                      <InfoRow label="평가점수" value={surveyFact.priority_score} />
+                      <InfoRow label="평가 비고" value={surveyFact.priority_note} />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">출입 및 현장환경</CardTitle></CardHeader>
+                    <CardContent>
+                      <InfoRow label="입구" value={`${surveyFact.entrance_count ?? 0}개`} />
+                      <InfoRow label="출구" value={`${surveyFact.exit_count ?? 0}개`} />
+                      <InfoRow label="입출구 겸용" value={surveyFact.entrance_exit_shared ? "예" : "아니오"} />
+                      <InfoRow label="전기공급" value={surveyFact.power_supply_status} />
+                      <InfoRow label="통신망" value={surveyFact.wired_network_status} />
+                      <InfoRow label="Windows 업데이트" value={surveyFact.windows_update_status} />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">조사 출처</CardTitle></CardHeader>
+                    <CardContent>
+                      <InfoRow label="기준번호" value={`제주시-${String(surveyFact.source_record_no ?? 0).padStart(3, "0")}`} />
+                      <InfoRow label="보고서" value={surveyFact.survey_data_sources?.title} />
+                      <InfoRow label="기준월" value={surveyFact.survey_data_sources?.report_month?.slice(0, 7)} />
+                      <InfoRow label="주관기관" value={surveyFact.survey_data_sources?.publisher} />
+                      <InfoRow label="수행기관" value={surveyFact.survey_data_sources?.contractor} />
+                      <InfoRow label="검증상태" value={surveyFact.survey_data_sources?.validation_status === "validated" ? "검증완료" : surveyFact.survey_data_sources?.validation_status} />
+                      <InfoRow label="원본 SHA-256" value={surveyFact.survey_data_sources?.source_sha256?.slice(0, 16)} />
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            ) : lotSurveys?.length ? (
+              <div className="overflow-hidden border bg-card">
+                <div className="border-b px-4 py-3">
+                  <p className="text-sm font-medium">진행 중인 현황조사</p>
+                  <p className="text-xs text-muted-foreground">2025 기준 원본은 없지만 이 주차장에 연결된 조사 업무가 있습니다.</p>
+                </div>
+                {lotSurveys.map((survey) => (
+                  <button
+                    key={survey.id}
+                    type="button"
+                    className="flex min-h-12 w-full items-center justify-between border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted/40"
+                    onClick={() => navigate(survey.status === "submitted" || survey.status === "review" ? `/surveys/${survey.id}/review` : `/surveys/${survey.id}`)}
+                  >
+                    <span className="text-sm">주차장 현황조사</span>
+                    <span className="text-xs text-muted-foreground">{SURVEY_STATUS_LABELS[survey.status] || survey.status}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="border py-12 text-center text-sm text-muted-foreground">연결된 현황조사 데이터가 없습니다</div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="work">
+            <section className="overflow-hidden border bg-card">
+              <div className="border-b px-4 py-3">
+                <h3 className="text-sm font-semibold">주차장 열린 업무</h3>
+                <p className="text-xs text-muted-foreground">민원, 유지보수, 현황조사를 기한 순으로 확인합니다</p>
+              </div>
+              {openWork.length > 0 ? openWork.map((item) => (
+                <button
+                  key={`${item.type}-${item.id}`}
+                  type="button"
+                  onClick={() => navigate(item.route)}
+                  className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted/40"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                    {item.type === '민원' ? <AlertTriangle className="h-4 w-4" /> : item.type === '유지보수' ? <Wrench className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">{item.title}</span>
+                    <span className="text-xs text-muted-foreground">{item.type} · {item.status}</span>
+                  </span>
+                  <span className={`text-xs ${item.overdue ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
+                    {item.due || '기한 없음'}
+                  </span>
+                </button>
+              )) : (
+                <div className="py-12 text-center text-sm text-muted-foreground">진행 중인 업무가 없습니다</div>
+              )}
+            </section>
           </TabsContent>
 
           {budgetActive && (
