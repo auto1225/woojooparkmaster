@@ -100,11 +100,6 @@ export function StepPhotos({ surveyId, photos, onRefresh, lotType, readOnly }: P
     }
   };
 
-  const getPublicUrl = (path: string) => {
-    const { data } = supabase.storage.from("survey-photos").getPublicUrl(path);
-    return data.publicUrl;
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">

@@ -20,29 +20,77 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const broadcastChannel =
   typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("parkmaster-auth") : null;
 
+const ROLE_VALUES = ["admin", "manager", "editor", "viewer"] as const;
+const TEAM_VALUES = ["operations", "facilities", "planning", "admin"] as const;
+
+function isProfileRole(value: unknown): value is Profile["role"] {
+  return typeof value === "string" && ROLE_VALUES.includes(value as Profile["role"]);
+}
+
+function isProfileTeam(value: unknown): value is Profile["team"] {
+  return typeof value === "string" && TEAM_VALUES.includes(value as Profile["team"]);
+}
+
+function buildFallbackProfile(user: User): Profile {
+  const now = new Date().toISOString();
+  const metadata = user.user_metadata || {};
+  const email = user.email || "";
+  return {
+    id: user.id,
+    name: typeof metadata.name === "string" && metadata.name.trim() ? metadata.name : email.split("@")[0] || "ParkMaster 사용자",
+    email,
+    department: "제주시청 차량관리과 운영팀",
+    team: isProfileTeam(metadata.team) ? metadata.team : "operations",
+    role: isProfileRole(metadata.role) ? metadata.role : "viewer",
+    is_active: true,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (authUser: User) => {
     const { data } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", userId)
-      .single();
-    if (data) {
-      setProfile(data as unknown as Profile);
-    }
+      .eq("id", authUser.id)
+      .maybeSingle();
+    setProfile(data ? data as unknown as Profile : buildFallbackProfile(authUser));
   }, []);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+
+      setUser(session?.user ?? null);
+      setSessionToken(session?.access_token ? getSessionIdentity(session.access_token) : null);
+      if (session?.user) {
+        await fetchProfile(session.user);
+      } else {
+        setProfile(null);
+      }
+    } catch {
+      setUser(null);
+      setProfile(null);
+      setSessionToken(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchProfile]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
       setSessionToken(session?.access_token ? getSessionIdentity(session.access_token) : null);
       if (session?.user) {
-        setTimeout(() => fetchProfile(session.user.id), 0);
+        setTimeout(() => fetchProfile(session.user), 0);
       } else {
         setProfile(null);
       }
@@ -53,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       setSessionToken(session?.access_token ? getSessionIdentity(session.access_token) : null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user);
       }
       setLoading(false);
     });
@@ -114,17 +162,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setSessionToken(null);
   }, []);
-
-  const refresh = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    setUser(session?.user ?? null);
-    setSessionToken(session?.access_token ? getSessionIdentity(session.access_token) : null);
-    if (session?.user) {
-      await fetchProfile(session.user.id);
-    } else {
-      setProfile(null);
-    }
-  }, [fetchProfile]);
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signIn, signOut, refresh }}>

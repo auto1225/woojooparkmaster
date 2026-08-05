@@ -1,5 +1,5 @@
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,46 +7,47 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-.env.*
-!.env.example
-deploy/runtime/
-deploy/data/
-deploy/backups/
-deploy/tls/
-work/test-results/
-work/*.pdf
-work/report-verification/
-work/verification/
-tmp/
-supabase/.temp/
-*.traineddata
-playwright-report/
-test-results/
-
-# Build output
+# Dependencies and build output
+node_modules/
 dist/
 dist-ssr/
 .vite/
 api/dist/
 
-# Runtime data
+# Local runtime data
+deploy/runtime/
+deploy/data/
+deploy/backups/
+deploy/tls/
 uploads/
 api/uploads/
 backups/
-*.bak
-*.backup
+tmp/
 
-# Environment files — 실제 값은 절대 커밋하지 않음
+# Generated work artifacts
+work/db-dumps/
+work/test-results/
+work/report-verification/
+work/verification/
+work/*.pdf
+playwright-report/
+test-results/
+coverage/
+
+# Environment and secrets
 .env
 .env.*
 api/.env
 api/.env.*
+*.local
 !.env.example
 !api/.env.example
+
+# OCR trained data
+*.traineddata
+
+# Supabase CLI
+supabase/.temp/
 
 # Editor / OS
 .vscode/*
@@ -59,10 +60,6 @@ api/.env.*
 *.sln
 *.sw?
 
-# Testing
-coverage/
-playwright-report/
-test-results/
-
-# Supabase CLI
-supabase/.temp/
+# Backup files
+*.bak
+*.backup

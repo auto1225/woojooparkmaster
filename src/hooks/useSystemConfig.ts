@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/api/supabase-compat";
+import { supabase as apiSupabase } from "@/integrations/api/supabase-compat";
+import { supabase } from "@/integrations/supabase/client";
 
 export function useSystemConfig() {
   return useQuery({
     queryKey: ["system-config"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await apiSupabase
         .from("system_config")
         .select("config_key, config_value");
       if (error) throw error;
