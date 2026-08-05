@@ -1,10 +1,21 @@
-# WOOJOO ParkMaster
+# ParkMaster
 
-공공기관 내부 존에서 사용하는 공영주차장 통합 운영관리 시스템입니다. 운영 데이터, 인증 정보, 첨부파일은 기관 내부의 Self-hosted Supabase에 저장하고 승인된 외부 서비스만 통제된 인터넷 경로로 사용합니다.
+제주시청 차량관리과 운영팀의 공영주차장 통합관리 프로그램입니다. 현재 소스의 기준 실행 구조는 **Vite React 프론트엔드 + Supabase 기반 데이터/파일 저장소 + `/api` 호환 계층** 입니다.
+
+## 현재 기준
+
+- 실행 앱: `src/` 기반 Vite React 애플리케이션
+- 데이터: Supabase 프로젝트의 Auth, Postgres, Storage, Edge Functions
+- API 호환 소스: `api/`
+- 로컬 개발 서버: `npm run dev`
+- 기본 접속 주소: `http://127.0.0.1:5173`
+- 배포/운영 보조: `deploy/`, `supabase/`
+
+현재 프로그램을 다른 컴퓨터에서 확인하거나 수정할 때는 이 저장소의 루트에서 아래 절차를 기준으로 작업합니다. 테스트 DB dump, 임시 빌드 산출물, 로컬 로그, 개인 환경 파일은 저장소에 포함하지 않습니다.
 
 ## 개발 실행
 
-Node.js 22 이상과 Git이 필요합니다. 새 컴퓨터에서는 저장소를 복제하고 로컬 환경 파일을 만든 뒤 실행합니다.
+Node.js 22 이상과 Git이 필요합니다.
 
 ```bash
 git clone https://github.com/auto1225/woojooparkmaster.git
@@ -13,34 +24,38 @@ npm ci
 npm run dev
 ```
 
-비공개 저장소의 `.env`에는 브라우저에 공개되는 Supabase URL, publishable key, 프로젝트 ID만 포함되어 있어 복제 후 바로 사용할 수 있습니다. `service_role` 키, 데이터베이스 비밀번호, 개인 액세스 토큰 같은 서버 비밀값은 `.env`에 추가하거나 Git에 커밋하지 않고 별도 보안 저장소에서 관리합니다. 운영 빌드는 환경값을 포함하지 않으며 컨테이너 시작 시 `/runtime-config.js`가 생성됩니다.
+브라우저에서 `http://127.0.0.1:5173`으로 접속합니다.
 
-다른 컴퓨터에서 최신 변경사항을 받을 때는 작업 내용을 먼저 커밋한 뒤 `git pull --rebase origin main`을 실행합니다. 기능 수정은 별도 브랜치에서 진행하고 Pull Request로 `main`에 반영합니다.
+## 환경 변수
 
-## GitHub 자동 검증과 배포본
-
-`main` 브랜치와 Pull Request는 GitHub Actions에서 의존성 설치, 린트, 전체 테스트, 프로덕션 빌드를 자동으로 검증합니다. 성공한 실행의 `parkmaster-web-*` 아티팩트에는 정적 웹 배포본이 포함됩니다. 확정 버전은 저장소의 Releases에서 소스와 웹 빌드 압축파일을 함께 내려받을 수 있습니다.
-
-## 기관 내부 존 배포
-
-- 데이터베이스, 인증, 파일 저장소, Edge Functions: 기관 내부 서버
-- 사용자 접속: 내부 DNS와 HTTPS를 통한 단일 주소
-- 네이버 지도: 승인된 외부 통신 구간
-- 외부 AI: 기본 차단, 보안 검토 후 승인 호스트만 허용
-- Supabase Studio, Postgres, Kong: 서버의 loopback에만 바인딩
-
-상세 절차는 [온프레미스 배포 가이드](docs/ON_PREMISES_DEPLOYMENT.md), [네트워크 허용 목록](docs/NETWORK_ALLOWLIST.md), [백업·복구 운영서](docs/BACKUP_RECOVERY_RUNBOOK.md)를 따릅니다.
-
-## 품질 확인
+루트 `.env`에는 브라우저에서 사용 가능한 Supabase 공개 설정만 둡니다.
 
 ```bash
-npm run lint
+VITE_SUPABASE_URL=
+VITE_SUPABASE_PUBLISHABLE_KEY=
+VITE_SUPABASE_PROJECT_ID=
+```
+
+`service_role`, 데이터베이스 비밀번호, 개인 토큰, DB dump 파일은 GitHub에 올리지 않습니다. 운영 서버의 민감 정보는 Supabase 대시보드, 서버 환경 변수, 또는 별도 보안 저장소에서 관리합니다.
+
+## GitHub에서 확인할 소스
+
+- 프론트엔드 화면과 기능: `src/`
+- `/api/*` 호환 서버 소스: `api/`
+- Supabase 마이그레이션과 Edge Functions: `supabase/`
+- 온프레미스/서버 실행 보조 스크립트: `deploy/`
+- 한컴/PDF 보조 도구: `tools/`
+- 검증 설정: `.github/workflows/ci.yml`, `vitest.config.ts`, `playwright.config.ts`
+
+## 검증 명령
+
+```bash
 npx tsc --noEmit
 npm test
 npm run build
 ```
 
-운영 서버에서는 다음 검사를 추가로 실행합니다.
+운영 서버 점검이 필요할 때는 서버 환경에 맞게 다음 스크립트를 실행합니다.
 
 ```bash
 bash deploy/scripts/verify-onprem.sh
