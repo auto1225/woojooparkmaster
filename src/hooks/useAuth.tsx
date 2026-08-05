@@ -163,17 +163,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionToken(null);
   }, []);
 
-  const refresh = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    setUser(session?.user ?? null);
-    setSessionToken(session?.access_token ? getSessionIdentity(session.access_token) : null);
-    if (session?.user) {
-      await fetchProfile(session.user.id);
-    } else {
-      setProfile(null);
-    }
-  }, [fetchProfile]);
-
   return (
     <AuthContext.Provider value={{ user, profile, loading, signIn, signOut, refresh }}>
       {children}
