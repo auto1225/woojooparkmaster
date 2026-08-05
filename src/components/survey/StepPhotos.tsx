@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useRef, useState } from "react";
-import { supabase } from "@/integrations/api/supabase-compat";
-import { filesApi } from "@/integrations/api/files";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -59,8 +56,6 @@ export function StepPhotos({ surveyId, photos, onRefresh, lotType, readOnly }: P
         contentType: file.type,
         upsert: false,
       });
-      const path = `${surveyId}/${category}_${Date.now()}.${ext}`;
-      const _ul = await filesApi.legacyUpload("survey-photos", path, file); const uploadError = _ul.error;
       if (uploadError) throw uploadError;
 
       const { error: metadataError } = await supabase.from("survey_photos").insert({
@@ -98,8 +93,6 @@ export function StepPhotos({ surveyId, photos, onRefresh, lotType, readOnly }: P
       if (storageError) {
         toast({ title: "사진 정보는 삭제됐지만 파일 정리가 필요합니다", description: storageError.message, variant: "destructive" });
       }
-      await filesApi.remove("survey-photos", photo.file_path);
-      await supabase.from("survey_photos").delete().eq("id", photo.id);
       toast({ title: "삭제되었습니다" });
       onRefresh();
     } catch (err: any) {
@@ -108,7 +101,7 @@ export function StepPhotos({ surveyId, photos, onRefresh, lotType, readOnly }: P
   };
 
   const getPublicUrl = (path: string) => {
-    const data = { publicUrl: filesApi.getUrl("survey-photos", path, { inline: true }) };
+    const { data } = supabase.storage.from("survey-photos").getPublicUrl(path);
     return data.publicUrl;
   };
 

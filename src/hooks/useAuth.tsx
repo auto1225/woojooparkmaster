@@ -5,8 +5,8 @@ import type { Profile } from "@/types/database";
 import { getSessionIdentity } from "@/lib/session-identity";
 
 interface AuthContextType {
-  user: AuthUser | null;
-  profile: ProfileRow | null;
+  user: User | null;
+  profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -114,6 +114,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setSessionToken(null);
   }, []);
+
+  const refresh = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    setUser(session?.user ?? null);
+    setSessionToken(session?.access_token ? getSessionIdentity(session.access_token) : null);
+    if (session?.user) {
+      await fetchProfile(session.user.id);
+    } else {
+      setProfile(null);
+    }
+  }, [fetchProfile]);
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signIn, signOut, refresh }}>
